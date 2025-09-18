@@ -1337,40 +1337,17 @@ class DataManager:
         blocks = getattr(car, "blocks", None)
         it = []
 
-        # Try to count blocks without consuming the iterator
-        block_count = 0
-        if hasattr(car, "blocks"):
-            try:
-                # Check if it's a list/dict first
-                if hasattr(car.blocks, "__len__"):
-                    block_count = len(car.blocks)
-                else:
-                    # It's an iterator - we need to count without consuming
-                    import itertools
-
-                    blocks_iter, count_iter = itertools.tee(car.blocks)
-                    block_count = sum(1 for _ in count_iter)
-                    car.blocks = blocks_iter  # Replace the consumed iterator
-            except Exception as e:
-                # console.print(f"Debug: Error counting blocks: {e}")
-                pass
+        # Skip block counting to avoid hanging on large CAR files
+        block_count = "unknown"  # Block counting removed to prevent hanging
         # console.print(f"Debug: Backup contains {block_count} total objects")
 
         if isinstance(blocks, dict):
             it = list(blocks.items())
         elif hasattr(car, "blocks"):
             # Backup objects typically have an iterator for blocks
-            try:
-                for block in car.blocks:
-                    if hasattr(block, "cid") and hasattr(block, "data"):
-                        it.append((block.cid, block.data))
-                    elif hasattr(block, "cid") and hasattr(block, "bytes"):
-                        it.append((block.cid, block.bytes))
-                    elif isinstance(block, tuple) and len(block) == 2:
-                        it.append((block[0], block[1]))
-            except Exception as e:
-                # console.print(f"Debug: Error iterating blocks: {e}")
-                pass
+            # Use car.blocks directly in the processing loop to avoid pre-iteration
+            # This prevents hanging on large CAR files
+            it = car.blocks
         elif isinstance(blocks, (list, tuple)):
             for b in blocks:
                 try:
@@ -1398,9 +1375,26 @@ class DataManager:
             transient=True,
             console=console,
         ) as progress:
-            task = progress.add_task(f"Decoding backup blocks 0/{len(it)}", total=len(it))
-            for cid, block in it:
+            # Use None for total to avoid counting items (prevents hanging)
+            task = progress.add_task(f"Decoding backup blocks...", total=None)
+            processed_count = 0
+            for item in it:
+                processed_count += 1
+                if processed_count % 100 == 0:
+                    progress.update(task, description=f"Decoding backup blocks... ({processed_count} processed)")
+                
                 try:
+                    # Handle different iterator types
+                    if isinstance(item, tuple) and len(item) == 2:
+                        cid, block = item
+                    elif hasattr(item, "cid") and hasattr(item, "data"):
+                        cid, block = item.cid, item.data
+                    elif hasattr(item, "cid") and hasattr(item, "bytes"):
+                        cid, block = item.cid, item.bytes
+                    else:
+                        # console.print(f"Debug: Unknown item format: {type(item)}")
+                        continue
+                    
                     # Handle different block data formats
                     if isinstance(block, dict):
                         decoded[str(cid)] = block
@@ -1413,13 +1407,10 @@ class DataManager:
                             decoded[str(cid)] = cbor_decode(block.data)
                         else:
                             # console.print(f"Debug: Unknown block format for {cid}: {type(block)}")
-                            progress.advance(task, 1)
                             continue
                 except Exception as e:
-                    # console.print(f"Debug: Failed to decode block {cid}: {e}")
+                    # console.print(f"Debug: Failed to decode block: {e}")
                     pass
-                finally:
-                    progress.advance(task, 1)
 
         return decoded
 

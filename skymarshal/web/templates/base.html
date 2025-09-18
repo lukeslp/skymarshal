@@ -11,8 +11,10 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
-                <h1>Skymarshal</h1>
-                <span class="nav-tagline">Bluesky Content Manager</span>
+                <a href="{{ url_for('index') }}" class="brand-link">
+                    <h1>Skymarshal</h1>
+                    <span class="nav-tagline">Bluesky Content Manager</span>
+                </a>
             </div>
             {% if session.user_handle %}
             <div class="nav-user">
@@ -20,7 +22,7 @@
                     <img id="user-avatar" class="user-avatar" src="/static/images/default-avatar.svg" alt="Avatar" style="display: none;">
                     <div class="user-details">
                         <span class="user-display-name" id="user-display-name">{{ session.user_handle }}</span>
-                        <span class="user-handle">@{{ session.user_handle }}</span>
+                        <a href="https://bsky.app/profile/{{ session.user_handle }}" target="_blank" class="user-handle">@{{ session.user_handle }}</a>
                     </div>
                 </div>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>

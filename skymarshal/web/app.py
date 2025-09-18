@@ -14,6 +14,9 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, stream_with_context, send_from_directory
 import secrets
+import threading
+import queue
+import time
 
 # Add parent directory to path to import skymarshal modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -143,6 +146,15 @@ def get_car_quick_stats(car_path):
                     # Skip records that can't be decoded
                     continue
         
+        # Store in session for use in facts
+        session['car_stats'] = {
+            'posts': stats['posts'],
+            'replies': stats['replies'], 
+            'likes': stats['likes'],
+            'reposts': stats['reposts'],
+            'total': stats['total']
+        }
+        
         # Add debug info to stats for troubleshooting
         stats['debug'] = debug_info
         
@@ -226,24 +238,43 @@ def user_profile():
     
     try:
         handle = session['user_handle']
+        
+        # Check if client is authenticated
+        if not auth_manager.is_authenticated():
+            return jsonify({'success': False, 'error': 'Session expired'}), 401
+            
         profile = auth_manager.client.get_profile(handle)
         
         return jsonify({
             'success': True,
             'profile': {
                 'handle': profile.handle,
-                'displayName': profile.display_name,
-                'description': profile.description,
-                'avatar': profile.avatar,
-                'banner': profile.banner,
-                'followersCount': profile.followers_count,
-                'followsCount': profile.follows_count,
-                'postsCount': profile.posts_count,
+                'displayName': profile.display_name or '',
+                'description': profile.description or '',
+                'avatar': profile.avatar or '/static/images/default-avatar.svg',
+                'banner': profile.banner or '',
+                'followersCount': profile.followers_count or 0,
+                'followsCount': profile.follows_count or 0,
+                'postsCount': profile.posts_count or 0,
                 'createdAt': profile.created_at.isoformat() if profile.created_at else None
             }
         })
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        # Return fallback data if profile fetch fails
+        return jsonify({
+            'success': True,
+            'profile': {
+                'handle': session.get('user_handle', 'unknown'),
+                'displayName': '',
+                'description': '',
+                'avatar': '/static/images/default-avatar.svg',
+                'banner': '',
+                'followersCount': 0,
+                'followsCount': 0,
+                'postsCount': 0,
+                'createdAt': None
+            }
+        })
 
 @app.route('/bluesky-facts')
 @login_required
@@ -262,14 +293,47 @@ def bluesky_facts():
         try:
             profile = auth_manager.client.get_profile(handle)
             
-            # Get actual user content counts from CAR data if available
-            # For now, use profile counts but we could enhance this
-            facts.append({
-                'icon': '📝',
-                'title': 'Your Posts',
-                'value': f'{profile.posts_count:,}',
-                'description': 'posts you\'ve shared'
-            })
+            # Use CAR stats if available, otherwise fall back to profile
+            car_stats = session.get('car_stats', {})
+            
+            if car_stats:
+                # Use actual counts from CAR data
+                facts.append({
+                    'icon': '📝',
+                    'title': 'Your Posts',
+                    'value': f'{car_stats.get("posts", 0):,}',
+                    'description': 'posts in your archive'
+                })
+                
+                facts.append({
+                    'icon': '❤️',
+                    'title': 'Your Likes',
+                    'value': f'{car_stats.get("likes", 0):,}',
+                    'description': 'posts you\'ve liked'
+                })
+                
+                facts.append({
+                    'icon': '🔄',
+                    'title': 'Your Reposts',
+                    'value': f'{car_stats.get("reposts", 0):,}',
+                    'description': 'posts you\'ve shared'
+                })
+                
+                if car_stats.get("replies", 0) > 0:
+                    facts.append({
+                        'icon': '💬',
+                        'title': 'Your Replies',
+                        'value': f'{car_stats.get("replies", 0):,}',
+                        'description': 'replies you\'ve made'
+                    })
+            else:
+                # Fall back to profile counts
+                facts.append({
+                    'icon': '📝',
+                    'title': 'Your Posts',
+                    'value': f'{profile.posts_count:,}',
+                    'description': 'posts you\'ve shared'
+                })
             
             facts.append({
                 'icon': '👥',
@@ -496,7 +560,23 @@ def process_data():
     car_path = session.get('car_path')
     
     if not car_path:
-        return jsonify({'success': False, 'error': 'No CAR file found'}), 400
+        # Check if there are any CAR files in the backup directory as fallback
+        try:
+            skymarshal_dir = Path.home() / '.skymarshal'
+            backups_dir = skymarshal_dir / 'cars'
+            if backups_dir.exists():
+                car_files = list(backups_dir.glob(f"{handle}_*.car"))
+                if car_files:
+                    # Use the most recent CAR file
+                    latest_car = max(car_files, key=lambda p: p.stat().st_mtime)
+                    session['car_path'] = str(latest_car)
+                    car_path = str(latest_car)
+                else:
+                    return jsonify({'success': False, 'error': 'No CAR file found. Please complete step 1 first.'}), 400
+            else:
+                return jsonify({'success': False, 'error': 'No CAR file found. Please complete step 1 first.'}), 400
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Error locating CAR file: {str(e)}'}), 400
     
     def generate():
         try:
@@ -824,6 +904,171 @@ def delete():
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/firehose')
+@login_required
+def firehose():
+    """Stream real-time Bluesky firehose data"""
+    def generate():
+        firehose_error = None
+        try:
+            # Import firehose client
+            print("INFO: Starting firehose connection...")
+            from atproto import FirehoseSubscribeReposClient, models, parse_subscribe_repos_message
+            print("INFO: Firehose imports successful")
+            
+            # Create a queue to buffer messages
+            message_queue = queue.Queue(maxsize=50)
+            firehose_connected = False
+            
+            def on_message_handler(message):
+                nonlocal firehose_connected
+                try:
+                    if not firehose_connected:
+                        print("INFO: Firehose connection established, receiving messages")
+                        firehose_connected = True
+                    
+                    commit = parse_subscribe_repos_message(message)
+                    if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
+                        return
+                    
+                    # Process operations
+                    for op in commit.ops:
+                        if op.action == 'create':
+                            if 'app.bsky.feed.post' in op.path:
+                                try:
+                                    post_data = {
+                                        'type': 'post',
+                                        'author': commit.repo,
+                                        'text': getattr(op.cid, 'text', '')[:100] if hasattr(op.cid, 'text') else 'New post',
+                                        'timestamp': time.time()
+                                    }
+                                    
+                                    if not message_queue.full():
+                                        message_queue.put(post_data)
+                                except Exception as op_error:
+                                    print(f"ERROR: Processing post operation: {op_error}")
+                            elif 'app.bsky.feed.like' in op.path:
+                                try:
+                                    like_data = {
+                                        'type': 'like',
+                                        'author': commit.repo,
+                                        'text': '❤️ liked a post',
+                                        'timestamp': time.time()
+                                    }
+                                    
+                                    if not message_queue.full():
+                                        message_queue.put(like_data)
+                                except Exception as op_error:
+                                    print(f"ERROR: Processing like operation: {op_error}")
+                            elif 'app.bsky.feed.repost' in op.path:
+                                try:
+                                    repost_data = {
+                                        'type': 'repost', 
+                                        'author': commit.repo,
+                                        'text': '🔄 reposted',
+                                        'timestamp': time.time()
+                                    }
+                                    
+                                    if not message_queue.full():
+                                        message_queue.put(repost_data)
+                                except Exception as op_error:
+                                    print(f"ERROR: Processing repost operation: {op_error}")
+                except Exception as e:
+                    print(f"ERROR: Processing firehose message: {e}")
+            
+            # Start firehose client in separate thread
+            def start_firehose():
+                nonlocal firehose_error
+                try:
+                    print("INFO: Creating FirehoseSubscribeReposClient...")
+                    client = FirehoseSubscribeReposClient()
+                    print("INFO: Starting firehose client...")
+                    client.start(on_message_handler)
+                except Exception as e:
+                    firehose_error = str(e)
+                    print(f"ERROR: Firehose client failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            firehose_thread = threading.Thread(target=start_firehose, daemon=True)
+            firehose_thread.start()
+            
+            # Give the firehose a moment to connect
+            time.sleep(2)
+            
+            # Stream messages to client with rate limiting
+            last_message_time = 0
+            min_delay = 0.3  # Minimum 0.3 seconds between messages
+            messages_received = 0
+            start_time = time.time()
+            
+            # Send initial status
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Connecting to Bluesky firehose...', 'timestamp': time.time()})}\n\n"
+            
+            timeout_duration = 10  # 10 seconds timeout for initial connection
+            
+            while True:
+                try:
+                    current_time = time.time()
+                    
+                    # Check for timeout if no messages received
+                    if messages_received == 0 and (current_time - start_time) > timeout_duration:
+                        if firehose_error:
+                            yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose connection failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'type': 'error', 'message': 'Firehose connection timeout - falling back to mock data', 'timestamp': time.time()})}\n\n"
+                        break
+                    
+                    if not message_queue.empty():
+                        if current_time - last_message_time >= min_delay:
+                            message = message_queue.get_nowait()
+                            messages_received += 1
+                            yield f"data: {json.dumps(message)}\n\n"
+                            last_message_time = current_time
+                        else:
+                            time.sleep(0.1)  # Wait a bit before checking again
+                    else:
+                        time.sleep(0.1)  # Check less frequently when queue is empty
+                except queue.Empty:
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"ERROR: Streaming firehose data: {e}")
+                    break
+                    
+        except Exception as e:
+            print(f"ERROR: Firehose setup failed: {e}")
+            import traceback
+            traceback.print_exc()
+            firehose_error = str(e)
+            
+        # Send error notification if we had issues
+        if firehose_error:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
+            
+        # Fallback with mock data if firehose fails
+        print("INFO: Using mock data for firehose demo")
+        yield f"data: {json.dumps({'type': 'status', 'message': 'Using mock data for demonstration', 'timestamp': time.time()})}\n\n"
+        
+        mock_messages = [
+            {'type': 'post', 'author': 'user1.bsky.social', 'text': 'Hello Bluesky!', 'timestamp': time.time()},
+            {'type': 'like', 'author': 'user2.bsky.social', 'text': '❤️ liked a post', 'timestamp': time.time()},
+            {'type': 'repost', 'author': 'user3.bsky.social', 'text': '🔄 reposted', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'user4.bsky.social', 'text': 'Beautiful sunset today', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'photographer.bsky.social', 'text': 'Just captured an amazing landscape 📸', 'timestamp': time.time()},
+            {'type': 'like', 'author': 'artist.bsky.social', 'text': '❤️ liked a post', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'developer.bsky.social', 'text': 'Working on a new project...', 'timestamp': time.time()},
+            {'type': 'repost', 'author': 'news.bsky.social', 'text': '🔄 reposted', 'timestamp': time.time()}
+        ]
+        
+        for i in range(100):  # Stream for demo
+            import random
+            message = random.choice(mock_messages)
+            message['timestamp'] = time.time()
+            yield f"data: {json.dumps(message)}\n\n"
+            time.sleep(0.5)  # Fast rate to simulate active firehose
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/static/<path:path>')
 def send_static(path):

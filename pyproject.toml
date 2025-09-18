@@ -43,6 +43,7 @@ requires-python = ">=3.9"
 dependencies = [
     "atproto>=0.0.46",
     "rich>=13.0.0",
+    "flask>=2.3.0",
 ]
 
 [project.urls]

@@ -44,6 +44,16 @@ body {
     align-items: center;
 }
 
+.brand-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.brand-link:hover h1 {
+    color: var(--primary-hover);
+    transition: color 0.2s;
+}
+
 .nav-brand h1 {
     font-size: 1.5rem;
     color: var(--primary-color);
@@ -96,6 +106,12 @@ body {
     font-weight: 400;
     color: var(--text-secondary);
     font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.user-handle:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
 }
 
 /* Main content */
@@ -152,6 +168,11 @@ body {
 .btn-block {
     width: 100%;
     justify-content: center;
+}
+
+.btn-center {
+    display: block;
+    margin: 0 auto;
 }
 
 .btn-sm {
@@ -288,6 +309,7 @@ body {
     padding: 2rem;
     margin-bottom: 2rem;
     position: relative;
+    text-align: center;
 }
 
 .step-card.disabled {
@@ -421,6 +443,87 @@ body {
     margin: 0.25rem 0;
     font-family: monospace;
     border-left: 3px solid var(--primary-color);
+}
+
+/* Firehose */
+.firehose-container {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: var(--radius);
+    color: white;
+    box-shadow: var(--shadow);
+    max-height: 300px;
+    overflow: hidden;
+    position: relative;
+}
+
+.firehose-header {
+    text-align: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 0.75rem;
+}
+
+.firehose-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.firehose-stream {
+    height: 240px;
+    overflow: hidden;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.firehose-message {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    opacity: 0;
+    animation: fadeInSlide 0.5s ease-in-out forwards;
+}
+
+.firehose-message:last-child {
+    border-bottom: none;
+}
+
+.firehose-message.post {
+    border-left: 3px solid #4a9eff;
+    padding-left: 0.5rem;
+}
+
+.firehose-message.like {
+    border-left: 3px solid #ff6b9d;
+    padding-left: 0.5rem;
+}
+
+.firehose-message.repost {
+    border-left: 3px solid #51cf66;
+    padding-left: 0.5rem;
+}
+
+.message-author {
+    color: #8cc8ff;
+    font-weight: 600;
+}
+
+.message-text {
+    color: #e1e8ed;
+    margin-left: 0.5rem;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Facts Carousel */
