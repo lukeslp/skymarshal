@@ -17,13 +17,32 @@
                 <span class="step-status" id="download-status"></span>
             </div>
             <div class="step-content">
-                <p>First, we'll download your complete Bluesky archive (CAR file). This contains all your posts, likes, and reposts.</p>
-                <button id="download-btn" class="btn btn-primary btn-center">
-                    <span class="btn-text">Start Download</span>
-                    <span class="btn-loading" style="display: none;">
-                        <span class="spinner"></span> Downloading...
-                    </span>
-                </button>
+                <div class="import-intro">
+                    <div class="import-info">
+                        <h4>📥 Import Your Repository</h4>
+                        <p>First, we'll import your Bluesky data, or "repository." This contains all of your posts, comments, likes, and reposts.</p>
+                    </div>
+                </div>
+                
+                <div class="import-action">
+                    <button id="download-btn" class="btn btn-primary btn-bigass">
+                        <span class="btn-text">📥 Import Your Data</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span> Importing Your Repository...
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- Download backup button (shown after import) -->
+                <div class="backup-download" id="backup-download" style="display: none;">
+                    <div class="backup-info">
+                        <h4>💾 Backup Available</h4>
+                        <p>Your data has been imported successfully. You can download the raw .car file as a backup.</p>
+                    </div>
+                    <button id="backup-btn" class="btn btn-outline btn-backup">
+                        <span class="btn-text">📎 Download Backup (.car file)</span>
+                    </button>
+                </div>
                 <div class="progress-container" id="download-progress" style="display: none;">
                     <div class="progress-bar">
                         <div class="progress-fill" id="download-progress-fill"></div>
@@ -31,32 +50,6 @@
                     <div class="progress-text" id="download-progress-text">0%</div>
                 </div>
                 <div class="step-message" id="download-message"></div>
-                
-                <!-- Bluesky Firehose -->
-                <div class="firehose-container" id="firehose-container" style="display: none;">
-                    <div class="firehose-header">
-                        <h4>🔥 Live Bluesky Firehose</h4>
-                        <small>Real-time posts from across the network</small>
-                    </div>
-                    <div class="firehose-stream" id="firehose-stream">
-                        <!-- Live messages will appear here -->
-                    </div>
-                </div>
-                
-                <!-- Stats Carousel -->
-                <div class="facts-carousel" id="facts-carousel" style="display: none;">
-                    <div class="fact-display" id="fact-display">
-                        <div class="fact-icon" id="fact-icon">📊</div>
-                        <div class="fact-content">
-                            <div class="fact-title" id="fact-title">Loading...</div>
-                            <div class="fact-value" id="fact-value">Please wait</div>
-                            <div class="fact-description" id="fact-description">Loading stats...</div>
-                        </div>
-                    </div>
-                    <div class="fact-indicator" id="fact-indicator">
-                        <span class="fact-dot active"></span>
-                    </div>
-                </div>
                 
                 <!-- Quick Stats from CAR -->
                 <div class="car-stats" id="car-stats" style="display: none;">
@@ -129,85 +122,41 @@
             </div>
         </div>
     </div>
+    
+    <!-- Bluesky Firehose (moved below step 2) -->
+    <div class="firehose-container-external" id="firehose-container-external" style="display: none;">
+        <!-- Processing overlay -->
+        <div class="firehose-overlay" id="firehose-overlay">
+            <div class="overlay-content">
+                <div class="overlay-title">While You Wait...</div>
+                <div class="overlay-subtitle">Enjoy the live Bluesky feed</div>
+                <div class="processing-spinner"></div>
+            </div>
+        </div>
+        
+        <div class="firehose-header">
+            <div class="firehose-title">
+                <h4>🔥 Live Bluesky Feed</h4>
+                <small>Real-time posts and replies from across the network</small>
+            </div>
+            <button id="fullscreen-toggle" class="btn-fullscreen" title="Enter Fullscreen">
+                <span class="fullscreen-icon">⛶</span>
+            </button>
+        </div>
+        <div class="firehose-stream" id="firehose-stream">
+            <!-- Live messages will appear here -->
+        </div>
+    </div>
 </div>
 
 <script>
 let carDownloaded = false;
-let factsCarousel = null;
 let firehoseStream = null;
-
-// Facts carousel functionality
-class FactsCarousel {
-    constructor() {
-        this.facts = [];
-        this.currentIndex = 0;
-        this.intervalId = null;
-        this.container = document.getElementById('facts-carousel');
-    }
-    
-    async loadFacts() {
-        try {
-            const response = await fetch('/bluesky-facts');
-            const data = await response.json();
-            if (data.success && data.facts) {
-                this.facts = data.facts;
-                this.updateIndicators();
-                this.showFact(0);
-                return true;
-            }
-        } catch (error) {
-            console.error('Failed to load facts:', error);
-        }
-        return false;
-    }
-    
-    showFact(index) {
-        if (!this.facts || this.facts.length === 0) return;
-        
-        const fact = this.facts[index];
-        document.getElementById('fact-icon').textContent = fact.icon;
-        document.getElementById('fact-title').textContent = fact.title;
-        document.getElementById('fact-value').textContent = fact.value;
-        document.getElementById('fact-description').textContent = fact.description;
-        
-        // Update indicators
-        document.querySelectorAll('.fact-dot').forEach((dot, i) => {
-            dot.classList.toggle('active', i === index);
-        });
-        
-        this.currentIndex = index;
-    }
-    
-    updateIndicators() {
-        const indicator = document.getElementById('fact-indicator');
-        indicator.innerHTML = this.facts.map((_, i) => 
-            `<span class="fact-dot ${i === 0 ? 'active' : ''}"></span>`
-        ).join('');
-    }
-    
-    start() {
-        this.container.style.display = 'block';
-        
-        if (this.facts.length > 1) {
-            this.intervalId = setInterval(() => {
-                this.showFact((this.currentIndex + 1) % this.facts.length);
-            }, 4000); // Change fact every 4 seconds
-        }
-    }
-    
-    stop() {
-        if (this.intervalId) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
-        }
-        this.container.style.display = 'none';
-    }
-}
 
 // Firehose functionality
 class FirehoseStream {
     constructor() {
-        this.container = document.getElementById('firehose-container');
+        this.container = document.getElementById('firehose-container-external');
         this.stream = document.getElementById('firehose-stream');
         this.eventSource = null;
         this.maxMessages = 20;
@@ -215,6 +164,39 @@ class FirehoseStream {
     
     start() {
         this.container.style.display = 'block';
+        this.container.classList.remove('fullscreen');
+        document.body.style.overflow = 'auto';
+
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        if (fullscreenToggle) {
+            const icon = fullscreenToggle.querySelector('.fullscreen-icon');
+            if (icon) {
+                icon.textContent = '⛶';
+            }
+            fullscreenToggle.title = 'Enter Fullscreen';
+        }
+
+        // Smooth animation for external firehose
+        if (this.container.id === 'firehose-container-external') {
+            // Show overlay initially
+            const overlay = document.getElementById('firehose-overlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+            }
+            
+            // Scroll to firehose after a brief delay
+            setTimeout(() => {
+                this.container.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+                
+                // Start the overlay fade after scroll + animation completes
+                setTimeout(() => {
+                    this.startOverlayFade();
+                }, 800); // Wait for scroll animation
+            }, 300);
+        }
         
         try {
             this.eventSource = new EventSource('/firehose');
@@ -222,7 +204,17 @@ class FirehoseStream {
             this.eventSource.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    this.addMessage(data);
+                    
+                    // Handle different message types
+                    if (data.type === 'status') {
+                        this.addStatusMessage(data.message);
+                    } else if (data.type === 'error') {
+                        this.addErrorMessage(data.message);
+                        console.warn('Firehose error:', data.message);
+                    } else if (data.type === 'post' || data.type === 'reply') {
+                        this.addMessage(data);
+                    }
+                    // Only show posts and replies, ignore likes/reposts
                 } catch (error) {
                     console.error('Error parsing firehose data:', error);
                 }
@@ -230,6 +222,7 @@ class FirehoseStream {
             
             this.eventSource.onerror = () => {
                 console.log('Firehose connection lost, retrying...');
+                this.addErrorMessage('Connection lost, retrying...');
                 setTimeout(() => {
                     if (this.eventSource) {
                         this.eventSource.close();
@@ -270,13 +263,49 @@ class FirehoseStream {
         });
     }
     
+    addStatusMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'firehose-message status';
+        messageDiv.innerHTML = `
+            <span class="message-author">📡 System</span>
+            <span class="message-text">${message}</span>
+        `;
+        
+        // Add to top of stream
+        this.stream.insertBefore(messageDiv, this.stream.firstChild);
+        
+        // Remove old messages to prevent overflow
+        while (this.stream.children.length > this.maxMessages) {
+            this.stream.removeChild(this.stream.lastChild);
+        }
+    }
+    
+    addErrorMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'firehose-message error';
+        messageDiv.innerHTML = `
+            <span class="message-author">⚠️ Error</span>
+            <span class="message-text">${message}</span>
+        `;
+        
+        // Add to top of stream
+        this.stream.insertBefore(messageDiv, this.stream.firstChild);
+        
+        // Remove old messages to prevent overflow
+        while (this.stream.children.length > this.maxMessages) {
+            this.stream.removeChild(this.stream.lastChild);
+        }
+    }
+    
     addMockMessages() {
         const mockMessages = [
             { type: 'post', author: 'alice.bsky.social', text: 'Beautiful sunset today! 🌅' },
-            { type: 'like', author: 'bob.bsky.social', text: '❤️ liked a post' },
-            { type: 'repost', author: 'charlie.bsky.social', text: '🔄 reposted' },
+            { type: 'reply', author: 'bob.bsky.social', text: '💬 That sounds amazing!' },
+            { type: 'post', author: 'charlie.bsky.social', text: 'Working on a new project today' },
             { type: 'post', author: 'diana.bsky.social', text: 'Just finished reading a great book' },
-            { type: 'post', author: 'eve.bsky.social', text: 'Coffee break time ☕' }
+            { type: 'reply', author: 'eve.bsky.social', text: '💬 Which book was it?' },
+            { type: 'post', author: 'dev.bsky.social', text: 'Coding with the AT Protocol is fascinating' },
+            { type: 'reply', author: 'tech.bsky.social', text: '💬 Totally agree! The future is decentralized' }
         ];
         
         let messageIndex = 0;
@@ -284,11 +313,25 @@ class FirehoseStream {
             if (this.container.style.display === 'block') {
                 this.addMessage(mockMessages[messageIndex % mockMessages.length]);
                 messageIndex++;
-                setTimeout(addNextMessage, 400 + Math.random() * 600);
+                setTimeout(addNextMessage, 200 + Math.random() * 400);
             }
         };
         
         setTimeout(addNextMessage, 1000);
+    }
+    
+    startOverlayFade() {
+        const overlay = document.getElementById('firehose-overlay');
+        if (overlay) {
+            // Wait 2.5 seconds to show the "while you wait" message
+            setTimeout(() => {
+                overlay.classList.add('fade-out');
+                // Remove overlay completely after fade
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 800);
+            }, 2500);
+        }
     }
     
     stop() {
@@ -296,6 +339,26 @@ class FirehoseStream {
             this.eventSource.close();
             this.eventSource = null;
         }
+
+        document.body.style.overflow = 'auto';
+        this.container.classList.remove('fullscreen');
+
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        if (fullscreenToggle) {
+            const icon = fullscreenToggle.querySelector('.fullscreen-icon');
+            if (icon) {
+                icon.textContent = '⛶';
+            }
+            fullscreenToggle.title = 'Enter Fullscreen';
+        }
+
+        // Reset overlay for next time
+        const overlay = document.getElementById('firehose-overlay');
+        if (overlay) {
+            overlay.classList.remove('fade-out');
+            overlay.style.display = 'none';
+        }
+        
         this.container.style.display = 'none';
     }
 }
@@ -313,13 +376,9 @@ document.getElementById('download-btn').addEventListener('click', async () => {
     btn.querySelector('.btn-loading').style.display = 'inline-flex';
     progressContainer.style.display = 'block';
     
-    // Start firehose and facts carousel during download
-    firehoseStream = new FirehoseStream();
-    firehoseStream.start();
-    
-    factsCarousel = new FactsCarousel();
-    await factsCarousel.loadFacts();
-    factsCarousel.start();
+    // Don't start firehose during import - it's too fast
+    // firehoseStream = new FirehoseStream();
+    // firehoseStream.start();
     
     const eventSource = new EventSource('/download-car');
     
@@ -341,18 +400,48 @@ document.getElementById('download-btn').addEventListener('click', async () => {
         } else if (data.status === 'completed') {
             progressFill.style.width = '100%';
             progressText.textContent = '100% - Download Complete!';
-            messageDiv.textContent = 'CAR file downloaded successfully!';
+            messageDiv.textContent = 'Your Bluesky repository has been downloaded successfully!';
             messageDiv.className = 'step-message success';
             carDownloaded = true;
             eventSource.close();
             
-            // Stop firehose and facts carousel
-            if (firehoseStream) {
-                firehoseStream.stop();
+            // Hide loading state and show completion
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-text').innerHTML = '✅ Import Complete!';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.disabled = true;
+            
+            // Show backup download option
+            const backupDownload = document.getElementById('backup-download');
+            if (backupDownload) {
+                setTimeout(() => {
+                    backupDownload.style.display = 'block';
+                    backupDownload.style.opacity = '0';
+                    backupDownload.style.transform = 'translateY(10px)';
+                    backupDownload.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    
+                    requestAnimationFrame(() => {
+                        backupDownload.style.opacity = '1';
+                        backupDownload.style.transform = 'translateY(0)';
+                    });
+                }, 500);
             }
-            if (factsCarousel) {
-                factsCarousel.stop();
-            }
+            
+            // Hide progress bar after a brief delay
+            setTimeout(() => {
+                progressContainer.style.opacity = '0';
+                progressContainer.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 300);
+            }, 1500);
+            
+            // Don't need to stop firehose since we don't start it during import
+            // if (firehoseStream) {
+            //     firehoseStream.stop();
+            // }
             
             // Show stats if available
             if (data.stats) {
@@ -362,15 +451,20 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             // Enable step 2 with animation
             enableStep2();
             
-            document.getElementById('download-status').textContent = '✓';
+            document.getElementById('download-status').textContent = '✅';
             document.getElementById('download-status').className = 'step-status completed';
         } else if (data.status === 'error') {
             messageDiv.textContent = `Error: ${data.error}`;
             messageDiv.className = 'step-message error';
             eventSource.close();
+            
+            // Reset button state on error
             btn.disabled = false;
             btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-text').innerHTML = '📥 Import Your Data';
             btn.querySelector('.btn-loading').style.display = 'none';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
         } else if (data.message) {
             messageDiv.textContent = data.message;
             messageDiv.className = 'step-message info';
@@ -381,9 +475,14 @@ document.getElementById('download-btn').addEventListener('click', async () => {
         eventSource.close();
         messageDiv.textContent = 'Connection lost. Please try again.';
         messageDiv.className = 'step-message error';
+        
+        // Reset button state on connection error
         btn.disabled = false;
         btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-text').innerHTML = '📥 Import Your Data';
         btn.querySelector('.btn-loading').style.display = 'none';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-primary');
     };
 });
 
@@ -424,17 +523,25 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     progressContainer.style.display = 'block';
     progressFill.style.width = '0%';
     
-    // Start firehose and facts carousel during processing if not already running
+    // Collapse step 2 content and show firehose below
+    const step2Content = document.querySelector('#step-select .step-content');
+    
+    // Collapse step 2 content with animation
+    if (step2Content) {
+        step2Content.style.transition = 'max-height 0.5s ease, opacity 0.3s ease';
+        step2Content.style.maxHeight = step2Content.scrollHeight + 'px';
+        
+        requestAnimationFrame(() => {
+            step2Content.style.maxHeight = '60px'; // Just enough for header
+            step2Content.style.opacity = '0.3';
+        });
+    }
+
+    // Start firehose below step 2
     if (!firehoseStream) {
         firehoseStream = new FirehoseStream();
     }
     firehoseStream.start();
-    
-    if (!factsCarousel) {
-        factsCarousel = new FactsCarousel();
-        await factsCarousel.loadFacts();
-    }
-    factsCarousel.start();
     
     try {
         const response = await fetch('/process-data', {
@@ -507,12 +614,16 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
                         
-                        // Stop firehose and facts carousel
+                        // Stop firehose and restore step 2
                         if (firehoseStream) {
                             firehoseStream.stop();
                         }
-                        if (factsCarousel) {
-                            factsCarousel.stop();
+                        
+                        // Restore step 2 content
+                        const step2Content = document.querySelector('#step-select .step-content');
+                        if (step2Content) {
+                            step2Content.style.maxHeight = 'none';
+                            step2Content.style.opacity = '1';
                         }
                         
                         // Redirect to dashboard after 2 seconds
@@ -533,6 +644,15 @@ document.getElementById('process-btn').addEventListener('click', async () => {
         btn.disabled = false;
         btn.querySelector('.btn-text').style.display = 'inline';
         btn.querySelector('.btn-loading').style.display = 'none';
+
+        if (firehoseStream) {
+            firehoseStream.stop();
+        }
+
+        if (step2Content) {
+            step2Content.style.maxHeight = 'none';
+            step2Content.style.opacity = '1';
+        }
     }
 });
 
@@ -611,5 +731,44 @@ function displayCarStats(stats) {
         carStatsDiv.style.transform = 'translateY(0)';
     }, 100);
 }
+
+// Handle backup download and fullscreen toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const backupBtn = document.getElementById('backup-btn');
+    if (backupBtn) {
+        backupBtn.addEventListener('click', () => {
+            // Trigger download of the CAR file
+            window.location.href = '/download-backup';
+        });
+    }
+    
+    // Fullscreen toggle functionality
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const firehoseContainer = document.getElementById('firehose-container-external');
+    
+    if (fullscreenToggle && firehoseContainer) {
+        fullscreenToggle.addEventListener('click', () => {
+            if (firehoseContainer.classList.contains('fullscreen')) {
+                // Exit fullscreen
+                firehoseContainer.classList.remove('fullscreen');
+                fullscreenToggle.querySelector('.fullscreen-icon').textContent = '⛶';
+                fullscreenToggle.title = 'Enter Fullscreen';
+                document.body.style.overflow = 'auto';
+            } else {
+                // Enter fullscreen
+                firehoseContainer.classList.add('fullscreen');
+                fullscreenToggle.querySelector('.fullscreen-icon').textContent = '🗗';
+                fullscreenToggle.title = 'Exit Fullscreen';
+                document.body.style.overflow = 'hidden';
+
+                // Scroll to top of firehose in fullscreen
+                const firehoseStreamElement = document.getElementById('firehose-stream');
+                if (firehoseStreamElement) {
+                    firehoseStreamElement.scrollTop = 0;
+                }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

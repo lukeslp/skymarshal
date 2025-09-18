@@ -18,7 +18,10 @@
             <div class="form-group">
                 <label for="password">App Password</label>
                 <input type="password" id="password" name="password" required>
-                <small class="form-hint">Use an app password from Bluesky settings</small>
+                <small class="form-hint">
+                    Use an app password from <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Bluesky settings</a>
+                    <br>⚠️ Do not use your regular Bluesky password
+                </small>
             </div>
             
             <div id="error-message" class="error-message" style="display: none;"></div>
@@ -66,7 +69,17 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (data.success) {
             window.location.href = data.redirect;
         } else {
-            errorDiv.textContent = data.error || 'Login failed';
+            if (data.suggestion === 'app_password') {
+                errorDiv.innerHTML = `
+                    ${data.error || 'Login failed'}
+                    <br><br>
+                    <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener" class="btn-link">
+                        🔗 Create App Password in Bluesky Settings
+                    </a>
+                `;
+            } else {
+                errorDiv.textContent = data.error || 'Login failed';
+            }
             errorDiv.style.display = 'block';
         }
     } catch (error) {

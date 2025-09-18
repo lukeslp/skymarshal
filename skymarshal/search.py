@@ -741,3 +741,102 @@ class SearchManager:
             return False  # Had positive patterns but none matched
         
         return True  # No positive patterns to match
+    
+    def _calculate_statistics(self, items: List[ContentItem]) -> dict:
+        """Calculate comprehensive statistics for content items.
+        
+        Returns a dictionary with statistics that match the web app template expectations.
+        """
+        if not items:
+            return {
+                'total_posts': 0,
+                'total_likes': 0,
+                'total_reposts': 0,
+                'total_replies': 0,
+                'top_posts': 0,
+                'average_posts': 0,
+                'low_engagement': 0,
+                'dead_threads': 0,
+                'engagement_thresholds': {
+                    'top': 0,
+                    'average': 0,
+                    'low': 0
+                }
+            }
+        
+        # Separate content by type
+        posts = [item for item in items if item.content_type == "post"]
+        replies = [item for item in items if item.content_type == "reply"]
+        repost_items = [item for item in items if item.content_type == "repost"]
+        like_items = [item for item in items if item.content_type == "like"]
+        
+        # Posts and replies (content that can have engagement)
+        pr_items = posts + replies
+        
+        # Calculate totals
+        total_likes = sum(int(item.like_count or 0) for item in pr_items)
+        total_reposts = sum(int(item.repost_count or 0) for item in pr_items)
+        total_replies = sum(int(item.reply_count or 0) for item in pr_items)
+        total_engagement = sum(
+            calculate_engagement_score(
+                int(item.like_count or 0),
+                int(item.repost_count or 0),
+                int(item.reply_count or 0)
+            ) for item in pr_items
+        )
+        
+        # Calculate averages
+        denom = max(1, len(pr_items))
+        avg_likes = total_likes / denom
+        avg_engagement = total_engagement / denom
+        
+        # Use runtime average if available, otherwise calculate from data
+        avg_likes_runtime = (
+            getattr(self.settings, "avg_likes_per_post", avg_likes) or avg_likes
+        )
+        
+        # Calculate engagement thresholds
+        high_engagement_threshold = max(10.0, avg_engagement * 2.0)
+        half = max(0.0, avg_likes_runtime * 0.5)
+        one_half = max(1.0, avg_likes_runtime * 1.5)
+        double = max(1.0, avg_likes_runtime * 2.0)
+        
+        # Categorize posts by engagement
+        high_engagement = [
+            item for item in pr_items 
+            if calculate_engagement_score(
+                int(item.like_count or 0),
+                int(item.repost_count or 0),
+                int(item.reply_count or 0)
+            ) >= high_engagement_threshold
+        ]
+        
+        # Dead threads: posts and replies with 0 engagement
+        dead_threads = [item for item in pr_items if (item.like_count or 0) == 0]
+        
+        # Performance categories: posts only
+        posts_only = [item for item in pr_items if item.content_type == "post"]
+        bomber_posts = [item for item in posts_only if 0 < (item.like_count or 0) <= half]
+        mid_posts = [item for item in posts_only if half < (item.like_count or 0) <= one_half]
+        banger_posts = [item for item in posts_only if (item.like_count or 0) >= double]
+        viral_posts = [item for item in posts_only if (item.like_count or 0) >= 2000]
+        
+        return {
+            'total_posts': len(posts),
+            'total_likes': total_likes,
+            'total_reposts': total_reposts,
+            'total_replies': total_replies,
+            'top_posts': len(high_engagement),
+            'average_posts': len(mid_posts),
+            'low_engagement': len(bomber_posts),
+            'dead_threads': len(dead_threads),
+            'engagement_thresholds': {
+                'top': int(high_engagement_threshold),
+                'average': int(one_half),
+                'low': int(half)
+            },
+            'banger_posts': len(banger_posts),
+            'viral_posts': len(viral_posts),
+            'avg_likes_per_post': avg_likes,
+            'avg_engagement_per_post': avg_engagement
+        }

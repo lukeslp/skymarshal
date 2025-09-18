@@ -201,6 +201,19 @@ def login():
         if not handle or not password:
             return jsonify({'success': False, 'error': 'Handle and password are required'}), 400
         
+        # Check if password looks like a regular password (not an app password)
+        def is_likely_regular_password(pwd):
+            # App passwords are typically 19 characters with hyphens (xxxx-xxxx-xxxx-xxxx)
+            # Regular passwords are usually different patterns
+            if len(pwd) == 19 and pwd.count('-') == 3:
+                # Likely an app password format
+                parts = pwd.split('-')
+                return not (len(parts) == 4 and all(len(part) == 4 for part in parts))
+            elif len(pwd) < 15 or ' ' in pwd or any(c.isupper() for c in pwd):
+                # Likely a regular password (too short, has spaces, or mixed case)
+                return True
+            return False
+        
         auth_manager = AuthManager()
         
         # Normalize handle using AuthManager's method
@@ -214,8 +227,26 @@ def login():
                 auth_storage[session_id] = auth_manager
                 return jsonify({'success': True, 'redirect': url_for('setup')})
             else:
-                return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+                # Check if it looks like they used their regular password
+                if is_likely_regular_password(password):
+                    return jsonify({
+                        'success': False, 
+                        'error': 'That appears to be your regular password. Please use an app password from Bluesky settings instead. If you know what you\'re doing, try again.',
+                        'suggestion': 'app_password'
+                    }), 401
+                else:
+                    return jsonify({'success': False, 'error': 'Invalid app password. Please check your credentials.'}), 401
         except Exception as e:
+            error_msg = str(e).lower()
+            if 'invalid' in error_msg or 'unauthorized' in error_msg:
+                if is_likely_regular_password(password):
+                    return jsonify({
+                        'success': False, 
+                        'error': 'Authentication failed. This looks like your regular password - please use an app password from Bluesky settings.',
+                        'suggestion': 'app_password'
+                    }), 401
+                else:
+                    return jsonify({'success': False, 'error': 'Invalid app password. Please check your credentials.'}), 401
             return jsonify({'success': False, 'error': str(e)}), 500
     
     return render_template('login.html')
@@ -243,23 +274,74 @@ def user_profile():
         if not auth_manager.is_authenticated():
             return jsonify({'success': False, 'error': 'Session expired'}), 401
             
-        profile = auth_manager.client.get_profile(handle)
+        print(f"DEBUG: Fetching profile for handle: {handle}")
+        
+        # Try multiple methods to get profile data
+        profile_data = None
+        method_used = None
+        
+        # Method 1: Try the app.bsky.actor.getProfile method
+        try:
+            print("DEBUG: Trying app.bsky.actor.get_profile method...")
+            response = auth_manager.client.app.bsky.actor.get_profile({'actor': handle})
+            if hasattr(response, 'value'):
+                profile_data = response.value
+                method_used = 'app.bsky.actor.get_profile'
+                print(f"DEBUG: Method 1 succeeded with data type: {type(profile_data)}")
+        except Exception as e:
+            print(f"DEBUG: Method 1 failed: {e}")
+        
+        # Method 2: Try the legacy get_profile method
+        if not profile_data:
+            try:
+                print("DEBUG: Trying legacy get_profile method...")
+                profile_data = auth_manager.client.get_profile(handle)
+                method_used = 'get_profile'
+                print(f"DEBUG: Method 2 succeeded with data type: {type(profile_data)}")
+            except Exception as e:
+                print(f"DEBUG: Method 2 failed: {e}")
+        
+        if not profile_data:
+            raise Exception("All profile fetch methods failed")
+        
+        # Extract data with flexible attribute access
+        def get_attr(obj, *names):
+            for name in names:
+                value = getattr(obj, name, None)
+                if value is not None:
+                    return value
+            return None
+        
+        handle_val = get_attr(profile_data, 'handle') or handle
+        display_name_val = get_attr(profile_data, 'display_name', 'displayName') or ''
+        description_val = get_attr(profile_data, 'description') or ''
+        avatar_val = get_attr(profile_data, 'avatar') or '/static/images/default-avatar.svg'
+        banner_val = get_attr(profile_data, 'banner') or ''
+        followers_val = get_attr(profile_data, 'followers_count', 'followersCount') or 0
+        follows_val = get_attr(profile_data, 'follows_count', 'followsCount') or 0
+        posts_val = get_attr(profile_data, 'posts_count', 'postsCount') or 0
+        created_val = get_attr(profile_data, 'created_at', 'createdAt')
+        
+        print(f"DEBUG: Extracted data - handle: {handle_val}, displayName: '{display_name_val}', avatar: {avatar_val}")
+        print(f"DEBUG: Method used: {method_used}")
         
         return jsonify({
             'success': True,
+            'method_used': method_used,
             'profile': {
-                'handle': profile.handle,
-                'displayName': profile.display_name or '',
-                'description': profile.description or '',
-                'avatar': profile.avatar or '/static/images/default-avatar.svg',
-                'banner': profile.banner or '',
-                'followersCount': profile.followers_count or 0,
-                'followsCount': profile.follows_count or 0,
-                'postsCount': profile.posts_count or 0,
-                'createdAt': profile.created_at.isoformat() if profile.created_at else None
+                'handle': handle_val,
+                'displayName': display_name_val,
+                'description': description_val,
+                'avatar': avatar_val,
+                'banner': banner_val,
+                'followersCount': followers_val,
+                'followsCount': follows_val,
+                'postsCount': posts_val,
+                'createdAt': created_val.isoformat() if created_val and hasattr(created_val, 'isoformat') else None
             }
         })
     except Exception as e:
+        print(f"ERROR: Failed to get profile for {session.get('user_handle', 'unknown')}: {e}")
         # Return fallback data if profile fetch fails
         return jsonify({
             'success': True,
@@ -273,7 +355,8 @@ def user_profile():
                 'followsCount': 0,
                 'postsCount': 0,
                 'createdAt': None
-            }
+            },
+            'error': f'Profile fetch failed: {str(e)}'
         })
 
 @app.route('/bluesky-facts')
@@ -291,7 +374,16 @@ def bluesky_facts():
         
         # Get user's profile for their stats
         try:
-            profile = auth_manager.client.get_profile(handle)
+            # Use the correct AT Protocol method
+            from atproto import models
+            try:
+                profile_response = auth_manager.client.app.bsky.actor.get_profile(
+                    models.AppBskyActorGetProfile.Params(actor=handle)
+                )
+                profile = profile_response.value
+            except Exception:
+                # Fallback to simpler method
+                profile = auth_manager.client.get_profile(handle)
             
             # Use CAR stats if available, otherwise fall back to profile
             car_stats = session.get('car_stats', {})
@@ -508,15 +600,40 @@ def download_car():
                 import time
                 time.sleep(0.5)  # Small delay to show progress step
                 
-                yield f"data: {json.dumps({'status': 'downloading', 'message': 'Downloading your archive...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'downloading', 'message': 'Importing your repository...'})}\n\n"
                 
                 # Download CAR file using the actual method
                 # Ensure we get a fresh download by using timestamped filename
                 car_path = data_manager.create_timestamped_backup(handle)
                 
                 if car_path:
+                    # Store the car_path in multiple ways to ensure persistence
+                    session_id = session.get('session_id')
+                    
+                    # Save to session
                     session['car_path'] = str(car_path)
+                    session.permanent = True
+                    session.modified = True
+                    
+                    # Also store in global progress_data as backup
+                    if session_id:
+                        if session_id not in progress_data:
+                            progress_data[session_id] = {}
+                        progress_data[session_id]['car_path'] = str(car_path)
+                        progress_data[session_id]['handle'] = handle
+                        progress_data[session_id]['timestamp'] = time.time()
+                    
                     print(f"Downloaded fresh CAR file: {car_path}")
+                    print(f"DEBUG: Saved car_path to session: {session.get('car_path')}")
+                    print(f"DEBUG: Saved car_path to progress_data[{session_id}]: {progress_data.get(session_id, {}).get('car_path')}")
+                    
+                    # Force session save
+                    try:
+                        from flask import current_app
+                        current_app.session_interface.save_session(current_app, session, None)
+                        print("DEBUG: Forced session save completed")
+                    except Exception as save_error:
+                        print(f"DEBUG: Session force save failed: {save_error}")
                     
                     yield f"data: {json.dumps({'status': 'processing', 'message': 'Processing CAR file...'})}\n\n"
                     time.sleep(0.3)  # Small delay to show progress step
@@ -557,25 +674,62 @@ def process_data():
     limits = data.get('limits', {})
     
     handle = session['user_handle']
+    session_id = session.get('session_id')
     car_path = session.get('car_path')
+    
+    print(f"DEBUG: Processing for {handle}, car_path in session: {car_path}")
+    print(f"DEBUG: Session keys: {list(session.keys())}")
+    print(f"DEBUG: Session ID: {session_id}")
+    print(f"DEBUG: Progress data keys: {list(progress_data.keys())}")
+    
+    # Try to get car_path from progress_data if not in session
+    if not car_path and session_id and session_id in progress_data:
+        car_path = progress_data[session_id].get('car_path')
+        if car_path:
+            print(f"DEBUG: Retrieved car_path from progress_data: {car_path}")
+            # Restore to session for future use
+            session['car_path'] = car_path
+            session.modified = True
+    
+    print(f"DEBUG: Final car_path: {car_path}")
     
     if not car_path:
         # Check if there are any CAR files in the backup directory as fallback
         try:
             skymarshal_dir = Path.home() / '.skymarshal'
             backups_dir = skymarshal_dir / 'cars'
+            print(f"DEBUG: Checking for CAR files in {backups_dir}")
+            
             if backups_dir.exists():
-                car_files = list(backups_dir.glob(f"{handle}_*.car"))
+                # Look for files matching different patterns
+                patterns = [
+                    f"{handle}_*.car",
+                    f"*{handle.split('.')[0]}*.car",  # Handle without domain
+                    "*.car"  # Any CAR file as last resort
+                ]
+                
+                car_files = []
+                for pattern in patterns:
+                    found_files = list(backups_dir.glob(pattern))
+                    print(f"DEBUG: Pattern '{pattern}' found {len(found_files)} files: {[f.name for f in found_files]}")
+                    car_files.extend(found_files)
+                    if found_files:
+                        break  # Use first pattern that finds files
+                
                 if car_files:
                     # Use the most recent CAR file
                     latest_car = max(car_files, key=lambda p: p.stat().st_mtime)
                     session['car_path'] = str(latest_car)
                     car_path = str(latest_car)
+                    print(f"DEBUG: Using fallback CAR file: {latest_car}")
                 else:
+                    print("DEBUG: No CAR files found in backup directory")
                     return jsonify({'success': False, 'error': 'No CAR file found. Please complete step 1 first.'}), 400
             else:
+                print("DEBUG: Backup directory does not exist")
                 return jsonify({'success': False, 'error': 'No CAR file found. Please complete step 1 first.'}), 400
         except Exception as e:
+            print(f"DEBUG: Exception in fallback logic: {e}")
             return jsonify({'success': False, 'error': f'Error locating CAR file: {str(e)}'}), 400
     
     def generate():
@@ -641,11 +795,11 @@ def process_data():
                     yield f"data: {json.dumps({'status': 'filtering', 'message': f'Processing {content_type}...', 'type': content_type})}\n\n"
                     
                     if content_type == 'posts':
-                        type_items = [item for item in items if item.content_type == ContentType.POST]
+                        type_items = [item for item in items if item.content_type == "post"]
                     elif content_type == 'likes':
-                        type_items = [item for item in items if item.content_type == ContentType.LIKE]
+                        type_items = [item for item in items if item.content_type == "like"]
                     elif content_type == 'reposts':
-                        type_items = [item for item in items if item.content_type == ContentType.REPOST]
+                        type_items = [item for item in items if item.content_type == "repost"]
                     else:
                         continue
                     
@@ -677,16 +831,13 @@ def process_data():
                         export_data.append({
                             'uri': item.uri,
                             'cid': item.cid,
-                            'content_type': item.content_type.value,
+                            'content_type': item.content_type,
                             'text': item.text,
-                            'created_at': item.created_at.isoformat(),
-                            'author_handle': item.author_handle,
-                            'like_count': item.likes,
-                            'repost_count': item.reposts,
-                            'reply_count': item.replies,
+                            'created_at': item.created_at,
+                            'like_count': item.like_count,
+                            'repost_count': item.repost_count,
+                            'reply_count': item.reply_count,
                             'engagement_score': item.engagement_score,
-                            'has_media': item.has_media,
-                            'is_reply': item.is_reply,
                             'raw_data': item.raw_data
                         })
                         
@@ -716,6 +867,24 @@ def process_data():
                 
                 session['json_path'] = str(json_path)
                 session['total_items'] = len(items)
+                session.modified = True
+                
+                # Also store in progress_data as backup
+                session_id = session.get('session_id')
+                if session_id:
+                    if session_id not in progress_data:
+                        progress_data[session_id] = {}
+                    progress_data[session_id]['json_path'] = str(json_path)
+                    progress_data[session_id]['total_items'] = len(items)
+                    print(f"DEBUG: Saved json_path to progress_data[{session_id}]: {progress_data[session_id]['json_path']}")
+                
+                # Clean up old progress_data entries (keep only last 10 sessions)
+                if len(progress_data) > 10:
+                    oldest_keys = sorted(progress_data.keys(), 
+                                       key=lambda k: progress_data[k].get('timestamp', 0))[:len(progress_data)-10]
+                    for old_key in oldest_keys:
+                        progress_data.pop(old_key, None)
+                        print(f"DEBUG: Cleaned up old progress_data for session {old_key}")
                 
                 yield f"data: {json.dumps({'status': 'finalizing', 'message': 'Processing complete! Redirecting to dashboard...', 'progress': 100})}\n\n"
                 
@@ -736,7 +905,51 @@ def process_data():
 def dashboard():
     """Main dashboard with overview cards and search interface"""
     json_path = session.get('json_path')
+    session_id = session.get('session_id')
+    handle = session['user_handle']
+    
+    print(f"DEBUG: Dashboard access for {handle}")
+    print(f"DEBUG: json_path in session: {json_path}")
+    print(f"DEBUG: Session keys: {list(session.keys())}")
+    
+    # Try to get json_path from progress_data if not in session
+    if not json_path and session_id and session_id in progress_data:
+        json_path = progress_data[session_id].get('json_path')
+        if json_path:
+            print(f"DEBUG: Retrieved json_path from progress_data: {json_path}")
+    
+    # Fallback: look for recent JSON files for this user
     if not json_path:
+        try:
+            json_dir = Path.home() / '.skymarshal' / 'json'
+            if json_dir.exists():
+                # Look for JSON files matching the user's handle
+                patterns = [
+                    f"{handle}_*.json",
+                    f"*{handle.split('.')[0]}*.json",
+                    "*.json"  # Any JSON file as last resort
+                ]
+                
+                json_files = []
+                for pattern in patterns:
+                    found_files = list(json_dir.glob(pattern))
+                    print(f"DEBUG: Pattern '{pattern}' found {len(found_files)} files: {[f.name for f in found_files]}")
+                    json_files.extend(found_files)
+                    if found_files:
+                        break
+                
+                if json_files:
+                    # Use the most recent JSON file
+                    latest_json = max(json_files, key=lambda p: p.stat().st_mtime)
+                    json_path = str(latest_json)
+                    session['json_path'] = json_path
+                    session.modified = True
+                    print(f"DEBUG: Using fallback JSON file: {latest_json}")
+        except Exception as e:
+            print(f"DEBUG: Exception in JSON fallback logic: {e}")
+    
+    if not json_path:
+        print("DEBUG: No JSON path found, redirecting to setup")
         return redirect(url_for('setup'))
     
     # Load data
@@ -802,17 +1015,31 @@ def search():
     )
     items = data_manager.load_exported_data(Path(json_path))
     
+    # Map content types from web form to SearchFilters format
+    content_types = data.get('content_types', [])
+    if len(content_types) == 1:
+        if 'post' in content_types:
+            content_type = ContentType.POSTS
+        elif 'like' in content_types:
+            content_type = ContentType.LIKES
+        elif 'repost' in content_types:
+            content_type = ContentType.REPOSTS
+        else:
+            content_type = ContentType.ALL
+    else:
+        content_type = ContentType.ALL  # Multiple types or none selected
+    
     # Create search filters
+    keyword = data.get('keyword')
+    keywords = [keyword] if keyword else None
+    
     filters = SearchFilters(
-        keyword=data.get('keyword'),
-        content_types=[ContentType(t) for t in data.get('content_types', [])],
+        keywords=keywords,
+        content_type=content_type,
         start_date=data.get('start_date'),
         end_date=data.get('end_date'),
-        min_engagement=data.get('min_engagement'),
-        max_engagement=data.get('max_engagement'),
-        has_media=data.get('has_media'),
-        is_reply=data.get('is_reply'),
-        has_alt_text=data.get('has_alt_text')
+        min_engagement=data.get('min_engagement') or 0,
+        max_engagement=data.get('max_engagement') or 999999
     )
     
     # Search
@@ -905,6 +1132,58 @@ def delete():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/debug-profile')
+@login_required
+def debug_profile():
+    """Debug endpoint to test profile fetching"""
+    auth_manager = get_auth_manager()
+    if not auth_manager or not auth_manager.client:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    handle = session['user_handle']
+    debug_info = {'handle': handle}
+    
+    try:
+        # Test the client object
+        debug_info['client_type'] = str(type(auth_manager.client))
+        debug_info['client_authenticated'] = auth_manager.is_authenticated()
+        
+        # Test different methods
+        try:
+            from atproto import models
+            profile_response = auth_manager.client.app.bsky.actor.get_profile(
+                models.AppBskyActorGetProfile.Params(actor=handle)
+            )
+            profile = profile_response.value
+            debug_info['at_protocol_method'] = {
+                'success': True,
+                'handle': getattr(profile, 'handle', None),
+                'display_name': getattr(profile, 'display_name', None),
+                'avatar': getattr(profile, 'avatar', None),
+                'type': str(type(profile))
+            }
+        except Exception as e:
+            debug_info['at_protocol_method'] = {'success': False, 'error': str(e)}
+        
+        try:
+            profile = auth_manager.client.get_profile(handle)
+            debug_info['simple_method'] = {
+                'success': True,
+                'handle': getattr(profile, 'handle', None),
+                'display_name': getattr(profile, 'display_name', None),
+                'avatar': getattr(profile, 'avatar', None),
+                'type': str(type(profile)),
+                'attributes': [attr for attr in dir(profile) if not attr.startswith('_')]
+            }
+        except Exception as e:
+            debug_info['simple_method'] = {'success': False, 'error': str(e)}
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        debug_info['error'] = str(e)
+        return jsonify(debug_info), 500
+
 @app.route('/firehose')
 @login_required
 def firehose():
@@ -932,48 +1211,66 @@ def firehose():
                     if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
                         return
                     
-                    # Process operations
+                    # Parse CAR blocks if available
+                    blocks_dict = {}
+                    if hasattr(commit, 'blocks') and commit.blocks:
+                        try:
+                            from atproto import CAR
+                            car = CAR.from_bytes(commit.blocks)
+                            blocks_dict = car.blocks
+                        except Exception as car_error:
+                            print(f"ERROR: Parsing CAR blocks: {car_error}")
+                    
+                    # Process operations - ONLY posts and replies (comments)
                     for op in commit.ops:
-                        if op.action == 'create':
-                            if 'app.bsky.feed.post' in op.path:
-                                try:
-                                    post_data = {
-                                        'type': 'post',
-                                        'author': commit.repo,
-                                        'text': getattr(op.cid, 'text', '')[:100] if hasattr(op.cid, 'text') else 'New post',
-                                        'timestamp': time.time()
-                                    }
-                                    
-                                    if not message_queue.full():
+                        if op.action == 'create' and 'app.bsky.feed.post' in op.path:
+                            try:
+                                # Extract post text from the record block
+                                post_text = 'New post'
+                                is_reply = False
+                                
+                                if op.cid in blocks_dict:
+                                    record = blocks_dict[op.cid]
+                                    if isinstance(record, dict):
+                                        post_text = record.get('text', 'New post')[:80]  # Shorter for better display
+                                        is_reply = 'reply' in record or record.get('reply') is not None
+                                
+                                # Only process posts and replies, skip other types
+                                if is_reply:
+                                    display_text = f"💬 {post_text}"
+                                    content_type = 'reply'
+                                else:
+                                    display_text = post_text
+                                    content_type = 'post'
+                                
+                                # Get a readable author identifier
+                                author_did = commit.repo
+                                if author_did.startswith('did:plc:'):
+                                    # Try to get handle from the record if available
+                                    author_display = author_did.replace('did:plc:', '')[:12] + '...'
+                                else:
+                                    author_display = author_did[:20]
+                                
+                                post_data = {
+                                    'type': content_type,
+                                    'author': author_display,
+                                    'text': display_text,
+                                    'timestamp': time.time()
+                                }
+                                
+                                if not message_queue.full():
+                                    message_queue.put(post_data)
+                                else:
+                                    # If queue is full, remove oldest and add new
+                                    try:
+                                        message_queue.get_nowait()
                                         message_queue.put(post_data)
-                                except Exception as op_error:
-                                    print(f"ERROR: Processing post operation: {op_error}")
-                            elif 'app.bsky.feed.like' in op.path:
-                                try:
-                                    like_data = {
-                                        'type': 'like',
-                                        'author': commit.repo,
-                                        'text': '❤️ liked a post',
-                                        'timestamp': time.time()
-                                    }
-                                    
-                                    if not message_queue.full():
-                                        message_queue.put(like_data)
-                                except Exception as op_error:
-                                    print(f"ERROR: Processing like operation: {op_error}")
-                            elif 'app.bsky.feed.repost' in op.path:
-                                try:
-                                    repost_data = {
-                                        'type': 'repost', 
-                                        'author': commit.repo,
-                                        'text': '🔄 reposted',
-                                        'timestamp': time.time()
-                                    }
-                                    
-                                    if not message_queue.full():
-                                        message_queue.put(repost_data)
-                                except Exception as op_error:
-                                    print(f"ERROR: Processing repost operation: {op_error}")
+                                    except queue.Empty:
+                                        pass
+                                        
+                            except Exception as op_error:
+                                print(f"ERROR: Processing post operation: {op_error}")
+                        # Skip likes and reposts entirely - only process posts and replies
                 except Exception as e:
                     print(f"ERROR: Processing firehose message: {e}")
             
@@ -996,17 +1293,18 @@ def firehose():
             
             # Give the firehose a moment to connect
             time.sleep(2)
+            print(f"INFO: Firehose thread started, connected: {firehose_connected}")
             
-            # Stream messages to client with rate limiting
+            # Stream messages to client with minimal delay for real-time feel
             last_message_time = 0
-            min_delay = 0.3  # Minimum 0.3 seconds between messages
+            min_delay = 0.1  # Very minimal delay for real-time display
             messages_received = 0
             start_time = time.time()
             
             # Send initial status
-            yield f"data: {json.dumps({'type': 'status', 'message': 'Connecting to Bluesky firehose...', 'timestamp': time.time()})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Connecting to live Bluesky posts and replies...', 'timestamp': time.time()})}\n\n"
             
-            timeout_duration = 10  # 10 seconds timeout for initial connection
+            timeout_duration = 8  # 8 seconds timeout for initial connection
             
             while True:
                 try:
@@ -1017,7 +1315,7 @@ def firehose():
                         if firehose_error:
                             yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose connection failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
                         else:
-                            yield f"data: {json.dumps({'type': 'error', 'message': 'Firehose connection timeout - falling back to mock data', 'timestamp': time.time()})}\n\n"
+                            yield f"data: {json.dumps({'type': 'status', 'message': 'Firehose connected but quiet - falling back to demo mode', 'timestamp': time.time()})}\n\n"
                         break
                     
                     if not message_queue.empty():
@@ -1027,11 +1325,11 @@ def firehose():
                             yield f"data: {json.dumps(message)}\n\n"
                             last_message_time = current_time
                         else:
-                            time.sleep(0.1)  # Wait a bit before checking again
+                            time.sleep(0.05)  # Very short wait for real-time feel
                     else:
-                        time.sleep(0.1)  # Check less frequently when queue is empty
+                        time.sleep(0.05)  # Check very frequently for real-time updates
                 except queue.Empty:
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                 except Exception as e:
                     print(f"ERROR: Streaming firehose data: {e}")
                     break
@@ -1046,33 +1344,69 @@ def firehose():
         if firehose_error:
             yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
             
-        # Fallback with mock data if firehose fails
-        print("INFO: Using mock data for firehose demo")
-        yield f"data: {json.dumps({'type': 'status', 'message': 'Using mock data for demonstration', 'timestamp': time.time()})}\n\n"
+        # Fallback with mock data if firehose fails - ONLY posts and replies
+        print("INFO: Using mock posts and replies for demo")
+        yield f"data: {json.dumps({'type': 'status', 'message': 'Demo mode: showing sample posts and replies', 'timestamp': time.time()})}\n\n"
         
         mock_messages = [
-            {'type': 'post', 'author': 'user1.bsky.social', 'text': 'Hello Bluesky!', 'timestamp': time.time()},
-            {'type': 'like', 'author': 'user2.bsky.social', 'text': '❤️ liked a post', 'timestamp': time.time()},
-            {'type': 'repost', 'author': 'user3.bsky.social', 'text': '🔄 reposted', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'user4.bsky.social', 'text': 'Beautiful sunset today', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'photographer.bsky.social', 'text': 'Just captured an amazing landscape 📸', 'timestamp': time.time()},
-            {'type': 'like', 'author': 'artist.bsky.social', 'text': '❤️ liked a post', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'developer.bsky.social', 'text': 'Working on a new project...', 'timestamp': time.time()},
-            {'type': 'repost', 'author': 'news.bsky.social', 'text': '🔄 reposted', 'timestamp': time.time()}
+            {'type': 'post', 'author': 'alice.bsky.social', 'text': 'Hello Bluesky! 🌅', 'timestamp': time.time()},
+            {'type': 'reply', 'author': 'bob.bsky.social', 'text': '💬 That sounds great!', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'charlie.bsky.social', 'text': 'Beautiful sunset today', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'photographer...', 'text': 'Just captured an amazing landscape 📸', 'timestamp': time.time()},
+            {'type': 'reply', 'author': 'artist.bsky...', 'text': '💬 Amazing work! Love the composition', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'developer...', 'text': 'Working on a new project with AT Protocol', 'timestamp': time.time()},
+            {'type': 'reply', 'author': 'tech.bsky...', 'text': '💬 What kind of project? Sounds interesting!', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'news.bsky.social', 'text': 'Breaking: New features coming to Bluesky!', 'timestamp': time.time()},
+            {'type': 'post', 'author': 'music.bsky...', 'text': 'Just released a new track 🎵', 'timestamp': time.time()},
+            {'type': 'reply', 'author': 'fan.bsky.social', 'text': '💬 Can\'t wait to listen!', 'timestamp': time.time()}
         ]
         
-        for i in range(100):  # Stream for demo
+        for i in range(150):  # Stream for demo - more content
             import random
             message = random.choice(mock_messages)
             message['timestamp'] = time.time()
             yield f"data: {json.dumps(message)}\n\n"
-            time.sleep(0.5)  # Fast rate to simulate active firehose
+            time.sleep(0.3)  # Faster rate to simulate real-time activity
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+@app.route('/download-backup')
+@login_required
+def download_backup():
+    """Download the user's CAR file as a backup"""
+    car_path = session.get('car_path')
+    session_id = session.get('session_id')
+    
+    # Try to get car_path from progress_data if not in session
+    if not car_path and session_id and session_id in progress_data:
+        car_path = progress_data[session_id].get('car_path')
+    
+    if not car_path or not Path(car_path).exists():
+        return jsonify({'error': 'Backup file not found'}), 404
+    
+    try:
+        car_file = Path(car_path)
+        handle = session['user_handle']
+        
+        # Create a user-friendly filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        download_filename = f"bluesky_backup_{handle}_{timestamp}.car"
+        
+        return send_from_directory(
+            car_file.parent,
+            car_file.name,
+            as_attachment=True,
+            download_name=download_filename,
+            mimetype='application/octet-stream'
+        )
+    except Exception as e:
+        return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    import os
+    port = int(os.environ.get('FLASK_PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)
