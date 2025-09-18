@@ -2,47 +2,79 @@
 
 Your personal Bluesky content command center — manage, analyze, and clean up your social media presence with ease.
 
+# THIS IS A WORK IN PROGRESS. 
+## Non-critical functions may be buggy or broken. 
+### [Bluesky: @lukesteuber.com](https://bluesky.app/profile/lukesteuber.com)
+### [lukesteuber.com](https://lukesteuber.com)
+
+<br>
+
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
 [![AT Protocol](https://img.shields.io/badge/AT%20Protocol-Compatible-green.svg)](https://atproto.com/)
 
-## Features
+## Development Log
 
-### Authentication & Security
-- Secure Bluesky authentication with session management
-- Automatic handle normalization (`@username` → `username.bsky.social`)
-- Session validation and re-authentication flows
-- User data isolation and secure file access
+> Status snapshot for **Skymarshal**. See [CHANGELOG](./CHANGELOG.md) for full history.
 
-### Data Management
-- **CAR File Support**: Download and process complete Bluesky backups
-- **API Integration**: Direct download via AT Protocol
-- **Multiple Formats**: JSON export/import for analysis
-- **Smart File Discovery**: Automatic detection of existing data files
-- **Progress Tracking**: Real-time progress bars for long operations
+### ✅ Completed
+- [x] **Secure auth**
+  - Session-based login with Bluesky credentials
+  - No password storage; temporary session tokens only
+  - Handle normalization and guardrails to restrict access to own content
+- [x] **CAR processing, download, and backup**
+  - Create and import CAR archives (with resume + progress)
+  - Integrity checks and local backup directory structure
+  - Graceful handling of empty/partial CARs
 
-### Advanced Search & Analysis
-- **Multi-criteria Filtering**: Content type, keywords, engagement, date ranges
-- **Engagement Scoring**: Weighted algorithm (likes + 2×reposts + 2.5×replies)
-- **Likes-Aware Presets**: Dead, Bomber, Mid, Banger, Viral based on your avg likes
-- **Quick Actions**: Dead thread detection, top content analysis
-- **Temporal Analysis**: Activity patterns and trends over time
-- **Export Capabilities**: Filtered results to JSON/CSV
+### 🧪 In Testing
+- [ ] **Debug engagement hydration**
+  - Verify/repair like, repost, and reply counts during imports
+  - Backoff + retry around rate limits; reconcile mismatches
+- [ ] **Follower/Following reconciliation**
+  - Diff local vs live graph; handle suspended/deleted accounts
+  - Optional CSV/JSON export of deltas
+- [ ] **Flask web interface (read-only MVP)**
+  - Auth handshake, backup trigger, basic search/view of items
+  - Simple analytics cards (top posts, dead threads)
 
-### Safe Content Deletion
-- **Multiple Approval Modes**: All-at-once, individual review, batch processing
-- **Dry-run Support**: Preview operations without execution
-- **Progress Tracking**: Visual feedback for bulk operations
-- **Confirmation Prompts**: Multiple safety checks before deletion
-- **Undo Capabilities**: Temporary backup before permanent deletion
+### 🔧 Notes
+- CLI currently menu-driven; subcommands on the roadmap
+- Destructive ops remain gated behind explicit confirm flows
+- Large accounts: prefer CAR workflows for speed and stability
 
-### Statistics & Analytics
-- **Content Overview**: Posts, likes, reposts breakdown
-- **Engagement Metrics**: Detailed performance analysis
-- **Average Likes**: Baseline for likes-based categories
-- **Categories**: Dead, Bomber, Mid, Banger, Viral
-- **Activity Timeline**: Chronological activity patterns
-- **Visual Charts**: Rich terminal-based data visualization
+## What Skymarshal Does For You
+
+### Keep Your Account Secure
+- Log in safely with your existing Bluesky credentials
+- Your data stays private and local to your computer
+- No passwords stored - only temporary session access
+- Access only your own content with built-in user protection
+
+### Get Your Data When You Need It
+- Download all your posts, likes, and reposts in minutes
+- See real-time progress so you know exactly what's happening
+- Pick up where you left off if something interrupts the process
+- Choose what content to download - posts only, everything, or custom selections
+
+### Find What You're Looking For
+- Search through thousands of posts instantly using keywords or dates
+- Discover your most and least popular content automatically
+- Filter by engagement levels to find your hits and misses
+- Get personalized categories based on your actual performance (not generic thresholds)
+
+### Clean Up Your Profile Safely
+- Preview exactly what will be deleted before you commit
+- Delete one post at a time, in batches, or everything at once
+- Get multiple confirmation prompts so you never delete by accident
+- See progress bars during deletion so you know it's working
+
+### Understand Your Bluesky Performance
+- See which posts resonated with your audience and which didn't
+- Understand your engagement patterns over time
+- Identify your "dead threads" that got no interaction
+- Discover your "bangers" that performed above average
+- Track your posting habits and peak activity times
 
 ## Quick Start
 
