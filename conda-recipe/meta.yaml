@@ -1,0 +1,67 @@
+{% set name = "skymarshal" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: # This will be filled in when uploading to PyPI
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv
+  noarch: python
+  entry_points:
+    - skymarshal = skymarshal.app:cli
+
+requirements:
+  host:
+    - python >=3.9
+    - pip
+    - setuptools >=61.0
+    - wheel
+  run:
+    - python >=3.9
+    - atproto >=0.0.46
+    - rich >=13.0.0
+
+test:
+  imports:
+    - skymarshal
+    - skymarshal.app
+    - skymarshal.auth
+    - skymarshal.models
+  commands:
+    - skymarshal --help
+  requires:
+    - pip
+
+about:
+  home: https://github.com/lukeslp/skymarshal
+  license: CC0-1.0
+  license_family: Public-Domain
+  license_file: LICENSE
+  summary: Your personal Bluesky content command center - manage, analyze, and clean up your social media presence
+  description: |
+    Skymarshal is a comprehensive command-line tool for managing Bluesky social media content.
+    It provides both interactive and programmatic interfaces for downloading, analyzing, filtering,
+    and safely deleting Bluesky posts, likes, and reposts using the AT Protocol.
+
+    Features:
+    - Secure Bluesky authentication with session management
+    - CAR file support for complete account backups
+    - Advanced search and filtering with engagement scoring
+    - Safe content deletion with multiple confirmation modes
+    - Statistics and analytics for content insights
+    - Export capabilities (JSON/CSV)
+    - Interactive terminal interface with Rich UI
+
+    Requires a Bluesky App Password (create in Bluesky Settings).
+  doc_url: https://github.com/lukeslp/skymarshal#readme
+  dev_url: https://github.com/lukeslp/skymarshal
+
+extra:
+  recipe-maintainers:
+    - lukeslp

@@ -1,0 +1,45 @@
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include ARCHITECTURE.md
+include API.md
+include DEVELOPMENT.md
+include CONTRIBUTING.md
+
+# Include configuration files
+include pyproject.toml
+include requirements.txt
+include requirements-dev.txt
+include Makefile
+
+# Include package data
+recursive-include skymarshal *.py
+# Exclude package-internal markdown docs from distributions
+recursive-exclude skymarshal *.md
+
+# Exclude unnecessary files
+exclude *.pyc
+exclude *.pyo
+exclude *.pyd
+exclude __pycache__
+exclude .git*
+exclude .DS_Store
+exclude Thumbs.db
+exclude *.car
+exclude *.json
+exclude *.db
+exclude *.sqlite*
+exclude .skymarshal/
+exclude .car_inspector_*
+exclude test_data/
+exclude .venv/
+exclude venv/
+exclude .env
+exclude .pytest_cache/
+exclude .mypy_cache/
+exclude .coverage
+exclude htmlcov/
+exclude dist/
+exclude build/
+exclude *.egg-info/
