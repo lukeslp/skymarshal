@@ -16,7 +16,13 @@
             </div>
             {% if session.user_handle %}
             <div class="nav-user">
-                <span class="user-handle">@{{ session.user_handle }}</span>
+                <div class="user-info">
+                    <img id="user-avatar" class="user-avatar" src="/static/images/default-avatar.svg" alt="Avatar" style="display: none;">
+                    <div class="user-details">
+                        <span class="user-display-name" id="user-display-name">{{ session.user_handle }}</span>
+                        <span class="user-handle">@{{ session.user_handle }}</span>
+                    </div>
+                </div>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
             </div>
             {% endif %}
@@ -28,6 +34,41 @@
     </main>
     
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    {% if session.user_handle %}
+    <script>
+    // Load user profile on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/user-profile');
+            const data = await response.json();
+            
+            if (data.success && data.profile) {
+                const profile = data.profile;
+                
+                // Update avatar
+                if (profile.avatar) {
+                    const avatarImg = document.getElementById('user-avatar');
+                    avatarImg.src = profile.avatar;
+                    avatarImg.style.display = 'block';
+                    avatarImg.onerror = () => {
+                        avatarImg.style.display = 'none';
+                    };
+                }
+                
+                // Update display name
+                if (profile.displayName) {
+                    const displayNameEl = document.getElementById('user-display-name');
+                    displayNameEl.textContent = profile.displayName;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load user profile:', error);
+        }
+    });
+    </script>
+    {% endif %}
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>

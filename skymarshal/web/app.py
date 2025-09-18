@@ -41,6 +41,16 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_handle' not in session or 'session_id' not in session:
+            # Check if this is an EventSource request
+            if request.headers.get('Accept') == 'text/event-stream':
+                # Return proper EventSource error response
+                response = Response(
+                    f"data: {json.dumps({'status': 'error', 'error': 'Authentication required'})}\n\n",
+                    mimetype='text/event-stream'
+                )
+                response.headers['Cache-Control'] = 'no-cache'
+                response.headers['Connection'] = 'keep-alive'
+                return response
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -51,6 +61,117 @@ def get_auth_manager():
     if session_id and session_id in auth_storage:
         return auth_storage[session_id]
     return None
+
+def get_car_quick_stats(car_path):
+    """Get quick statistics from a CAR file without full processing"""
+    try:
+        from atproto_core.car import CAR
+        from skymarshal.models import ContentType
+        
+        stats = {
+            'posts': 0,
+            'replies': 0,
+            'likes': 0, 
+            'reposts': 0,
+            'other': 0,
+            'total': 0
+        }
+        
+        debug_info = {
+            'file_size': 0,
+            'total_blocks': 0,
+            'collections_found': set(),
+            'sample_records': []
+        }
+        
+        # Get file size for debugging
+        import os
+        debug_info['file_size'] = os.path.getsize(car_path)
+        
+        # Read the CAR file and count record types properly
+        with open(car_path, 'rb') as f:
+            car = CAR.from_bytes(f.read())
+            debug_info['total_blocks'] = len(car.blocks)
+            
+            for cid, block_data in car.blocks.items():
+                try:
+                    # Decode the block using the same method as DataManager
+                    if hasattr(block_data, 'data'):
+                        # If it's already decoded
+                        record = block_data.data
+                    else:
+                        # Try to decode CBOR
+                        from skymarshal.data_manager import cbor_decode
+                        if cbor_decode:
+                            record = cbor_decode(block_data)
+                        else:
+                            continue
+                    
+                    # Check if this is a commit record with operations
+                    if isinstance(record, dict) and 'ops' in record:
+                        for op in record.get('ops', []):
+                            if 'path' in op and 'cid' in op:
+                                path = op['path']
+                                
+                                # Extract collection from path (e.g., "app.bsky.feed.post/abc123")
+                                if '/' in path:
+                                    collection = path.split('/')[0]
+                                    debug_info['collections_found'].add(collection)
+                                    
+                                    if collection == 'app.bsky.feed.post':
+                                        # This could be a post or reply - we'll categorize as posts for now
+                                        # In full processing, we'd check the record content for reply field
+                                        stats['posts'] += 1
+                                    elif collection == 'app.bsky.feed.like':
+                                        stats['likes'] += 1
+                                    elif collection == 'app.bsky.feed.repost':
+                                        stats['reposts'] += 1
+                                    else:
+                                        stats['other'] += 1
+                                    
+                                    stats['total'] += 1
+                    
+                    # Store sample for debugging (first 3 records)
+                    if len(debug_info['sample_records']) < 3:
+                        debug_info['sample_records'].append({
+                            'type': type(record).__name__,
+                            'keys': list(record.keys()) if isinstance(record, dict) else 'not_dict',
+                            'has_ops': 'ops' in record if isinstance(record, dict) else False
+                        })
+                        
+                except Exception as decode_error:
+                    # Skip records that can't be decoded
+                    continue
+        
+        # Add debug info to stats for troubleshooting
+        stats['debug'] = debug_info
+        
+        # Log debug info for troubleshooting
+        print(f"CAR Stats Debug - File: {car_path}")
+        print(f"File size: {debug_info['file_size']} bytes")
+        print(f"Total blocks: {debug_info['total_blocks']}")
+        print(f"Collections found: {debug_info['collections_found']}")
+        print(f"Sample records: {debug_info['sample_records']}")
+        print(f"Final stats: posts={stats['posts']}, likes={stats['likes']}, reposts={stats['reposts']}")
+        
+        return stats
+        
+    except Exception as e:
+        print(f"Error parsing CAR file {car_path}: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return basic file info if CAR parsing fails
+        import os
+        file_size = os.path.getsize(car_path)
+        return {
+            'posts': '?',
+            'replies': '?',
+            'likes': '?',
+            'reposts': '?', 
+            'total': f'{file_size // 1024}KB',
+            'error': str(e)
+        }
 
 @app.route('/')
 def index():
@@ -95,6 +216,181 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/user-profile')
+@login_required
+def user_profile():
+    """Get user profile information including avatar"""
+    auth_manager = get_auth_manager()
+    if not auth_manager or not auth_manager.client:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        handle = session['user_handle']
+        profile = auth_manager.client.get_profile(handle)
+        
+        return jsonify({
+            'success': True,
+            'profile': {
+                'handle': profile.handle,
+                'displayName': profile.display_name,
+                'description': profile.description,
+                'avatar': profile.avatar,
+                'banner': profile.banner,
+                'followersCount': profile.followers_count,
+                'followsCount': profile.follows_count,
+                'postsCount': profile.posts_count,
+                'createdAt': profile.created_at.isoformat() if profile.created_at else None
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/bluesky-facts')
+@login_required
+def bluesky_facts():
+    """Get interesting Bluesky statistics and facts"""
+    auth_manager = get_auth_manager()
+    if not auth_manager or not auth_manager.client:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    facts = []
+    
+    try:
+        handle = session['user_handle']
+        
+        # Get user's profile for their stats
+        try:
+            profile = auth_manager.client.get_profile(handle)
+            
+            # Get actual user content counts from CAR data if available
+            # For now, use profile counts but we could enhance this
+            facts.append({
+                'icon': '📝',
+                'title': 'Your Posts',
+                'value': f'{profile.posts_count:,}',
+                'description': 'posts you\'ve shared'
+            })
+            
+            facts.append({
+                'icon': '👥',
+                'title': 'Your Followers',
+                'value': f'{profile.followers_count:,}',
+                'description': 'people following you'
+            })
+            
+            facts.append({
+                'icon': '👤',
+                'title': 'Following',
+                'value': f'{profile.follows_count:,}',
+                'description': 'accounts you follow'
+            })
+            
+            # Account age with more context
+            if profile.created_at:
+                from datetime import datetime
+                account_age = (datetime.now(profile.created_at.tzinfo) - profile.created_at).days
+                
+                if account_age < 30:
+                    description = 'days on Bluesky'
+                elif account_age < 365:
+                    months = account_age // 30
+                    description = f'~{months} months on Bluesky'
+                else:
+                    years = account_age // 365
+                    description = f'~{years} year{"s" if years > 1 else ""} on Bluesky'
+                
+                facts.append({
+                    'icon': '📅',
+                    'title': 'Member Since',
+                    'value': f'{account_age}',
+                    'description': description
+                })
+        except:
+            pass
+        
+        # Platform milestones and interesting stats
+        platform_facts = [
+            {
+                'icon': '🚀',
+                'title': 'Bluesky Users',
+                'value': '20M+',
+                'description': 'registered accounts'
+            },
+            {
+                'icon': '📈',
+                'title': 'Growth Milestone',
+                'value': '1M',
+                'description': 'users joined in one day (Nov 2024)'
+            },
+            {
+                'icon': '🌍',
+                'title': 'Global Reach',
+                'value': '190+',
+                'description': 'countries represented'
+            },
+            {
+                'icon': '💬',
+                'title': 'Daily Posts',
+                'value': '3M+',
+                'description': 'posts shared every day'
+            },
+            {
+                'icon': '⚡',
+                'title': 'Launch Year',
+                'value': '2024',
+                'description': 'public launch milestone'
+            },
+            {
+                'icon': '🔓',
+                'title': 'Open Beta',
+                'value': 'Feb 2024',
+                'description': 'removed invite-only requirement'
+            },
+            {
+                'icon': '📱',
+                'title': 'Mobile Users',
+                'value': '80%+',
+                'description': 'access via mobile apps'
+            },
+            {
+                'icon': '🌐',
+                'title': 'Languages',
+                'value': '50+',
+                'description': 'languages used on platform'
+            }
+        ]
+        
+        # Add random platform facts
+        import random
+        facts.extend(random.sample(platform_facts, min(4, len(platform_facts))))
+        
+        return jsonify({
+            'success': True,
+            'facts': facts
+        })
+        
+    except Exception as e:
+        # Return some basic facts even if API calls fail
+        fallback_facts = [
+            {
+                'icon': '🦋',
+                'title': 'Welcome',
+                'value': 'Bluesky',
+                'description': 'You\'re using the AT Protocol social network'
+            },
+            {
+                'icon': '🚀',
+                'title': 'Processing',
+                'value': 'Data',
+                'description': 'Analyzing your Bluesky content'
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'facts': fallback_facts
+        })
+
 @app.route('/setup')
 @login_required
 def setup():
@@ -131,8 +427,9 @@ def download_car():
                 json_dir.mkdir(exist_ok=True)
                 
                 # Create default settings
-                settings_manager = SettingsManager()
-                settings = settings_manager.get_settings()
+                settings_file = Path.home() / ".car_inspector_settings.json"
+                settings_manager = SettingsManager(settings_file)
+                settings = settings_manager.settings
                 
                 data_manager = DataManager(
                     auth_manager=auth_manager,
@@ -142,14 +439,35 @@ def download_car():
                     json_dir=json_dir
                 )
                 
-                yield f"data: {json.dumps({'status': 'starting', 'message': 'Initializing CAR download...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'starting', 'message': 'Connecting to Bluesky...'})}\n\n"
+                
+                import time
+                time.sleep(0.5)  # Small delay to show progress step
+                
+                yield f"data: {json.dumps({'status': 'downloading', 'message': 'Downloading your archive...'})}\n\n"
                 
                 # Download CAR file using the actual method
-                car_path = data_manager.download_backup(handle)
+                # Ensure we get a fresh download by using timestamped filename
+                car_path = data_manager.create_timestamped_backup(handle)
                 
                 if car_path:
                     session['car_path'] = str(car_path)
-                    yield f"data: {json.dumps({'status': 'completed', 'car_path': str(car_path)})}\n\n"
+                    print(f"Downloaded fresh CAR file: {car_path}")
+                    
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Processing CAR file...'})}\n\n"
+                    time.sleep(0.3)  # Small delay to show progress step
+                    
+                    # Get quick stats from CAR file
+                    yield f"data: {json.dumps({'status': 'analyzing', 'message': 'Analyzing content...'})}\n\n"
+                    time.sleep(0.3)  # Small delay to show progress step
+                    
+                    try:
+                        # Quick analysis of CAR file contents
+                        stats = get_car_quick_stats(car_path)
+                        yield f"data: {json.dumps({'status': 'completed', 'car_path': str(car_path), 'stats': stats})}\n\n"
+                    except Exception as e:
+                        # If stats fail, still complete successfully
+                        yield f"data: {json.dumps({'status': 'completed', 'car_path': str(car_path)})}\n\n"
                 else:
                     yield f"data: {json.dumps({'status': 'error', 'error': 'Failed to download CAR file'})}\n\n"
                 
@@ -195,8 +513,9 @@ def process_data():
             json_dir.mkdir(exist_ok=True)
             
             # Create default settings
-            settings_manager = SettingsManager()
-            settings = settings_manager.get_settings()
+            settings_file = Path.home() / ".car_inspector_settings.json"
+            settings_manager = SettingsManager(settings_file)
+            settings = settings_manager.settings
             
             data_manager = DataManager(
                 auth_manager=auth_manager or AuthManager(),
@@ -206,26 +525,40 @@ def process_data():
                 json_dir=json_dir
             )
             
-            yield f"data: {json.dumps({'status': 'processing', 'message': 'Processing CAR file...'})}\n\n"
+            yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting data processing...', 'progress': 5})}\n\n"
             
             # Convert content types to category set
             categories = set(content_types)
             
+            yield f"data: {json.dumps({'status': 'processing', 'message': f'Processing {len(categories)} content types: {", ".join(categories)}', 'progress': 10})}\n\n"
+            
             # Process CAR file using import_backup_replace method
+            yield f"data: {json.dumps({'status': 'processing', 'message': 'Reading CAR file structure...', 'progress': 20})}\n\n"
+            
             json_path = data_manager.import_backup_replace(
                 Path(car_path), 
                 handle=handle, 
                 categories=categories
             )
             
+            yield f"data: {json.dumps({'status': 'processing', 'message': 'CAR file processed successfully!', 'progress': 60})}\n\n"
+            
             if json_path:
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Loading processed data...', 'progress': 65})}\n\n"
+                
                 # Load the processed data to get item count
                 items = data_manager.load_exported_data(json_path)
                 
+                yield f"data: {json.dumps({'status': 'processing', 'message': f'Loaded {len(items)} total items', 'progress': 70})}\n\n"
+                
                 # Apply limits if specified (by re-processing with limits)
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Applying content filters and limits...', 'progress': 75})}\n\n"
+                
                 filtered_items = []
-                for content_type in content_types:
+                for i, content_type in enumerate(content_types):
                     limit = limits.get(content_type, 0)
+                    
+                    yield f"data: {json.dumps({'status': 'filtering', 'message': f'Processing {content_type}...', 'type': content_type})}\n\n"
                     
                     if content_type == 'posts':
                         type_items = [item for item in items if item.content_type == ContentType.POST]
@@ -236,20 +569,31 @@ def process_data():
                     else:
                         continue
                     
+                    original_count = len(type_items)
                     if limit > 0:
                         type_items = type_items[:limit]
+                        yield f"data: {json.dumps({'status': 'filtering', 'message': f'Limited {content_type} from {original_count} to {len(type_items)} items', 'type': content_type, 'count': len(type_items), 'original_count': original_count})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'status': 'filtering', 'message': f'Using all {len(type_items)} {content_type}', 'type': content_type, 'count': len(type_items)})}\n\n"
                     
                     filtered_items.extend(type_items)
-                    yield f"data: {json.dumps({'status': 'progress', 'type': content_type, 'count': len(type_items)})}\n\n"
+                    
+                    # Update progress based on processing step
+                    progress = 75 + (i + 1) * (10 / len(content_types))
+                    yield f"data: {json.dumps({'status': 'processing', 'progress': int(progress)})}\n\n"
                 
                 # If limits were applied, save the filtered data
                 if any(limits.values()):
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Saving filtered data...', 'progress': 85})}\n\n"
+                    
                     # Create a new JSON file with filtered data
                     import tempfile
                     import json as json_lib
                     
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Preparing export data...', 'progress': 87})}\n\n"
+                    
                     export_data = []
-                    for item in filtered_items:
+                    for i, item in enumerate(filtered_items):
                         export_data.append({
                             'uri': item.uri,
                             'cid': item.cid,
@@ -265,6 +609,13 @@ def process_data():
                             'is_reply': item.is_reply,
                             'raw_data': item.raw_data
                         })
+                        
+                        # Update progress during export preparation
+                        if i % 100 == 0 and i > 0:
+                            progress = 87 + (i / len(filtered_items)) * 8
+                            yield f"data: {json.dumps({'status': 'processing', 'message': f'Prepared {i}/{len(filtered_items)} items...', 'progress': int(progress)})}\n\n"
+                    
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Writing data to file...', 'progress': 95})}\n\n"
                     
                     # Save filtered data
                     export_dir = Path.home() / '.skymarshal' / 'json'
@@ -275,11 +626,21 @@ def process_data():
                     with open(filtered_path, 'w') as f:
                         json_lib.dump(export_data, f, indent=2, default=str)
                     
+                    yield f"data: {json.dumps({'status': 'processing', 'message': f'Saved filtered data to {filtered_path.name}', 'progress': 98})}\n\n"
+                    
                     json_path = filtered_path
+                    items = filtered_items
+                else:
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Using all processed data (no limits applied)', 'progress': 95})}\n\n"
                     items = filtered_items
                 
                 session['json_path'] = str(json_path)
                 session['total_items'] = len(items)
+                
+                yield f"data: {json.dumps({'status': 'finalizing', 'message': 'Processing complete! Redirecting to dashboard...', 'progress': 100})}\n\n"
+                
+                # Small delay to show completion message
+                time.sleep(0.5)
                 
                 yield f"data: {json.dumps({'status': 'completed', 'total_items': len(items), 'redirect': url_for('dashboard')})}\n\n"
             else:
@@ -307,8 +668,9 @@ def dashboard():
     json_dir = skymarshal_dir / 'json'
     
     # Create default settings
-    settings_manager = SettingsManager()
-    settings = settings_manager.get_settings()
+    settings_file = Path.home() / ".car_inspector_settings.json"
+    settings_manager = SettingsManager(settings_file)
+    settings = settings_manager.settings
     
     data_manager = DataManager(
         auth_manager=auth_manager or AuthManager(),
@@ -347,8 +709,9 @@ def search():
     json_dir = skymarshal_dir / 'json'
     
     # Create default settings
-    settings_manager = SettingsManager()
-    settings = settings_manager.get_settings()
+    settings_file = Path.home() / ".car_inspector_settings.json"
+    settings_manager = SettingsManager(settings_file)
+    settings = settings_manager.settings
     
     data_manager = DataManager(
         auth_manager=auth_manager or AuthManager(),
@@ -413,8 +776,9 @@ def delete():
     
     try:
         # Create default settings for deletion manager
-        settings_manager = SettingsManager()
-        settings = settings_manager.get_settings()
+        settings_file = Path.home() / ".car_inspector_settings.json"
+        settings_manager = SettingsManager(settings_file)
+        settings = settings_manager.settings
         
         deletion_manager = DeletionManager(auth_manager=auth_manager, settings=settings)
         
@@ -427,8 +791,9 @@ def delete():
         json_dir = skymarshal_dir / 'json'
         
         # Create default settings
-        settings_manager = SettingsManager()
-        settings = settings_manager.get_settings()
+        settings_file = Path.home() / ".car_inspector_settings.json"
+        settings_manager = SettingsManager(settings_file)
+        settings = settings_manager.settings
         
         data_manager = DataManager(
             auth_manager=auth_manager or AuthManager(),

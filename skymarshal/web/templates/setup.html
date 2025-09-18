@@ -31,16 +31,39 @@
                     <div class="progress-text" id="download-progress-text">0%</div>
                 </div>
                 <div class="step-message" id="download-message"></div>
+                
+                <!-- Stats Carousel -->
+                <div class="facts-carousel" id="facts-carousel" style="display: none;">
+                    <div class="fact-display" id="fact-display">
+                        <div class="fact-icon" id="fact-icon">📊</div>
+                        <div class="fact-content">
+                            <div class="fact-title" id="fact-title">Loading...</div>
+                            <div class="fact-value" id="fact-value">Please wait</div>
+                            <div class="fact-description" id="fact-description">Loading stats...</div>
+                        </div>
+                    </div>
+                    <div class="fact-indicator" id="fact-indicator">
+                        <span class="fact-dot active"></span>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats from CAR -->
+                <div class="car-stats" id="car-stats" style="display: none;">
+                    <h4>📊 Content Overview</h4>
+                    <div class="stats-grid" id="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+                </div>
             </div>
         </div>
         
         <!-- Step 2: Select Content -->
-        <div class="step-card disabled" id="step-select">
+        <div class="step-card collapsed" id="step-select">
             <div class="step-header">
                 <h3>Step 2: Choose What to Analyze</h3>
                 <span class="step-status" id="select-status"></span>
             </div>
-            <div class="step-content">
+            <div class="step-content" style="display: none;">
                 <p>Select which types of content you want to analyze:</p>
                 
                 <div class="content-selector">
@@ -99,6 +122,75 @@
 
 <script>
 let carDownloaded = false;
+let factsCarousel = null;
+
+// Facts carousel functionality
+class FactsCarousel {
+    constructor() {
+        this.facts = [];
+        this.currentIndex = 0;
+        this.intervalId = null;
+        this.container = document.getElementById('facts-carousel');
+    }
+    
+    async loadFacts() {
+        try {
+            const response = await fetch('/bluesky-facts');
+            const data = await response.json();
+            if (data.success && data.facts) {
+                this.facts = data.facts;
+                this.updateIndicators();
+                this.showFact(0);
+                return true;
+            }
+        } catch (error) {
+            console.error('Failed to load facts:', error);
+        }
+        return false;
+    }
+    
+    showFact(index) {
+        if (!this.facts || this.facts.length === 0) return;
+        
+        const fact = this.facts[index];
+        document.getElementById('fact-icon').textContent = fact.icon;
+        document.getElementById('fact-title').textContent = fact.title;
+        document.getElementById('fact-value').textContent = fact.value;
+        document.getElementById('fact-description').textContent = fact.description;
+        
+        // Update indicators
+        document.querySelectorAll('.fact-dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === index);
+        });
+        
+        this.currentIndex = index;
+    }
+    
+    updateIndicators() {
+        const indicator = document.getElementById('fact-indicator');
+        indicator.innerHTML = this.facts.map((_, i) => 
+            `<span class="fact-dot ${i === 0 ? 'active' : ''}"></span>`
+        ).join('');
+    }
+    
+    start() {
+        this.container.style.display = 'block';
+        
+        if (this.facts.length > 1) {
+            this.intervalId = setInterval(() => {
+                this.showFact((this.currentIndex + 1) % this.facts.length);
+            }, 4000); // Change fact every 4 seconds
+        }
+    }
+    
+    stop() {
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+        this.container.style.display = 'none';
+    }
+}
 
 // Handle CAR download
 document.getElementById('download-btn').addEventListener('click', async () => {
@@ -113,14 +205,28 @@ document.getElementById('download-btn').addEventListener('click', async () => {
     btn.querySelector('.btn-loading').style.display = 'inline-flex';
     progressContainer.style.display = 'block';
     
+    // Start facts carousel during download
+    factsCarousel = new FactsCarousel();
+    await factsCarousel.loadFacts();
+    factsCarousel.start();
+    
     const eventSource = new EventSource('/download-car');
     
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         
-        if (data.status === 'downloading' && data.progress) {
-            progressFill.style.width = `${data.progress}%`;
-            progressText.textContent = `${Math.round(data.progress)}% - ${formatBytes(data.current)} / ${formatBytes(data.total)}`;
+        if (data.status === 'starting') {
+            progressFill.style.width = '10%';
+            progressText.textContent = 'Connecting to Bluesky...';
+        } else if (data.status === 'downloading') {
+            progressFill.style.width = '25%';
+            progressText.textContent = 'Downloading archive...';
+        } else if (data.status === 'processing') {
+            progressFill.style.width = '60%';
+            progressText.textContent = 'Processing CAR file...';
+        } else if (data.status === 'analyzing') {
+            progressFill.style.width = '85%';
+            progressText.textContent = 'Analyzing content...';
         } else if (data.status === 'completed') {
             progressFill.style.width = '100%';
             progressText.textContent = '100% - Download Complete!';
@@ -129,9 +235,19 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             carDownloaded = true;
             eventSource.close();
             
-            // Enable step 2
-            document.getElementById('step-select').classList.remove('disabled');
-            document.getElementById('process-btn').disabled = false;
+            // Stop facts carousel
+            if (factsCarousel) {
+                factsCarousel.stop();
+            }
+            
+            // Show stats if available
+            if (data.stats) {
+                displayCarStats(data.stats);
+            }
+            
+            // Enable step 2 with animation
+            enableStep2();
+            
             document.getElementById('download-status').textContent = '✓';
             document.getElementById('download-status').className = 'step-status completed';
         } else if (data.status === 'error') {
@@ -194,6 +310,13 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     progressContainer.style.display = 'block';
     progressFill.style.width = '0%';
     
+    // Start facts carousel during processing if not already running
+    if (!factsCarousel) {
+        factsCarousel = new FactsCarousel();
+        await factsCarousel.loadFacts();
+    }
+    factsCarousel.start();
+    
     try {
         const response = await fetch('/process-data', {
             method: 'POST',
@@ -217,17 +340,46 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                 try {
                     const data = JSON.parse(line.substring(6));
                     
-                    if (data.status === 'extracting') {
-                        progressText.textContent = data.message;
-                    } else if (data.status === 'progress') {
-                        messageDiv.textContent = `Extracted ${data.count} ${data.type}`;
+                    if (data.status === 'processing') {
+                        if (data.progress) {
+                            progressFill.style.width = `${data.progress}%`;
+                            progressText.textContent = `${data.progress}% - ${data.message}`;
+                        } else {
+                            progressText.textContent = data.message;
+                        }
+                        messageDiv.textContent = data.message;
                         messageDiv.className = 'step-message info';
-                    } else if (data.status === 'hydrating') {
+                    } else if (data.status === 'filtering') {
+                        messageDiv.textContent = data.message;
+                        messageDiv.className = 'step-message info';
+                        
+                        // Show detailed filtering info
+                        if (data.count !== undefined) {
+                            const filterDetail = document.createElement('div');
+                            filterDetail.className = 'filter-detail';
+                            filterDetail.style.fontSize = '0.9em';
+                            filterDetail.style.color = '#666';
+                            filterDetail.style.marginTop = '0.5rem';
+                            
+                            let detailText = `✓ ${data.type}: ${data.count.toLocaleString()} items`;
+                            if (data.original_count && data.original_count !== data.count) {
+                                detailText += ` (limited from ${data.original_count.toLocaleString()})`;
+                            }
+                            filterDetail.textContent = detailText;
+                            
+                            // Remove previous detail for this type and add new one
+                            const existingDetail = messageDiv.querySelector(`.filter-detail[data-type="${data.type}"]`);
+                            if (existingDetail) {
+                                existingDetail.remove();
+                            }
+                            filterDetail.setAttribute('data-type', data.type);
+                            messageDiv.appendChild(filterDetail);
+                        }
+                    } else if (data.status === 'finalizing') {
+                        progressFill.style.width = `${data.progress || 100}%`;
                         progressText.textContent = data.message;
-                        progressFill.style.width = '50%';
-                    } else if (data.status === 'hydrating_progress') {
-                        progressFill.style.width = `${50 + (data.progress / 2)}%`;
-                        progressText.textContent = `Fetching engagement data... ${Math.round(data.progress)}%`;
+                        messageDiv.textContent = data.message;
+                        messageDiv.className = 'step-message success';
                     } else if (data.status === 'completed') {
                         progressFill.style.width = '100%';
                         progressText.textContent = 'Processing complete!';
@@ -235,6 +387,11 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         messageDiv.className = 'step-message success';
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
+                        
+                        // Stop facts carousel
+                        if (factsCarousel) {
+                            factsCarousel.stop();
+                        }
                         
                         // Redirect to dashboard after 2 seconds
                         setTimeout(() => {
@@ -263,6 +420,74 @@ function formatBytes(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function enableStep2() {
+    const step2 = document.getElementById('step-select');
+    const step2Content = step2.querySelector('.step-content');
+    
+    // Remove collapsed class and show content
+    step2.classList.remove('collapsed');
+    step2Content.style.display = 'block';
+    
+    // Add smooth transition
+    step2.style.transition = 'opacity 0.3s ease';
+    step2.style.opacity = '1';
+    
+    // Enable the process button
+    document.getElementById('process-btn').disabled = false;
+    
+    // Scroll to step 2
+    setTimeout(() => {
+        step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+}
+
+function displayCarStats(stats) {
+    const carStatsDiv = document.getElementById('car-stats');
+    const statsGrid = document.getElementById('stats-grid');
+    
+    if (!stats) return;
+    
+    // Create stat items
+    const statItems = [
+        { label: 'Posts', value: stats.posts || 0, icon: '📝' },
+        { label: 'Replies', value: stats.replies || 0, icon: '💬' },
+        { label: 'Likes', value: stats.likes || 0, icon: '❤️' },
+        { label: 'Reposts', value: stats.reposts || 0, icon: '🔄' }
+    ];
+    
+    // Add total if available
+    if (stats.total) {
+        statItems.push({ label: 'Total', value: stats.total, icon: '📊' });
+    }
+    
+    // Debug info
+    if (stats.debug) {
+        console.log('CAR Stats Debug Info:', stats.debug);
+    }
+    
+    if (stats.error) {
+        console.error('CAR parsing error:', stats.error);
+    }
+    
+    statsGrid.innerHTML = statItems.map(item => `
+        <div class="stat-item">
+            <p class="stat-value">${item.icon} ${item.value.toLocaleString()}</p>
+            <p class="stat-label">${item.label}</p>
+        </div>
+    `).join('');
+    
+    // Show the stats with animation
+    carStatsDiv.style.display = 'block';
+    carStatsDiv.style.opacity = '0';
+    carStatsDiv.style.transform = 'translateY(10px)';
+    carStatsDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    
+    setTimeout(() => {
+        carStatsDiv.style.opacity = '1';
+        carStatsDiv.style.transform = 'translateY(0)';
+    }, 100);
 }
 </script>
 {% endblock %}
