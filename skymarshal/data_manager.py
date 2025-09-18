@@ -490,29 +490,66 @@ class DataManager:
     def load_exported_data(self, export_path: Path) -> List[ContentItem]:
         """Load data from export file."""
         with open(export_path, "r") as f:
-            data = json.load(f)
+            raw_data = json.load(f)
 
-        content_items = []
+        # Normalize historical export formats
+        if isinstance(raw_data, list):
+            data = {"posts": raw_data}
+        elif isinstance(raw_data, dict):
+            # Older exports sometimes nest under "data"
+            if "posts" not in raw_data and isinstance(raw_data.get("data"), dict):
+                data = raw_data["data"]
+            else:
+                data = raw_data
+        else:
+            data = {}
 
-        for post_data in data.get("posts", []):
-            engagement = post_data.get("engagement", {})
+        def _coerce_list(value: Any) -> List[Dict[str, Any]]:
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                return list(value.values())
+            return []
+
+        posts_section = _coerce_list(
+            data.get("posts")
+            or data.get("processed_posts")
+            or data.get("primary_items")
+        )
+        likes_section = _coerce_list(data.get("likes") or data.get("processed_likes"))
+        reposts_section = _coerce_list(
+            data.get("reposts") or data.get("processed_reposts")
+        )
+
+        content_items: List[ContentItem] = []
+
+        for post_data in posts_section:
+            if not isinstance(post_data, dict):
+                continue
+
+            engagement = post_data.get("engagement") or {}
             content_item = ContentItem(
-                uri=post_data["uri"],
-                cid=post_data["cid"],
-                content_type=post_data["type"],
-                text=post_data["text"],
-                created_at=post_data["created_at"],
-                like_count=engagement.get("likes", 0),
-                repost_count=engagement.get("reposts", 0),
-                reply_count=engagement.get("replies", 0),
-                engagement_score=engagement.get("score", 0),
-                raw_data=post_data.get("raw_data"),
+                uri=post_data.get("uri"),
+                cid=post_data.get("cid"),
+                content_type=post_data.get("type", "post"),
+                text=post_data.get("text"),
+                created_at=post_data.get("created_at"),
+                like_count=int((engagement or {}).get("likes", 0) or 0),
+                repost_count=int((engagement or {}).get("reposts", 0) or 0),
+                reply_count=int((engagement or {}).get("replies", 0) or 0),
+                engagement_score=float((engagement or {}).get("score", 0) or 0.0),
+                raw_data=post_data.get("raw_data") or post_data,
             )
             # Always recalculate engagement score to ensure consistency
             content_item.update_engagement_score()
             content_items.append(content_item)
 
-        for like in data.get("likes", []):
+        for like in likes_section:
+            if not isinstance(like, dict):
+                continue
+
             like_item = ContentItem(
                 uri=like.get("uri"),
                 cid=like.get("cid"),
@@ -532,7 +569,10 @@ class DataManager:
             like_item.update_engagement_score()
             content_items.append(like_item)
 
-        for rp in data.get("reposts", []):
+        for rp in reposts_section:
+            if not isinstance(rp, dict):
+                continue
+
             repost_item = ContentItem(
                 uri=rp.get("uri"),
                 cid=rp.get("cid"),

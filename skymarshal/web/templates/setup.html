@@ -235,6 +235,11 @@ class FirehoseStream {
             // Add some mock messages for demo
             this.addMockMessages();
         }
+        
+        // Set up periodic health check to ensure firehose stays running
+        this.healthCheckInterval = setInterval(() => {
+            this.ensureFirehoseRunning();
+        }, 30000); // Check every 30 seconds
     }
     
     addMessage(data) {
@@ -335,11 +340,8 @@ class FirehoseStream {
     }
     
     stop() {
-        if (this.eventSource) {
-            this.eventSource.close();
-            this.eventSource = null;
-        }
-
+        // Don't actually stop the firehose - keep it running
+        // Just reset UI state but maintain the connection
         document.body.style.overflow = 'auto';
         this.container.classList.remove('fullscreen');
 
@@ -358,8 +360,25 @@ class FirehoseStream {
             overlay.classList.remove('fade-out');
             overlay.style.display = 'none';
         }
+
+        // Keep container visible and active at bottom of the page
+        this.container.style.display = 'block';
         
-        this.container.style.display = 'none';
+        // Add a status message indicating processing is complete but firehose continues
+        this.addStatusMessage('Processing complete! Firehose continues running...');
+        
+        // Ensure firehose keeps running by restarting if needed
+        this.ensureFirehoseRunning();
+    }
+    
+    ensureFirehoseRunning() {
+        // Check if EventSource is still connected, restart if not
+        if (!this.eventSource || this.eventSource.readyState === EventSource.CLOSED) {
+            this.addStatusMessage('Restarting firehose connection...');
+            setTimeout(() => {
+                this.start();
+            }, 1000);
+        }
     }
 }
 
@@ -614,7 +633,8 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
                         
-                        // Stop firehose and restore step 2
+                        // Keep firehose running but restore step 2
+                        // Call stop() which now keeps firehose running
                         if (firehoseStream) {
                             firehoseStream.stop();
                         }
@@ -645,6 +665,7 @@ document.getElementById('process-btn').addEventListener('click', async () => {
         btn.querySelector('.btn-text').style.display = 'inline';
         btn.querySelector('.btn-loading').style.display = 'none';
 
+        // Keep firehose running even on error
         if (firehoseStream) {
             firehoseStream.stop();
         }

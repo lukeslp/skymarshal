@@ -65,6 +65,53 @@ def get_auth_manager():
         return auth_storage[session_id]
     return None
 
+def get_json_path():
+    """Get the current user's JSON data path with fallback logic"""
+    json_path = session.get('json_path')
+    session_id = session.get('session_id')
+    
+    # Try to get json_path from progress_data if not in session
+    if not json_path and session_id and session_id in progress_data:
+        json_path = progress_data[session_id].get('json_path')
+        if json_path:
+            # Restore to session for future use
+            session['json_path'] = json_path
+            session.modified = True
+    
+    # Fallback: look for recent JSON files for this user
+    if not json_path:
+        try:
+            handle = session.get('user_handle')
+            if not handle:
+                return None
+                
+            json_dir = Path.home() / '.skymarshal' / 'json'
+            if json_dir.exists():
+                # Look for JSON files matching the user's handle
+                patterns = [
+                    f"{handle}_*.json",
+                    f"*{handle.split('.')[0]}*.json",
+                    "*.json"  # Any JSON file as last resort
+                ]
+                
+                json_files = []
+                for pattern in patterns:
+                    found_files = list(json_dir.glob(pattern))
+                    json_files.extend(found_files)
+                    if found_files:
+                        break
+                
+                if json_files:
+                    # Use the most recent JSON file
+                    latest_json = max(json_files, key=lambda p: p.stat().st_mtime)
+                    json_path = str(latest_json)
+                    session['json_path'] = json_path
+                    session.modified = True
+        except Exception as e:
+            pass
+    
+    return json_path
+
 def get_car_quick_stats(car_path):
     """Get quick statistics from a CAR file without full processing"""
     try:
@@ -904,49 +951,11 @@ def process_data():
 @login_required
 def dashboard():
     """Main dashboard with overview cards and search interface"""
-    json_path = session.get('json_path')
-    session_id = session.get('session_id')
     handle = session['user_handle']
+    json_path = get_json_path()
     
     print(f"DEBUG: Dashboard access for {handle}")
-    print(f"DEBUG: json_path in session: {json_path}")
-    print(f"DEBUG: Session keys: {list(session.keys())}")
-    
-    # Try to get json_path from progress_data if not in session
-    if not json_path and session_id and session_id in progress_data:
-        json_path = progress_data[session_id].get('json_path')
-        if json_path:
-            print(f"DEBUG: Retrieved json_path from progress_data: {json_path}")
-    
-    # Fallback: look for recent JSON files for this user
-    if not json_path:
-        try:
-            json_dir = Path.home() / '.skymarshal' / 'json'
-            if json_dir.exists():
-                # Look for JSON files matching the user's handle
-                patterns = [
-                    f"{handle}_*.json",
-                    f"*{handle.split('.')[0]}*.json",
-                    "*.json"  # Any JSON file as last resort
-                ]
-                
-                json_files = []
-                for pattern in patterns:
-                    found_files = list(json_dir.glob(pattern))
-                    print(f"DEBUG: Pattern '{pattern}' found {len(found_files)} files: {[f.name for f in found_files]}")
-                    json_files.extend(found_files)
-                    if found_files:
-                        break
-                
-                if json_files:
-                    # Use the most recent JSON file
-                    latest_json = max(json_files, key=lambda p: p.stat().st_mtime)
-                    json_path = str(latest_json)
-                    session['json_path'] = json_path
-                    session.modified = True
-                    print(f"DEBUG: Using fallback JSON file: {latest_json}")
-        except Exception as e:
-            print(f"DEBUG: Exception in JSON fallback logic: {e}")
+    print(f"DEBUG: json_path resolved: {json_path}")
     
     if not json_path:
         print("DEBUG: No JSON path found, redirecting to setup")
@@ -988,10 +997,10 @@ def dashboard():
 def search():
     """Search and filter content"""
     data = request.get_json()
-    json_path = session.get('json_path')
+    json_path = get_json_path()
     
     if not json_path:
-        return jsonify({'success': False, 'error': 'No data loaded'}), 400
+        return jsonify({'success': False, 'error': 'No data loaded. Please complete setup first.'}), 400
     
     # Load data
     auth_manager = get_auth_manager()
@@ -1054,9 +1063,9 @@ def search():
             'content_type': item.content_type.value,
             'text': item.text[:200] + '...' if len(item.text) > 200 else item.text,
             'created_at': item.created_at.isoformat(),
-            'likes': item.likes,
-            'reposts': item.reposts,
-            'replies': item.replies,
+            'likes': item.like_count,
+            'reposts': item.repost_count,
+            'replies': item.reply_count,
             'engagement_score': item.engagement_score,
             'has_media': item.has_media
         })
@@ -1066,6 +1075,99 @@ def search():
         'results': serialized_results,
         'total': len(results)
     })
+
+@app.route('/hydrate-engagement', methods=['POST'])
+@login_required
+def hydrate_engagement():
+    """Hydrate engagement data for user's posts"""
+    auth_manager = get_auth_manager()
+    if not auth_manager or not auth_manager.client:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    json_path = get_json_path()
+    if not json_path:
+        return jsonify({'success': False, 'error': 'No data loaded. Please complete setup first.'}), 400
+    
+    def generate():
+        try:
+            print(f"DEBUG: Starting hydration for json_path: {json_path}")
+            
+            # Set up required directories
+            skymarshal_dir = Path.home() / '.skymarshal'
+            backups_dir = skymarshal_dir / 'cars'
+            json_dir = skymarshal_dir / 'json'
+            
+            # Create default settings
+            settings_file = Path.home() / ".car_inspector_settings.json"
+            settings_manager = SettingsManager(settings_file)
+            settings = settings_manager.settings
+            
+            data_manager = DataManager(
+                auth_manager=auth_manager,
+                settings=settings,
+                skymarshal_dir=skymarshal_dir,
+                backups_dir=backups_dir,
+                json_dir=json_dir
+            )
+            
+            # Load current data
+            print(f"DEBUG: Loading data from {json_path}")
+            if not Path(json_path).exists():
+                yield f"data: {json.dumps({'status': 'error', 'error': f'Data file not found: {json_path}'})}\n\n"
+                return
+                
+            items = data_manager.load_exported_data(Path(json_path))
+            print(f"DEBUG: Loaded {len(items)} total items")
+            
+            # Filter to only posts and replies (these are the ones that need engagement hydration)
+            posts_and_replies = [item for item in items if item.content_type in ["post", "reply"]]
+            print(f"DEBUG: Found {len(posts_and_replies)} posts/replies to hydrate")
+            
+            if not posts_and_replies:
+                yield f"data: {json.dumps({'status': 'error', 'error': 'No posts or replies found to hydrate'})}\n\n"
+                return
+            
+            yield f"data: {json.dumps({'status': 'starting', 'message': f'Starting engagement hydration for {len(posts_and_replies)} posts...', 'total': len(posts_and_replies)})}\n\n"
+            
+            # Hydrate the engagement data
+            print("DEBUG: Starting engagement hydration")
+            data_manager._hydrate_post_engagement(posts_and_replies)
+            print("DEBUG: Engagement hydration completed")
+            
+            yield f"data: {json.dumps({'status': 'progress', 'message': f'Hydrated engagement data for {len(posts_and_replies)} posts', 'progress': 80})}\n\n"
+            
+            yield f"data: {json.dumps({'status': 'progress', 'message': 'Saving hydrated data...', 'progress': 90})}\n\n"
+            
+            # Save the updated data back to the JSON file
+            export_data = []
+            for item in items:
+                export_data.append({
+                    'uri': item.uri,
+                    'cid': item.cid,
+                    'content_type': item.content_type,
+                    'text': item.text,
+                    'created_at': item.created_at,
+                    'like_count': item.like_count,
+                    'repost_count': item.repost_count,
+                    'reply_count': item.reply_count,
+                    'engagement_score': item.engagement_score,
+                    'raw_data': item.raw_data
+                })
+            
+            # Write updated data back to file
+            import json as json_lib
+            with open(json_path, 'w') as f:
+                json_lib.dump(export_data, f, indent=2, default=str)
+            
+            yield f"data: {json.dumps({'status': 'completed', 'message': f'Successfully hydrated engagement data for {len(posts_and_replies)} posts!', 'hydrated_count': len(posts_and_replies)})}\n\n"
+            
+        except Exception as e:
+            print(f"DEBUG: Hydration error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'status': 'error', 'error': str(e)})}\n\n"
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/delete', methods=['POST'])
 @login_required
