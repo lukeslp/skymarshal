@@ -174,14 +174,23 @@ class DataManager:
                 )
 
             if posts:
+                console.print()
+                console.print("[bold cyan]Step 3:[/] Fetching engagement data for posts...")
                 self._hydrate_post_engagement(posts)
+                console.print("[green]✓[/] Post engagement data updated")
 
             if reposts and self.settings.use_subject_engagement_for_reposts:
+                console.print()
+                console.print("[bold cyan]Step 4:[/] Fetching engagement data for reposts...")
                 self._hydrate_repost_subject_engagement(reposts)
+                console.print("[green]✓[/] Repost engagement data updated")
 
             if self.settings.fetch_order == "oldest":
                 self._sort_by_date(posts, likes, reposts)
 
+            console.print()
+            console.print("[bold cyan]Final Step:[/] Saving data to file...")
+            
             export_data = self._build_export_data(
                 handle, did, posts, likes, reposts, cats
             )
@@ -192,6 +201,9 @@ class DataManager:
 
             with open(export_path, "w") as f:
                 json.dump(export_data, f, indent=2)
+            
+            total_items = len(posts) + len(likes) + len(reposts)
+            console.print(f"[green]✓[/] Saved {total_items} items to [cyan]{export_path.name}[/]")
 
             return export_path
 

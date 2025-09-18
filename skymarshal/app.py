@@ -201,28 +201,33 @@ class InteractiveContentManager:
         console.print(
             Rule("[bright_magenta]Data Management[/]", style="bright_magenta")
         )
+        console.print()
+        console.print("[dim]💡 Tip: API downloads provide complete engagement data (likes, reposts, replies)[/]")
+        console.print("[dim]   CAR files are best used as backups for data preservation[/]")
+        console.print()
 
         data_choices = {
-            "1": ("complete", "Create & process complete backup — recommended"),
+            "1": ("download", "Download data from Bluesky API (recommended)"),
             "2": ("load", "Load previously saved data file"),
-            "3": ("process", "Convert existing backup file"),
-            "4": ("download", "Download fresh data from Bluesky"),
-            "5": ("timestamp", "Create timestamped backup"),
-            "6": ("clear", "Clear local data and backups"),
+            "3": ("refresh", "Refresh engagement data for loaded content"),
+            "4": ("backup_create", "Create backup (.car file) for data preservation"),
+            "5": ("process", "Import from backup file (.car) - may lack engagement data"),
+            "6": ("timestamp", "Create timestamped backup"),
+            "7": ("clear", "Clear local data and backups"),
             "b": ("back", "Back to main menu"),
         }
 
         choice, action = self.ui.prompt_with_choices(
-            "Select option",
+            "Data Management",
             choices=data_choices,
             default="1",
             context="data_management",
             allow_navigation=False,  # Back is built into choices
         )
 
-        if choice == "complete":
-            # One-step: download CAR then import/process and load
-            result = self._startup_download_and_import_backup()
+        if choice == "download":
+            # Primary option: Download fresh data from API
+            result = self.download_data_flow()
             if result:
                 return
         elif choice == "load":
@@ -232,23 +237,62 @@ class InteractiveContentManager:
             )
             if self._select_existing_file_with_navigation(existing_files):
                 return
+        elif choice == "refresh":
+            # Refresh engagement data for currently loaded content
+            if not self.current_data:
+                console.print("[yellow]No data loaded to refresh[/]")
+                console.print("Load some data first, then use this option to update engagement metrics")
+            else:
+                console.print(f"Refreshing engagement data for {len(self.current_data)} items...")
+                try:
+                    self.data_manager.hydrate_items(self.current_data)
+                    console.print("[green]✓[/] Engagement data refreshed")
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Refresh partially failed: {e}[/]")
+        elif choice == "backup_create":
+            # Create backup file for data preservation
+            if self.auth.current_handle:
+                handle = self.auth.current_handle
+            else:
+                while True:
+                    handle, action = self.ui.input_with_navigation(
+                        "Enter your handle for backup: @", context="handle"
+                    )
+                    if action in ["back", "main"]:
+                        return
+                    if handle:
+                        handle = self.auth.normalize_handle(handle)
+                        break
+                    console.print("Handle is required")
+            console.print("[yellow]Creating backup file...[/]")
+            backup_path = self.data_manager.download_backup(handle)
+            if backup_path:
+                console.print(f"[green]✓[/] Backup saved: {backup_path.name}")
+            else:
+                console.print("[red]Backup failed[/]")
         elif choice == "process":
-            self.import_backup_flow()
-        elif choice == "download":
-            # Direct download path
-            result = self.download_data_flow()
-            if result:
-                return
+            # Import from backup - show warning about engagement data
+            console.print("[yellow]⚠️  Warning: CAR file imports may have incomplete engagement data[/]")
+            console.print("[yellow]   Consider downloading fresh API data instead for complete metrics[/]")
+            console.print()
+            if Confirm.ask("Continue with backup import?", default=False):
+                self.import_backup_flow()
         elif choice == "timestamp":
-            handle, handle_action = self.ui.prompt_text(
-                "Handle to create backup for: @",
-                default=self.auth.current_handle or "",
-                context="handle",
-            )
-            if handle_action == "back":
-                return
-            if handle:
-                self.data_manager.create_timestamped_backup(handle)
+            if self.auth.current_handle:
+                handle = self.auth.current_handle
+            else:
+                handle, handle_action = self.ui.prompt_text(
+                    "Handle to create backup for: @",
+                    default="",
+                    context="handle",
+                )
+                if handle_action == "back":
+                    return
+                if not handle:
+                    console.print("Handle is required")
+                    return
+                handle = self.auth.normalize_handle(handle)
+            self.data_manager.create_timestamped_backup(handle)
         elif choice == "clear":
             # Clear local data for current or entered handle
             if self.auth.current_handle:
@@ -288,7 +332,7 @@ class InteractiveContentManager:
                         self.current_data = []
                         self.current_data_file = None
                 else:
-                    console.print("[dim]Nothing was deleted[/dim]")
+                    console.print("[dim]No files found to delete[/dim]")
 
     def _get_download_options(self):
         """Get backup options (consolidated function for both startup and main flows)."""
@@ -381,33 +425,39 @@ class InteractiveContentManager:
         if password_action == "back":
             return False
 
-        with console.status("Authenticating and downloading..."):
-            try:
-                if not self.auth.authenticate_client(handle, password):
-                    return False
-
-                export_path = self.data_manager.export_user_data(
-                    handle,
-                    limit,
-                    categories=categories,
-                    date_start=date_start,
-                    date_end=date_end,
-                    replace_existing=True,
-                )
-            except Exception as e:
-                console.print(f"Download error: {e}")
+        try:
+            console.print()
+            console.print("[bold cyan]Step 1:[/] Authenticating...")
+            if not self.auth.authenticate_client(handle, password):
+                console.print("[red]Authentication failed[/]")
                 return False
+            console.print("[green]✓[/] Authentication successful")
+            
+            console.print()
+            console.print("[bold cyan]Step 2:[/] Downloading data from Bluesky...")
+            export_path = self.data_manager.export_user_data(
+                handle,
+                limit,
+                categories=categories,
+                date_start=date_start,
+                date_end=date_end,
+                replace_existing=True,
+            )
+        except Exception as e:
+            console.print(f"[red]Download error:[/] {e}")
+            return False
 
-        # Handle results outside the status context
+        # Handle results
         if export_path:
-            console.print(f"Data downloaded successfully: {export_path.name}")
+            console.print()
+            console.print(f"[green]✓[/] Data downloaded successfully: [cyan]{export_path.name}[/]")
             console.print()
 
             if self.load_data_with_stats_and_navigation(export_path, "data download"):
                 return True
             return False
         else:
-            console.print("Download failed")
+            console.print("[red]Download failed[/]")
             return False
 
     def download_backup_flow(self):
@@ -423,19 +473,28 @@ class InteractiveContentManager:
 
     def import_backup_flow(self):
         """Process existing backup files into readable format."""
+        console.print("[yellow]⚠️  Backup Import Information:[/]")
+        console.print("• Backup files preserve your content but may have zero engagement counts")
+        console.print("• After importing, use 'Refresh engagement data' to get current metrics")
+        console.print("• For best results, consider downloading fresh API data instead")
+        console.print()
+        
         # Only show backup files belonging to current user
         backup_files = self.data_manager.get_user_files(self.auth.current_handle, "backup")
         if not backup_files:
             console.print(f"No backup files found for @{self.auth.current_handle}")
             return
 
-        console.print()
-        console.print("Select backup to import")
-        console.print()
-
+        console.print("Select backup to import:")
         selected_backup = self.ui.show_file_picker(backup_files)
         if selected_backup:
-            self.data_manager.import_backup_merge(selected_backup, self.auth.current_handle)
+            console.print("Importing backup file...")
+            imported_path = self.data_manager.import_backup_merge(selected_backup, self.auth.current_handle)
+            if imported_path:
+                console.print(f"[green]✓[/] Backup imported: {imported_path.name}")
+                console.print("[dim]Tip: Use 'Refresh engagement data' to update likes/reposts/replies[/]")
+            else:
+                console.print("[red]Failed to import backup[/]")
 
     def handle_search_analyze(self):
         """Handle search, analyze, and manage content flow."""
@@ -1197,7 +1256,9 @@ class InteractiveContentManager:
     def _startup_download_and_import_backup(self):
         """Download and import backup file during startup."""
         console.print()
-        console.print("Download & Process Backup")
+        console.print("[yellow]Download & Process Backup[/]")
+        console.print("[yellow]⚠️  Note: Backup files may have incomplete engagement data[/]")
+        console.print("[yellow]   Use 'Refresh engagement data' after loading to get current metrics[/]")
         console.print()
 
         if self.auth.current_handle:
@@ -1259,39 +1320,53 @@ class InteractiveContentManager:
 
     def _handle_backup_only_scenario(self, existing_files):
         """Handle case with only backup files available."""
-        console.print("Backup files found (no processed data)")
-        console.print("Backup files need to be imported and processed first")
+        console.print("[bright_yellow]Only backup files found (no processed data)[/]")
+        console.print("[yellow]⚠️  Note: Backup files may have incomplete engagement data[/]")
+        console.print("[yellow]   Consider downloading fresh API data for complete metrics[/]")
         console.print()
 
-        if len(existing_files) == 1:
-            backup_file = existing_files[0]
-            console.print(f"Found backup file: {backup_file.name}")
-            if Confirm.ask("Import and process this backup file?", default=True):
-                return self._import_backup_and_load_with_navigation(backup_file)
-        else:
-            console.print("Multiple backup files found")
-            selected_backup = self.ui.show_file_picker(existing_files)
-            if selected_backup:
-                return self._import_backup_and_load_with_navigation(selected_backup)
-
-        if Confirm.ask("Download fresh data instead?", default=True):
-            return self._startup_download_fresh_data()
-        return False
+        while True:
+            backup_choices = {
+                "1": ("api", "Download fresh data from Bluesky API (recommended)"),
+                "2": ("backup", "Import existing backup file"),
+            }
+            
+            choice, action = self.ui.prompt_with_choices(
+                "Choose option",
+                choices=backup_choices,
+                default="1",
+                context="backup_only",
+                allow_navigation=False,
+            )
+            
+            if choice == "api":
+                return self._startup_download_fresh_data()
+            elif choice == "backup":
+                if len(existing_files) == 1:
+                    backup_file = existing_files[0]
+                    console.print(f"Found backup file: {backup_file.name}")
+                    return self._import_backup_and_load_with_navigation(backup_file)
+                else:
+                    console.print("Multiple backup files found:")
+                    selected_backup = self.ui.show_file_picker(existing_files)
+                    if selected_backup:
+                        return self._import_backup_and_load_with_navigation(selected_backup)
+                    continue
+            
+            return False
 
     def _handle_mixed_data_scenario(self, json_files, backup_files):
         """Handle case with both data and backup files available."""
         while True:
             console.print(Rule("[bright_cyan]Data files found[/]", style="bright_cyan"))
+            console.print("[dim]💡 API downloads provide the most accurate engagement data[/]")
+            console.print()
 
             mixed_choices = {
-                "1": ("json", "Load existing processed data"),
-                "2": ("backup", "Import from existing backup file"),
-                "3": (
-                    "download_backup",
-                    "Download new complete backup and process",
-                ),
-                "4": ("download_fresh", "Download fresh data from Bluesky"),
-                "5": ("clear", "Clear local data and backups"),
+                "1": ("download_fresh", "Download fresh data from Bluesky API (recommended)"),
+                "2": ("json", "Load existing processed data"),
+                "3": ("backup", "Import from existing backup file (may lack engagement data)"),
+                "4": ("clear", "Clear local data and backups"),
                 "q": ("quit", "Quit"),
             }
 
@@ -1303,17 +1378,19 @@ class InteractiveContentManager:
                 allow_navigation=False,
             )
 
-            if choice == "json":
+            if choice == "download_fresh":
+                # Fresh data download path (now primary option)
+                return self._startup_download_fresh_data()
+            elif choice == "json":
                 return self._handle_json_only_scenario(json_files)
             elif choice == "backup":
-                # Import an existing backup
-                return self._handle_backup_only_scenario(backup_files)
-            elif choice == "download_backup":
-                # Download and process new backup
-                return self._startup_download_and_import_backup()
-            elif choice == "download_fresh":
-                # Fresh data download path
-                return self._startup_download_fresh_data()
+                # Import an existing backup with warning
+                console.print("[yellow]⚠️  Warning: Backup files may have incomplete engagement data[/]")
+                console.print("[yellow]   Consider downloading fresh API data for complete metrics[/]")
+                console.print()
+                if Confirm.ask("Continue with backup import?", default=False):
+                    return self._handle_backup_only_scenario(backup_files)
+                continue
             elif choice == "clear":
                 # Clear local data for current or entered handle
                 if self.auth.current_handle:
@@ -1362,7 +1439,10 @@ class InteractiveContentManager:
 
     def _import_backup_and_load_with_navigation(self, backup_path):
         """Import a backup file and load with stats and navigation."""
-        console.print(f"Importing backup file: {backup_path.name}")
+        console.print(f"[yellow]⚠️  Importing backup file: {backup_path.name}[/]")
+        console.print("[yellow]Note: Engagement data may be incomplete or zero[/]")
+        console.print("[yellow]Use 'Refresh engagement data' after loading to get current metrics[/]")
+        console.print()
 
         handle = self.auth.current_handle
         if not handle:
@@ -1389,7 +1469,8 @@ class InteractiveContentManager:
             backup_path, handle, categories=categories
         )
         if imported_path:
-            console.print("Backup file imported successfully.")
+            console.print("[green]✓[/] Backup file imported successfully.")
+            console.print("[dim]Tip: Use Data Management > Refresh engagement data to update metrics[/]")
             console.print()
             return self.load_data_with_stats_and_navigation(imported_path, "Backup import")
         else:
