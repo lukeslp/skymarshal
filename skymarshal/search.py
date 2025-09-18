@@ -224,13 +224,12 @@ class SearchManager:
                 and filters.min_replies <= rp <= filters.max_replies
             )
 
-        # Keyword regex precompute
-        regex = None
+        # Keyword regex precompute with search operators
+        positive_regexes = {}
+        negative_regexes = []
+        required_regexes = []
         if filters.keywords:
-            keyword_pattern = "|".join(
-                re.escape(keyword) for keyword in filters.keywords
-            )
-            regex = re.compile(keyword_pattern, re.IGNORECASE)
+            positive_regexes, negative_regexes, required_regexes = self._compile_search_patterns(filters.keywords)
 
         if show_progress:
             with Progress(
@@ -240,14 +239,14 @@ class SearchManager:
                 console=console,
             ) as progress:
                 # Step 1: Keyword filter (optional)
-                if regex is not None:
+                if positive_regexes or negative_regexes or required_regexes:
                     task_kw = progress.add_task(
                         f"Applying keyword filter 0/{len(filtered_items)}",
                         total=len(filtered_items),
                     )
                     tmp = []
                     for it in filtered_items:
-                        if it.text and regex.search(it.text):
+                        if self._passes_keyword_filters(it.text, positive_regexes, negative_regexes, required_regexes):
                             tmp.append(it)
                         progress.advance(task_kw, 1)
                     filtered_items = tmp
@@ -264,9 +263,10 @@ class SearchManager:
                     progress.advance(task_criteria, 1)
                 filtered_items = tmp2
         else:
-            if regex is not None:
+            if positive_regexes or negative_regexes or required_regexes:
                 filtered_items = [
-                    it for it in filtered_items if it.text and regex.search(it.text)
+                    it for it in filtered_items 
+                    if self._passes_keyword_filters(it.text, positive_regexes, negative_regexes, required_regexes)
                 ]
             filtered_items = [it for it in filtered_items if passes(it)]
 
@@ -627,3 +627,117 @@ class SearchManager:
             return bool(handle and subh_lower in handle.lower())
 
         return [it for it in filtered_items if _subj_handle_match(it)]
+    
+    def _compile_search_patterns(self, keywords: List[str]):
+        """Compile search patterns with support for basic operators.
+        
+        Supported operators:
+        - "exact phrase" - Case-sensitive exact phrase matching
+        - \\bword\\b - Word boundary matching (whole words only)
+        - -keyword - Negation (exclude content containing keyword)
+        - +keyword - Required (content must contain keyword)
+        - Plain keyword - Case-insensitive substring matching
+        
+        Returns:
+            tuple: (positive_regexes_dict, negative_regexes, required_regexes)
+        """
+        case_sensitive_patterns = []
+        case_insensitive_patterns = []
+        negative_patterns = []
+        required_patterns = []
+        
+        for keyword in keywords:
+            keyword = keyword.strip()
+            if not keyword:
+                continue
+                
+            # Handle negation (-keyword)
+            if keyword.startswith('-') and len(keyword) > 1:
+                neg_keyword = keyword[1:]
+                if neg_keyword.startswith('"') and neg_keyword.endswith('"') and len(neg_keyword) > 2:
+                    # Exact phrase negation: -"exact phrase"
+                    exact_phrase = neg_keyword[1:-1]
+                    negative_patterns.append(('case_sensitive', re.escape(exact_phrase)))
+                elif neg_keyword.startswith('\\b') and neg_keyword.endswith('\\b'):
+                    # Word boundary negation: -\\bword\\b
+                    word = neg_keyword[2:-2]
+                    negative_patterns.append(('case_insensitive', r'\\b' + re.escape(word) + r'\\b'))
+                else:
+                    # Regular negation: -keyword (case-insensitive)
+                    negative_patterns.append(('case_insensitive', re.escape(neg_keyword)))
+                continue
+            
+            # Handle required keywords (+keyword)
+            if keyword.startswith('+') and len(keyword) > 1:
+                req_keyword = keyword[1:]
+                if req_keyword.startswith('"') and req_keyword.endswith('"') and len(req_keyword) > 2:
+                    # Required exact phrase: +"exact phrase"
+                    exact_phrase = req_keyword[1:-1]
+                    required_patterns.append(('case_sensitive', re.escape(exact_phrase)))
+                elif req_keyword.startswith('\\b') and req_keyword.endswith('\\b'):
+                    # Required word boundary: +\\bword\\b
+                    word = req_keyword[2:-2]
+                    required_patterns.append(('case_insensitive', r'\\b' + re.escape(word) + r'\\b'))
+                else:
+                    # Required keyword: +keyword (case-insensitive)
+                    required_patterns.append(('case_insensitive', re.escape(req_keyword)))
+                continue
+            
+            # Handle exact phrase matching ("exact phrase")
+            if keyword.startswith('"') and keyword.endswith('"') and len(keyword) > 2:
+                exact_phrase = keyword[1:-1]
+                case_sensitive_patterns.append(re.escape(exact_phrase))
+                continue
+            
+            # Handle word boundary matching (\\bword\\b)
+            if keyword.startswith('\\b') and keyword.endswith('\\b'):
+                word = keyword[2:-2]
+                case_insensitive_patterns.append(r'\\b' + re.escape(word) + r'\\b')
+                continue
+            
+            # Regular keyword (case-insensitive)
+            case_insensitive_patterns.append(re.escape(keyword))
+        
+        # Compile main regexes
+        positive_regexes = {}
+        if case_sensitive_patterns:
+            positive_regexes['case_sensitive'] = re.compile('|'.join(case_sensitive_patterns), 0)
+        if case_insensitive_patterns:
+            positive_regexes['case_insensitive'] = re.compile('|'.join(case_insensitive_patterns), re.IGNORECASE)
+        
+        negative_regexes = []
+        for case_type, pattern in negative_patterns:
+            flags = 0 if case_type == 'case_sensitive' else re.IGNORECASE
+            negative_regexes.append(re.compile(pattern, flags))
+        
+        required_regexes = []
+        for case_type, pattern in required_patterns:
+            flags = 0 if case_type == 'case_sensitive' else re.IGNORECASE
+            required_regexes.append(re.compile(pattern, flags))
+        
+        return positive_regexes, negative_regexes, required_regexes
+    
+    def _passes_keyword_filters(self, text: Optional[str], positive_regexes: dict, negative_regexes: List, required_regexes: List) -> bool:
+        """Check if text passes all keyword filter criteria."""
+        if not text:
+            # If there are any positive or required patterns, text must exist
+            return not positive_regexes and not required_regexes
+        
+        # Check negative patterns first (exclusions)
+        for neg_regex in negative_regexes:
+            if neg_regex.search(text):
+                return False
+        
+        # Check required patterns (all must match)
+        for req_regex in required_regexes:
+            if not req_regex.search(text):
+                return False
+        
+        # Check main positive patterns (at least one must match, or none if no positive patterns)
+        if positive_regexes:
+            for regex in positive_regexes.values():
+                if regex.search(text):
+                    return True
+            return False  # Had positive patterns but none matched
+        
+        return True  # No positive patterns to match

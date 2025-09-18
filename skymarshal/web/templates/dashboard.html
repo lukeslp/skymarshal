@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Overview Section -->
+    <section class="overview-section">
+        <h2>Content Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-content">
+                    <h3>Total Posts</h3>
+                    <p class="stat-value">{{ stats.total_posts }}</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">❤️</div>
+                <div class="stat-content">
+                    <h3>Total Likes</h3>
+                    <p class="stat-value">{{ stats.total_likes }}</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-content">
+                    <h3>Total Reposts</h3>
+                    <p class="stat-value">{{ stats.total_reposts }}</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💬</div>
+                <div class="stat-content">
+                    <h3>Total Replies</h3>
+                    <p class="stat-value">{{ stats.total_replies }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Engagement Metrics -->
+        <h3>Engagement Metrics</h3>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h4>Top Posts</h4>
+                <p class="metric-value">{{ stats.top_posts }} posts</p>
+                <p class="metric-label">High engagement ({{ stats.engagement_thresholds.top }}+ score)</p>
+            </div>
+            
+            <div class="metric-card">
+                <h4>Average Posts</h4>
+                <p class="metric-value">{{ stats.average_posts }} posts</p>
+                <p class="metric-label">Moderate engagement ({{ stats.engagement_thresholds.average }}-{{ stats.engagement_thresholds.top }})</p>
+            </div>
+            
+            <div class="metric-card">
+                <h4>Low Engagement</h4>
+                <p class="metric-value">{{ stats.low_engagement }} posts</p>
+                <p class="metric-label">Below average ({{ stats.engagement_thresholds.low }}-{{ stats.engagement_thresholds.average }})</p>
+            </div>
+            
+            <div class="metric-card">
+                <h4>Dead Threads</h4>
+                <p class="metric-value">{{ stats.dead_threads }} posts</p>
+                <p class="metric-label">No engagement</p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Search Section -->
+    <section class="search-section">
+        <h2>Search & Filter Content</h2>
+        <div class="search-container">
+            <form id="search-form" class="search-form">
+                <div class="search-row">
+                    <div class="form-group">
+                        <label for="search-keyword">Keyword Search</label>
+                        <input type="text" id="search-keyword" placeholder="Search text content...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Content Types</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="content-type" value="post" checked>
+                                <span>Posts</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="content-type" value="like">
+                                <span>Likes</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="content-type" value="repost">
+                                <span>Reposts</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="search-row">
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <div class="date-inputs">
+                            <input type="date" id="start-date" placeholder="Start date">
+                            <span>to</span>
+                            <input type="date" id="end-date" placeholder="End date">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Engagement Range</label>
+                        <div class="range-inputs">
+                            <input type="number" id="min-engagement" placeholder="Min" min="0">
+                            <span>to</span>
+                            <input type="number" id="max-engagement" placeholder="Max" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="search-row">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="has-media">
+                            <span>Has Media</span>
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="is-reply">
+                            <span>Is Reply</span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Search</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span> Searching...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+    
+    <!-- Results Section -->
+    <section class="results-section" id="results-section" style="display: none;">
+        <div class="results-header">
+            <h3>Search Results</h3>
+            <div class="results-actions">
+                <button id="select-all-btn" class="btn btn-outline btn-sm">Select All</button>
+                <button id="deselect-all-btn" class="btn btn-outline btn-sm">Deselect All</button>
+                <button id="delete-selected-btn" class="btn btn-danger btn-sm" disabled>
+                    Delete Selected (<span id="selected-count">0</span>)
+                </button>
+            </div>
+        </div>
+        
+        <div class="results-info" id="results-info"></div>
+        
+        <div class="results-table-container">
+            <table class="results-table" id="results-table">
+                <thead>
+                    <tr>
+                        <th class="checkbox-column">
+                            <input type="checkbox" id="select-all-checkbox">
+                        </th>
+                        <th>Type</th>
+                        <th>Content</th>
+                        <th>Created</th>
+                        <th>Engagement</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="results-tbody">
+                    <!-- Results will be populated here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="no-results" class="no-results" style="display: none;">
+            No results found. Try adjusting your search criteria.
+        </div>
+    </section>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete <span id="delete-count"></span> selected items?</p>
+        <p class="warning-text">This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button id="confirm-delete-btn" class="btn btn-danger">Delete</button>
+            <button id="cancel-delete-btn" class="btn btn-outline">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Search functionality
+const searchForm = document.getElementById('search-form');
+const resultsSection = document.getElementById('results-section');
+const resultsTbody = document.getElementById('results-tbody');
+const resultsInfo = document.getElementById('results-info');
+const noResults = document.getElementById('no-results');
+const selectedCount = document.getElementById('selected-count');
+const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+
+let searchResults = [];
+let selectedItems = new Set();
+
+searchForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const searchBtn = searchForm.querySelector('button[type="submit"]');
+    searchBtn.disabled = true;
+    searchBtn.querySelector('.btn-text').style.display = 'none';
+    searchBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+    
+    const formData = {
+        keyword: document.getElementById('search-keyword').value,
+        content_types: Array.from(document.querySelectorAll('input[name="content-type"]:checked')).map(cb => cb.value),
+        start_date: document.getElementById('start-date').value,
+        end_date: document.getElementById('end-date').value,
+        min_engagement: parseInt(document.getElementById('min-engagement').value) || null,
+        max_engagement: parseInt(document.getElementById('max-engagement').value) || null,
+        has_media: document.getElementById('has-media').checked,
+        is_reply: document.getElementById('is-reply').checked
+    };
+    
+    try {
+        const response = await fetch('/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            searchResults = data.results;
+            displayResults(data.results, data.total);
+            resultsSection.style.display = 'block';
+        } else {
+            alert('Search failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('An error occurred: ' + error.message);
+    } finally {
+        searchBtn.disabled = false;
+        searchBtn.querySelector('.btn-text').style.display = 'inline';
+        searchBtn.querySelector('.btn-loading').style.display = 'none';
+    }
+});
+
+function displayResults(results, total) {
+    selectedItems.clear();
+    updateSelectedCount();
+    
+    if (results.length === 0) {
+        resultsTbody.innerHTML = '';
+        noResults.style.display = 'block';
+        resultsInfo.style.display = 'none';
+        return;
+    }
+    
+    noResults.style.display = 'none';
+    resultsInfo.style.display = 'block';
+    resultsInfo.textContent = `Showing ${results.length} of ${total} results`;
+    
+    resultsTbody.innerHTML = results.map((item, index) => `
+        <tr data-uri="${item.uri}">
+            <td class="checkbox-column">
+                <input type="checkbox" class="item-checkbox" data-uri="${item.uri}">
+            </td>
+            <td>
+                <span class="content-type-badge ${item.content_type}">${item.content_type}</span>
+            </td>
+            <td class="content-cell">
+                <div class="content-preview">${escapeHtml(item.text)}</div>
+                ${item.has_media ? '<span class="media-indicator">📷</span>' : ''}
+            </td>
+            <td class="date-cell">
+                ${formatDate(item.created_at)}
+            </td>
+            <td class="engagement-cell">
+                <div class="engagement-stats">
+                    <span>❤️ ${item.likes}</span>
+                    <span>🔄 ${item.reposts}</span>
+                    <span>💬 ${item.replies}</span>
+                </div>
+                <div class="engagement-score">Score: ${item.engagement_score}</div>
+            </td>
+            <td class="actions-cell">
+                <button class="btn btn-danger btn-sm delete-single" data-uri="${item.uri}">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // Add event listeners
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        cb.addEventListener('change', handleItemSelection);
+    });
+    
+    document.querySelectorAll('.delete-single').forEach(btn => {
+        btn.addEventListener('click', handleSingleDelete);
+    });
+}
+
+// Selection handling
+function handleItemSelection(e) {
+    const uri = e.target.dataset.uri;
+    if (e.target.checked) {
+        selectedItems.add(uri);
+    } else {
+        selectedItems.delete(uri);
+    }
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    selectedCount.textContent = selectedItems.size;
+    deleteSelectedBtn.disabled = selectedItems.size === 0;
+    
+    // Update select all checkbox
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const allCheckboxes = document.querySelectorAll('.item-checkbox');
+    selectAllCheckbox.checked = allCheckboxes.length > 0 && selectedItems.size === allCheckboxes.length;
+}
+
+// Select/Deselect all
+document.getElementById('select-all-btn').addEventListener('click', () => {
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        cb.checked = true;
+        selectedItems.add(cb.dataset.uri);
+    });
+    updateSelectedCount();
+});
+
+document.getElementById('deselect-all-btn').addEventListener('click', () => {
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    selectedItems.clear();
+    updateSelectedCount();
+});
+
+document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+        cb.checked = e.target.checked;
+        if (e.target.checked) {
+            selectedItems.add(cb.dataset.uri);
+        } else {
+            selectedItems.delete(cb.dataset.uri);
+        }
+    });
+    updateSelectedCount();
+});
+
+// Delete handling
+deleteSelectedBtn.addEventListener('click', () => {
+    document.getElementById('delete-count').textContent = selectedItems.size;
+    document.getElementById('delete-modal').style.display = 'flex';
+});
+
+document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('confirm-delete-btn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    
+    try {
+        const response = await fetch('/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ uris: Array.from(selectedItems) })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Deleted ${data.deleted} items. ${data.failed} failed.`);
+            document.getElementById('delete-modal').style.display = 'none';
+            
+            // Remove deleted items from the table
+            selectedItems.forEach(uri => {
+                const row = document.querySelector(`tr[data-uri="${uri}"]`);
+                if (row) row.remove();
+            });
+            
+            selectedItems.clear();
+            updateSelectedCount();
+        } else {
+            alert('Deletion failed: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('An error occurred: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+    }
+});
+
+document.getElementById('cancel-delete-btn').addEventListener('click', () => {
+    document.getElementById('delete-modal').style.display = 'none';
+});
+
+async function handleSingleDelete(e) {
+    const uri = e.target.dataset.uri;
+    if (confirm('Are you sure you want to delete this item?')) {
+        e.target.disabled = true;
+        e.target.textContent = 'Deleting...';
+        
+        try {
+            const response = await fetch('/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ uris: [uri] })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.deleted > 0) {
+                const row = document.querySelector(`tr[data-uri="${uri}"]`);
+                if (row) row.remove();
+                selectedItems.delete(uri);
+                updateSelectedCount();
+            } else {
+                alert('Failed to delete item');
+                e.target.disabled = false;
+                e.target.textContent = 'Delete';
+            }
+        } catch (error) {
+            alert('An error occurred: ' + error.message);
+            e.target.disabled = false;
+            e.target.textContent = 'Delete';
+        }
+    }
+}
+
+// Utility functions
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

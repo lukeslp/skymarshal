@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="setup-container">
+    <div class="setup-header">
+        <h2>Welcome, @{{ handle }}!</h2>
+        <p>Let's download your Bluesky data and get started.</p>
+    </div>
+    
+    <div class="setup-steps">
+        <!-- Step 1: Download CAR -->
+        <div class="step-card" id="step-download">
+            <div class="step-header">
+                <h3>Step 1: Download Your Data</h3>
+                <span class="step-status" id="download-status"></span>
+            </div>
+            <div class="step-content">
+                <p>First, we'll download your complete Bluesky archive (CAR file). This contains all your posts, likes, and reposts.</p>
+                <button id="download-btn" class="btn btn-primary">
+                    <span class="btn-text">Start Download</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="spinner"></span> Downloading...
+                    </span>
+                </button>
+                <div class="progress-container" id="download-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="download-progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="download-progress-text">0%</div>
+                </div>
+                <div class="step-message" id="download-message"></div>
+            </div>
+        </div>
+        
+        <!-- Step 2: Select Content -->
+        <div class="step-card disabled" id="step-select">
+            <div class="step-header">
+                <h3>Step 2: Choose What to Analyze</h3>
+                <span class="step-status" id="select-status"></span>
+            </div>
+            <div class="step-content">
+                <p>Select which types of content you want to analyze:</p>
+                
+                <div class="content-selector">
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-posts" value="posts" checked>
+                            <span>Posts</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-posts" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-likes" value="likes">
+                            <span>Likes</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-likes" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-reposts" value="reposts">
+                            <span>Reposts</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-reposts" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="process-btn" class="btn btn-primary" disabled>
+                    <span class="btn-text">Process Selected Content</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="spinner"></span> Processing...
+                    </span>
+                </button>
+                
+                <div class="progress-container" id="process-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="process-progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="process-progress-text">Processing...</div>
+                </div>
+                <div class="step-message" id="process-message"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let carDownloaded = false;
+
+// Handle CAR download
+document.getElementById('download-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('download-btn');
+    const progressContainer = document.getElementById('download-progress');
+    const progressFill = document.getElementById('download-progress-fill');
+    const progressText = document.getElementById('download-progress-text');
+    const messageDiv = document.getElementById('download-message');
+    
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    progressContainer.style.display = 'block';
+    
+    const eventSource = new EventSource('/download-car');
+    
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.status === 'downloading' && data.progress) {
+            progressFill.style.width = `${data.progress}%`;
+            progressText.textContent = `${Math.round(data.progress)}% - ${formatBytes(data.current)} / ${formatBytes(data.total)}`;
+        } else if (data.status === 'completed') {
+            progressFill.style.width = '100%';
+            progressText.textContent = '100% - Download Complete!';
+            messageDiv.textContent = 'CAR file downloaded successfully!';
+            messageDiv.className = 'step-message success';
+            carDownloaded = true;
+            eventSource.close();
+            
+            // Enable step 2
+            document.getElementById('step-select').classList.remove('disabled');
+            document.getElementById('process-btn').disabled = false;
+            document.getElementById('download-status').textContent = '✓';
+            document.getElementById('download-status').className = 'step-status completed';
+        } else if (data.status === 'error') {
+            messageDiv.textContent = `Error: ${data.error}`;
+            messageDiv.className = 'step-message error';
+            eventSource.close();
+            btn.disabled = false;
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-loading').style.display = 'none';
+        } else if (data.message) {
+            messageDiv.textContent = data.message;
+            messageDiv.className = 'step-message info';
+        }
+    };
+    
+    eventSource.onerror = () => {
+        eventSource.close();
+        messageDiv.textContent = 'Connection lost. Please try again.';
+        messageDiv.className = 'step-message error';
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loading').style.display = 'none';
+    };
+});
+
+// Handle content processing
+document.getElementById('process-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('process-btn');
+    const progressContainer = document.getElementById('process-progress');
+    const progressFill = document.getElementById('process-progress-fill');
+    const progressText = document.getElementById('process-progress-text');
+    const messageDiv = document.getElementById('process-message');
+    
+    // Get selected content types and limits
+    const contentTypes = [];
+    const limits = {};
+    
+    if (document.getElementById('select-posts').checked) {
+        contentTypes.push('posts');
+        limits.posts = parseInt(document.getElementById('limit-posts').value) || 0;
+    }
+    if (document.getElementById('select-likes').checked) {
+        contentTypes.push('likes');
+        limits.likes = parseInt(document.getElementById('limit-likes').value) || 0;
+    }
+    if (document.getElementById('select-reposts').checked) {
+        contentTypes.push('reposts');
+        limits.reposts = parseInt(document.getElementById('limit-reposts').value) || 0;
+    }
+    
+    if (contentTypes.length === 0) {
+        messageDiv.textContent = 'Please select at least one content type.';
+        messageDiv.className = 'step-message error';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    progressContainer.style.display = 'block';
+    progressFill.style.width = '0%';
+    
+    try {
+        const response = await fetch('/process-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content_types: contentTypes, limits: limits })
+        });
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+            
+            for (const line of lines) {
+                try {
+                    const data = JSON.parse(line.substring(6));
+                    
+                    if (data.status === 'extracting') {
+                        progressText.textContent = data.message;
+                    } else if (data.status === 'progress') {
+                        messageDiv.textContent = `Extracted ${data.count} ${data.type}`;
+                        messageDiv.className = 'step-message info';
+                    } else if (data.status === 'hydrating') {
+                        progressText.textContent = data.message;
+                        progressFill.style.width = '50%';
+                    } else if (data.status === 'hydrating_progress') {
+                        progressFill.style.width = `${50 + (data.progress / 2)}%`;
+                        progressText.textContent = `Fetching engagement data... ${Math.round(data.progress)}%`;
+                    } else if (data.status === 'completed') {
+                        progressFill.style.width = '100%';
+                        progressText.textContent = 'Processing complete!';
+                        messageDiv.textContent = `Successfully processed ${data.total_items} items!`;
+                        messageDiv.className = 'step-message success';
+                        document.getElementById('select-status').textContent = '✓';
+                        document.getElementById('select-status').className = 'step-status completed';
+                        
+                        // Redirect to dashboard after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 2000);
+                    } else if (data.status === 'error') {
+                        throw new Error(data.error);
+                    }
+                } catch (e) {
+                    console.error('Error parsing SSE data:', e);
+                }
+            }
+        }
+    } catch (error) {
+        messageDiv.textContent = `Error: ${error.message}`;
+        messageDiv.className = 'step-message error';
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loading').style.display = 'none';
+    }
+});
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

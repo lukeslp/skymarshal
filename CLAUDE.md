@@ -30,6 +30,7 @@ python -m pytest tests/unit/test_auth.py::TestAuthManager::test_normalize_handle
 make format                # Format with black + isort
 make lint                  # Run flake8 + mypy
 make clean                 # Clean build artifacts
+make check-all             # All-in-one: format + lint + test
 
 # Distribution
 make build                 # Build distribution packages
@@ -50,7 +51,7 @@ make publish               # Publish to PyPI
 The application follows a **modular manager pattern** where each functional area is encapsulated in a dedicated manager class:
 
 ```
-InteractiveCARInspector (app.py)
+InteractiveContentManager (app.py)
 ├── AuthManager (auth.py) - Authentication & session management
 ├── UIManager (ui.py) - Rich terminal interface components
 ├── DataManager (data_manager.py) - File operations & API data handling
@@ -168,3 +169,26 @@ Due to editable installs in development environments:
 - **Memory Management**: Single-pass algorithms minimize memory footprint
 - **Caching**: LRU cache for frequently computed values (engagement scores)
 - **Batch Processing**: Configurable batch sizes for different operations
+
+## Common Development Patterns
+
+### Adding New Manager Classes
+When creating a new manager, follow this pattern:
+1. Inherit from base class if applicable
+2. Accept `console` parameter for UI consistency
+3. Use `@staticmethod` for pure utility functions
+4. Add comprehensive error handling with Rich formatting
+5. Include type hints for all parameters and returns
+
+### Working with AT Protocol Data
+- **Content URIs**: Always use format `at://did:plc:{identifier}/{collection}/{rkey}`
+- **Error Handling**: Wrap atproto calls with try/except for network failures
+- **Rate Limiting**: Use built-in delays between API calls (see `data_manager.py`)
+- **Authentication**: Check `self.auth_manager.client` before API operations
+
+### Testing New Features
+1. Add unit tests in `tests/unit/test_{module}.py`
+2. Use existing mock fixtures from `tests/fixtures/mock_data.py`
+3. Add integration tests for end-to-end workflows
+4. Mark performance tests with `@pytest.mark.performance`
+5. Run targeted tests: `pytest tests/unit/test_module.py::TestClass::test_method -v`
