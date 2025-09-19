@@ -40,7 +40,14 @@
       "Bash(PYTHONPATH=. python skymarshal/web/app.py)",
       "Bash(/Volumes/Galactus/opt/anaconda3/bin/python -c \"import flask; print('Flask is available')\")",
       "WebFetch(domain:docs.bsky.app)",
-      "Bash(/Volumes/Galactus/opt/anaconda3/bin/python:*)"
+      "Bash(/Volumes/Galactus/opt/anaconda3/bin/python:*)",
+      "Bash(rm:*)",
+      "Bash(curl:*)",
+      "Bash(PYTHONPATH=. /Volumes/Galactus/opt/anaconda3/bin/python app.py)",
+      "Bash(PYTHONPATH=. /Volumes/Galactus/opt/anaconda3/bin/python -c \"import sys; sys.path.insert(0, ''/Volumes/Galactus/_DEV/skymarshal/skymarshal/web''); from app import app; print(''✅ Flask app loads successfully!'')\")",
+      "Bash(PYTHONPATH=. /Volumes/Galactus/opt/anaconda3/bin/python -c \"\nfrom skymarshal.web.app import app\nprint(''Flask app imported successfully'')\napp.run(debug=True, host=''127.0.0.1'', port=5002)\n\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
