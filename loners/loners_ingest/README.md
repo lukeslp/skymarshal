@@ -1,21 +1,17 @@
 # Skymarshal Loners - Individual CLI Scripts
 
-This folder contains standalone Python scripts that extract specific functionality from both the main Skymarshal application and internal project components. Each script can be run independently and focuses on a particular aspect of Bluesky content management.
+This folder contains standalone Python scripts that extract specific functionality from the main Skymarshal application. Each script can be run independently and focuses on a particular aspect of Bluesky content management.
 
-## 🎯 Purpose
+## 📁 Available Scripts
 
-These are **one-function interactive scripts** broken out from the larger Skymarshal and Bluefly projects. They provide focused, standalone access to specific functionality without requiring the full interactive interface of the main applications.
-
-## 📁 Available Scripts (17 Total)
-
-### 🚀 `data_management.py` - Initial Setup & Data Management
+### 🚀 `setup.py` - Initial Setup & Data Processing
 **Purpose**: Download and process Bluesky data for analysis
 - Authenticate with Bluesky
 - Download complete backup (.car file) or API data
 - Process CAR files into usable JSON format
 - Set up local data structure
 
-**Usage**: `python data_management.py`
+**Usage**: `python setup.py`
 
 ### 🔐 `auth.py` - Authentication Management
 **Purpose**: Handle Bluesky authentication and session management
@@ -149,47 +145,18 @@ These are **one-function interactive scripts** broken out from the larger Skymar
 
 **Usage**: `python cleanup.py`
 
-### 📈 `ratio_analysis.py` - Ratio Analysis *(Specialized)*
-**Purpose**: Find accounts with poor follower-to-following ratios
-- Find poor ratio accounts with configurable thresholds
-- Custom ratio analysis with user-defined parameters
-- Ratio statistics and distribution analysis
-- Export ratio results for further analysis
-- Unfollow poor ratio accounts with safety checks
-
-**Usage**: `python ratio_analysis.py`
-
-### 💤 `inactive_detection.py` - Inactive Detection *(Specialized)*
-**Purpose**: Find potentially inactive or dormant accounts
-- Find inactive accounts based on engagement and activity
-- Engagement analysis and activity timeline
-- Custom inactivity rules with multiple criteria
-- Export inactive account results
-- Cleanup inactive accounts with guided workflow
-
-**Usage**: `python inactive_detection.py`
-
-### 🎮 `run.py` - Universal Script Launcher
-**Purpose**: Menu-driven interface to launch any script
-- Organized menu with all 17 scripts
-- Error handling and status reporting
-- Easy navigation between functions
-
-**Usage**: `python run.py`
-
 ## 🚀 Quick Start
 
 1. **First Time Setup**:
    ```bash
-   python data_management.py
+   python setup.py
    ```
    This will authenticate you with Bluesky and download/process your data.
 
 2. **Explore Your Data**:
    ```bash
-   python stats.py      # View analytics
-   python search.py     # Search and filter content
-   python analyze.py    # Comprehensive account analysis
+   python stats.py    # View analytics
+   python search.py   # Search and filter content
    ```
 
 3. **Export Data**:
@@ -240,17 +207,6 @@ These are **one-function interactive scripts** broken out from the larger Skymar
 12. **Content Cleanup**:
     ```bash
     python cleanup.py          # Clean up unwanted content
-    ```
-
-13. **Specialized Analysis**:
-    ```bash
-    python ratio_analysis.py      # Find poor ratio accounts
-    python inactive_detection.py  # Find inactive accounts
-    ```
-
-14. **Universal Launcher**:
-    ```bash
-    python run.py              # Menu-driven launcher
     ```
 
 ## 📋 Prerequisites
@@ -331,23 +287,10 @@ These scripts are designed to work together:
 
 ## 🐛 Troubleshooting
 
-- **Import Errors**: Make sure you're running from the `internal/loners/` directory
+- **Import Errors**: Make sure you're running from the `loners/` directory
 - **Authentication Issues**: Use `auth.py` to test and manage authentication
-- **Data Not Found**: Run `data_management.py` first to download and process data
+- **Data Not Found**: Run `setup.py` first to download and process data
 - **Permission Errors**: Ensure you have write access to `~/.skymarshal/`
-- **Dependency Issues**: Ensure Skymarshal is installed: `pip install -e ../..`
-
-## 🔍 Script Origins
-
-These scripts consolidate functionality from two sources:
-
-### **From Main Skymarshal (15 scripts)**
-Core content management functionality including setup, search, stats, deletion, export, and system management.
-
-### **From Bluefly Project (2 unique scripts)**
-Specialized analysis functionality:
-- **`ratio_analysis.py`** - Advanced follower/following ratio analysis
-- **`inactive_detection.py`** - Sophisticated inactive account detection
 
 ## 📖 Documentation
 
@@ -358,13 +301,8 @@ For detailed documentation, see the main Skymarshal documentation:
 
 ## 🤝 Contributing
 
-These scripts are extracted from the main Skymarshal and internal project codebases. To contribute:
-1. Make changes to the main Skymarshal modules when possible
-2. Update the corresponding loner script if needed
+These scripts are extracted from the main Skymarshal codebase. To contribute:
+1. Make changes to the main Skymarshal modules
+2. Update the corresponding loner script
 3. Test both the main application and individual scripts
-4. Ensure consistent import patterns and error handling
-5. Submit pull requests to the main repository
-
----
-
-*These standalone scripts provide focused access to Bluesky content management functionality, extracted from larger interactive applications for users who prefer targeted, single-function tools.*
+4. Submit pull requests to the main repository

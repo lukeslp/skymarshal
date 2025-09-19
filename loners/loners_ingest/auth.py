@@ -60,10 +60,6 @@ class AuthScript:
         console.print(Rule("🔐 Authentication Status", style="bright_green"))
         console.print()
         
-        # Attempt to resume saved session for convenience
-        if not self.auth.is_authenticated() and self.auth.try_resume_session():
-            console.print("[green]Resumed saved session[/]")
-
         if self.auth.is_authenticated():
             console.print("✅ Authenticated")
             console.print(f"👤 Handle: @{self.auth.current_handle}")
@@ -97,7 +93,7 @@ class AuthScript:
                 handle = self.auth.normalize_handle(handle)
                 break
         
-        password, action = self.ui.input_with_navigation("Password: ", password=True, context="password")
+        password, action = self.ui.input_with_navigation("App Password: ", password=True, context="password")
         if action in ["back", "main"]:
             return False
         
@@ -122,7 +118,7 @@ class AuthScript:
                     return False
     
     def logout(self):
-        """Logout and clear session (including persisted session)."""
+        """Logout and clear session."""
         console.print(Rule("🚪 Logout", style="bright_red"))
         console.print()
         
@@ -133,7 +129,9 @@ class AuthScript:
         console.print(f"👤 Current user: @{self.auth.current_handle}")
         
         if Confirm.ask("Are you sure you want to logout?", default=False):
-            self.auth.logout()
+            self.auth.client = None
+            self.auth.current_handle = None
+            self.auth.current_did = None
             console.print("✅ Logged out successfully")
         else:
             console.print("❌ Logout cancelled")
@@ -152,8 +150,11 @@ class AuthScript:
         console.print()
         
         if Confirm.ask("Switch to a different account?", default=False):
-            # Logout current session (clears persisted session too)
-            self.auth.logout()
+            # Logout current session
+            self.auth.client = None
+            self.auth.current_handle = None
+            self.auth.current_did = None
+            
             # Login new account
             return self.login()
         else:

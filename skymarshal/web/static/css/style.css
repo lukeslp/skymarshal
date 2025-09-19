@@ -1888,3 +1888,122 @@ small,
         padding-top: 2rem;
     }
 }
+
+/* Floating notification system */
+.floating-notifications {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.floating-notification {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 400px;
+    min-width: 300px;
+    transform: translateX(420px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    border-left: 4px solid var(--primary-color);
+}
+
+.floating-notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.floating-notification.info {
+    border-left-color: var(--primary-color);
+}
+
+.floating-notification.success {
+    border-left-color: var(--success-color);
+    background: #f8fff8;
+}
+
+.floating-notification.warning {
+    border-left-color: var(--warning-color);
+    background: #fffbf0;
+}
+
+.floating-notification.error {
+    border-left-color: var(--danger-color);
+    background: #fff5f5;
+}
+
+.floating-notification.processing {
+    border-left-color: var(--primary-color);
+    background: linear-gradient(90deg, #f0f8ff 0%, #e6f3ff 100%);
+}
+
+.notification-text {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    margin-left: 1rem;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.notification-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+.floating-notification.processing .notification-text {
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover), var(--primary-color));
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: processing-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes processing-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Responsive adjustments for notifications */
+@media (max-width: 768px) {
+    .floating-notifications {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .floating-notification {
+        max-width: none;
+        min-width: auto;
+        transform: translateY(-100px);
+    }
+    
+    .floating-notification.show {
+        transform: translateY(0);
+    }
+}

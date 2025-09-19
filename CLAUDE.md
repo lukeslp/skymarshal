@@ -36,6 +36,18 @@ make check-all             # All-in-one: format + lint + test
 make build                 # Build distribution packages
 make publish-test          # Publish to Test PyPI
 make publish               # Publish to PyPI
+make setup-dist            # Set up for distribution (run tests, build, check)
+make test-install          # Test package installation
+make clean-dist            # Clean distribution artifacts
+```
+
+### Additional Commands Available
+```bash
+# Makefile help
+make help                  # Show all available commands with descriptions
+
+# Development utilities  
+make clean                 # Clean build artifacts and __pycache__
 ```
 
 ### Testing Framework
@@ -112,7 +124,8 @@ Recent optimizations for large datasets (10K+ items):
 ### File System Structure
 ```
 ~/.skymarshal/
-├── cars/           # CAR file backups (binary AT Protocol format)
+├── backups/        # CAR file backups (binary AT Protocol format) 
+├── cars/           # Alternative CAR file location
 └── json/           # JSON exports for analysis
 
 ~/.car_inspector_settings.json  # User settings (legacy filename)
@@ -121,15 +134,16 @@ Recent optimizations for large datasets (10K+ items):
 ### Configuration and Settings
 - **User Settings**: Batch sizes (1-100), API limits, engagement thresholds
 - **Performance Tuning**: Worker counts, page sizes, fetch order (newest/oldest)
-- **Engagement Scoring**: Weighted formula: `likes + (2 × reposts) + (3 × replies)`
+- **Engagement Scoring**: Weighted formula: `likes + (2 × reposts) + (2.5 × replies)` (see `models.py:calculate_engagement_score`)
 
 ## Development Guidelines
 
 ### Code Style and Standards
-- **Python 3.8+** with type hints encouraged
+- **Python 3.9+** (minimum version from pyproject.toml) with type hints encouraged
 - **Black formatting** (88 character line length)
 - **isort** with black-compatible profile
-- **MyPy type checking** with moderate strictness
+- **MyPy type checking** with moderate strictness (defined in pyproject.toml)
+- **Flake8** for linting with default configuration
 - **Rich console** for all UI output (shared instance in `models.console`)
 
 ### Testing Approach
@@ -192,3 +206,36 @@ When creating a new manager, follow this pattern:
 3. Add integration tests for end-to-end workflows
 4. Mark performance tests with `@pytest.mark.performance`
 5. Run targeted tests: `pytest tests/unit/test_module.py::TestClass::test_method -v`
+
+## Loners Subdirectory
+
+The `loners/` directory contains standalone Python scripts that extract specific functionality from the main Skymarshal application. Each script can be run independently:
+
+### Loners Scripts
+```bash
+# Core scripts (run from loners/ directory)
+python run.py             # Menu-driven launcher for all scripts
+python auth.py            # Authentication management
+python search.py          # Search & filter content
+python stats.py           # Statistics & analytics
+python delete.py          # Content deletion (with safety checks)
+python export.py          # Data export in various formats
+python settings.py        # Settings management
+python data_management.py # File operations & backup management
+python system_info.py     # System status & diagnostics
+python nuke.py            # Nuclear delete (⚠️ DANGER - delete ALL content)
+
+# Analysis tools
+python analyze.py         # Content analysis
+python find_bots.py       # Bot detection
+python cleanup.py         # Cleanup operations
+python ratio_analysis.py  # Engagement ratio analysis
+python inactive_detection.py  # Inactive user detection
+```
+
+### Loners Architecture
+- **Standalone**: Each script is independent and self-contained
+- **Focused**: Single responsibility per script
+- **CLI-based**: Direct command-line interfaces vs main app's interactive menus
+- **Shared utilities**: Common functions in `common.py`
+- **Separate settings**: May use different configuration approaches than main app
