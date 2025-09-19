@@ -21,7 +21,10 @@
                 <div class="import-intro">
                     <div class="import-info">
                         <h4>📥 Import Your Repository</h4>
-                        <p>First, we'll import your Bluesky data, or "repository." This contains all of your posts, comments, likes, and reposts.</p>
+                        <p>First, we'll download your complete Bluesky repository. This contains all of your posts, comments, likes, and reposts in a compressed CAR format.</p>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                            ⚡ This is a one-click process that downloads and prepares your data for analysis.
+                        </p>
                     </div>
                 </div>
                 
@@ -73,7 +76,10 @@
                     <div class="import-intro">
                         <div class="import-info">
                             <h4>⚙️ Choose What to Analyze</h4>
-                            <p>Select which types of content you want to analyze:</p>
+                            <p>Select which types of content you want to analyze. The system will automatically hydrate engagement data (likes, reposts, replies) during processing.</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                🌊 A live firehose feed will appear to entertain you while processing happens in the background.
+                            </p>
                         </div>
                     </div>
                 
@@ -594,14 +600,16 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     progressContainer.style.display = 'block';
     progressFill.style.width = '0%';
     
-    // Start firehose during processing
-    if (!firehoseStream) {
-        firehoseStream = new FirehoseStream();
-    }
-    firehoseStream.start();
-    
-    // Show notification that firehose is starting
-    showFloatingNotification('🌊 Firehose activated! Watch live posts while we process and hydrate your data...', 'info', 4000);
+    // Start firehose during processing with a slight delay for better UX
+    setTimeout(() => {
+        if (!firehoseStream) {
+            firehoseStream = new FirehoseStream();
+        }
+        firehoseStream.start();
+        
+        // Show notification that firehose is starting
+        showFloatingNotification('🌊 Firehose activated! Watch live Bluesky posts while we process and hydrate your data...', 'info', 5000);
+    }, 1000);
     
     try {
         const response = await fetch('/process-data', {
@@ -640,13 +648,21 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         if (data.progress) {
                             progressFill.style.width = `${data.progress}%`;
                             progressText.textContent = `${data.progress}% - ${data.message}`;
+                            
+                            // Add special styling for hydration messages
+                            if (data.message && (data.message.toLowerCase().includes('hydrat') || data.message.toLowerCase().includes('engagement'))) {
+                                progressText.classList.add('hydrating');
+                                messageDiv.className = 'step-message hydration';
+                            } else {
+                                progressText.classList.remove('hydrating');
+                                messageDiv.className = 'step-message info';
+                            }
                         } else {
-                            progressText.textContent = data.message;
+                            progressText.textContent = data.message || '';
                         }
-                        messageDiv.textContent = data.message;
-                        messageDiv.className = 'step-message info';
+                        messageDiv.textContent = data.message || '';
                     } else if (data.status === 'filtering') {
-                        messageDiv.textContent = data.message;
+                        messageDiv.textContent = data.message || '';
                         messageDiv.className = 'step-message info';
                         
                         // Show detailed filtering info
@@ -673,8 +689,8 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         }
                     } else if (data.status === 'finalizing') {
                         progressFill.style.width = `${data.progress || 100}%`;
-                        progressText.textContent = data.message;
-                        messageDiv.textContent = data.message;
+                        progressText.textContent = data.message || 'Finalizing...';
+                        messageDiv.textContent = data.message || 'Finalizing...';
                         messageDiv.className = 'step-message info';
                     } else if (data.status === 'completed') {
                         progressFill.style.width = '100%';
