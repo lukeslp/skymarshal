@@ -905,15 +905,15 @@ def process_data():
                 
                 try:
                     # Try to get handle from session for re-auth if needed
-                    handle = session.get('user_handle')
-                    if handle and hasattr(auth_manager, 'saved_session_file'):
+                    session_handle = session.get('user_handle')
+                    if session_handle and hasattr(auth_manager, 'saved_session_file'):
                         # Try to load saved session
                         saved_session_path = auth_manager.saved_session_file
                         if saved_session_path.exists():
                             try:
                                 with open(saved_session_path, 'r') as f:
                                     saved_data = json.load(f)
-                                    if saved_data.get('handle') == handle:
+                                    if saved_data.get('handle') == session_handle:
                                         # Session file exists for this user
                                         yield f"data: {json.dumps({'status': 'processing', 'message': 'Found saved session, attempting to restore...', 'progress': 4})}\n\n"
                             except:
