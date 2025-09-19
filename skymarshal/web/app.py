@@ -869,6 +869,10 @@ def process_data():
     
     def generate():
         try:
+            print(f"DEBUG: Starting process_data for handle: {handle}")
+            print(f"DEBUG: Content types requested: {content_types}")
+            print(f"DEBUG: Limits: {limits}")
+            print(f"DEBUG: CAR path: {car_path}")
             # Set up required directories
             skymarshal_dir = Path.home() / '.skymarshal'
             backups_dir = skymarshal_dir / 'cars'
@@ -939,6 +943,9 @@ def process_data():
             )
             
             yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting data processing...', 'progress': 6})}\n\n"
+            print(f"DEBUG: About to process CAR file: {car_path}")
+            print(f"DEBUG: Processing categories: {categories}")
+            print(f"DEBUG: Number of categories: {len(categories)}")
             
             # Convert content types to category set
             categories = set(content_types)
