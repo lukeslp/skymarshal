@@ -362,7 +362,7 @@ small,
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     width: 100%;
-    max-width: 400px;
+    max-width: 500px;
 }
 
 .auth-card h2 {
@@ -465,11 +465,37 @@ small,
     margin-bottom: 0.5rem;
 }
 
+/* Section containers with numbered circles */
+.section-container {
+    position: relative;
+    margin-bottom: 3rem;
+    transition: opacity 0.3s ease;
+}
+
+.section-number {
+    position: absolute;
+    top: -15px;
+    left: 2rem;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(0, 133, 255, 0.3);
+    z-index: 10;
+}
+
 .step-card {
     background: var(--card-bg);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 2rem;
+    padding-top: 2.5rem; /* Extra space for the section number */
     margin-bottom: 2rem;
     position: relative;
 }
@@ -553,7 +579,8 @@ small,
     display: flex;
     justify-content: center;
     text-align: center;
-    margin: 3rem auto 2rem auto;
+    margin: 0 auto;
+    padding: 0;
 }
 
 .process-action {
@@ -611,15 +638,20 @@ small,
     pointer-events: none;
 }
 
-.step-card.collapsed {
+.section-container.collapsed {
     opacity: 0.6;
 }
 
-.step-card.collapsed .step-header {
+.section-container.collapsed .section-number {
+    background: #ccc;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.section-container.collapsed .step-header {
     cursor: pointer;
 }
 
-.step-card.collapsed .step-header::after {
+.section-container.collapsed .step-header::after {
     content: " 🔒";
     color: #999;
 }
@@ -1634,5 +1666,18 @@ small,
     .hydration-status {
         min-width: auto;
         width: 100%;
+    }
+    
+    /* Responsive section numbers */
+    .section-number {
+        left: 1rem;
+        width: 35px;
+        height: 35px;
+        font-size: 1rem;
+    }
+    
+    .step-card {
+        padding: 1.5rem;
+        padding-top: 2rem;
     }
 }

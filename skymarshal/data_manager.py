@@ -287,6 +287,75 @@ class DataManager:
                 console.print(f"Backup failed: {e}")
                 return None
 
+    def create_timestamped_backup_with_progress(self, handle: str, progress_callback=None) -> Optional[Path]:
+        """Download backup file with progress tracking."""
+        if not self.auth.client:
+            self.auth.client = Client()
+
+        did = self._resolve_handle_to_did(handle)
+        if not did:
+            return None
+
+        try:
+            # Make the API request
+            resp = self.auth.call_with_reauth(
+                lambda: self.auth.client.com.atproto.sync.get_repo({"did": did})
+            )
+            
+            # Get response data
+            data = getattr(resp, "body", None) or getattr(resp, "bytes", None) or resp
+            if data is None:
+                console.print("Empty response for backup")
+                return None
+
+            # Try to get content length for progress tracking
+            total_size = None
+            if hasattr(data, '__len__'):
+                total_size = len(data)
+            elif hasattr(resp, 'headers') and 'content-length' in resp.headers:
+                total_size = int(resp.headers['content-length'])
+
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            out_path = self.backups_dir / f"{handle.replace('.', '_')}_{ts}.car"
+
+            downloaded = 0
+            chunk_size = 8192  # 8KB chunks
+
+            with open(out_path, "wb") as f:
+                if hasattr(data, "read"):
+                    # Stream the data in chunks
+                    while True:
+                        chunk = data.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        if progress_callback:
+                            try:
+                                progress_callback(downloaded, total_size)
+                            except:
+                                pass  # Continue even if callback fails
+                else:
+                    # Write all at once if not streamable
+                    if isinstance(data, (bytes, bytearray)):
+                        f.write(data)
+                        downloaded = len(data)
+                        if progress_callback:
+                            try:
+                                progress_callback(downloaded, total_size)
+                            except:
+                                pass
+                    else:
+                        f.write(data)
+
+            console.print(f"Backup saved to {out_path}")
+            return out_path
+
+        except Exception as e:
+            console.print(f"Backup failed: {e}")
+            return None
+
     def import_backup_merge(
         self,
         backup_path: Path,

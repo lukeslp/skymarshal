@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import asyncio
+import math
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List, Any
@@ -111,6 +112,16 @@ def get_json_path():
             pass
     
     return json_path
+
+def format_bytes(bytes_val):
+    """Format bytes as human readable string"""
+    if bytes_val == 0:
+        return '0 B'
+    size_names = ['B', 'KB', 'MB', 'GB']
+    i = int(math.floor(math.log(bytes_val) / math.log(1024)))
+    p = math.pow(1024, i)
+    s = round(bytes_val / p, 2)
+    return f'{s} {size_names[i]}'
 
 def get_car_quick_stats(car_path):
     """Get quick statistics from a CAR file without full processing"""
@@ -649,9 +660,35 @@ def download_car():
                 
                 yield f"data: {json.dumps({'status': 'downloading', 'message': 'Importing your repository...'})}\n\n"
                 
-                # Download CAR file using the actual method
-                # Ensure we get a fresh download by using timestamped filename
-                car_path = data_manager.create_timestamped_backup(handle)
+                # Track download progress
+                progress_messages = []
+                
+                def progress_callback(downloaded_bytes, total_bytes):
+                    if total_bytes and total_bytes > 0:
+                        progress = int((downloaded_bytes / total_bytes) * 70) + 25  # 25% to 95%
+                        message = f'Downloaded {format_bytes(downloaded_bytes)} of {format_bytes(total_bytes)}...'
+                        progress_messages.append({
+                            'status': 'downloading', 
+                            'message': message, 
+                            'progress': progress, 
+                            'downloaded': downloaded_bytes, 
+                            'total': total_bytes
+                        })
+                    else:
+                        # Fallback when size is unknown
+                        message = f'Downloaded {format_bytes(downloaded_bytes)}...'
+                        progress_messages.append({
+                            'status': 'downloading', 
+                            'message': message, 
+                            'downloaded': downloaded_bytes
+                        })
+                
+                # Create custom progress-aware backup method
+                car_path = data_manager.create_timestamped_backup_with_progress(handle, progress_callback)
+                
+                # Send any progress updates that were collected
+                for msg in progress_messages[-1:]:  # Send only the latest message to avoid flooding
+                    yield f"data: {json.dumps(msg)}\n\n"
                 
                 if car_path:
                     # Store the car_path in multiple ways to ensure persistence
@@ -981,11 +1018,26 @@ def dashboard():
         backups_dir=backups_dir,
         json_dir=json_dir
     )
-    items = data_manager.load_exported_data(Path(json_path))
+    print(f"DEBUG: Attempting to load data from: {json_path}")
+    print(f"DEBUG: File exists: {Path(json_path).exists()}")
+    print(f"DEBUG: File size: {Path(json_path).stat().st_size if Path(json_path).exists() else 'N/A'}")
+    
+    try:
+        items = data_manager.load_exported_data(Path(json_path))
+        print(f"DEBUG: Successfully loaded {len(items)} items")
+        if len(items) > 0:
+            print(f"DEBUG: First item type: {items[0].content_type}")
+            print(f"DEBUG: First item text: {items[0].text[:50] if items[0].text else 'No text'}...")
+    except Exception as e:
+        print(f"DEBUG: Error loading data: {e}")
+        import traceback
+        traceback.print_exc()
+        items = []
     
     # Calculate statistics
     search_manager = SearchManager(auth_manager=auth_manager or AuthManager(), settings=settings)
     stats = search_manager._calculate_statistics(items)
+    print(f"DEBUG: Calculated stats: {stats}")
     
     return render_template('dashboard.html', 
                          handle=session['user_handle'],
@@ -1022,7 +1074,18 @@ def search():
         backups_dir=backups_dir,
         json_dir=json_dir
     )
-    items = data_manager.load_exported_data(Path(json_path))
+    
+    print(f"DEBUG: Search endpoint - json_path: {json_path}")
+    print(f"DEBUG: Search endpoint - file exists: {Path(json_path).exists()}")
+    
+    try:
+        items = data_manager.load_exported_data(Path(json_path))
+        print(f"DEBUG: Search endpoint - loaded {len(items)} items")
+    except Exception as e:
+        print(f"DEBUG: Search endpoint - error loading data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Failed to load data: {str(e)}'}), 500
     
     # Map content types from web form to SearchFilters format
     content_types = data.get('content_types', [])
@@ -1053,7 +1116,7 @@ def search():
     
     # Search
     search_manager = SearchManager(auth_manager=auth_manager or AuthManager(), settings=settings)
-    results = search_manager.search_content(items, filters)
+    results = search_manager.search_content_with_filters(items, filters)
     
     # Convert results for JSON serialization
     serialized_results = []
@@ -1138,21 +1201,43 @@ def hydrate_engagement():
             
             yield f"data: {json.dumps({'status': 'progress', 'message': 'Saving hydrated data...', 'progress': 90})}\n\n"
             
-            # Save the updated data back to the JSON file
-            export_data = []
+            # Save the updated data back to the JSON file in the correct format
+            # Group items by content type to match load_exported_data expectations
+            posts = []
+            likes = []
+            reposts = []
+            
             for item in items:
-                export_data.append({
+                item_data = {
                     'uri': item.uri,
                     'cid': item.cid,
-                    'content_type': item.content_type,
+                    'type': item.content_type,
                     'text': item.text,
                     'created_at': item.created_at,
-                    'like_count': item.like_count,
-                    'repost_count': item.repost_count,
-                    'reply_count': item.reply_count,
-                    'engagement_score': item.engagement_score,
+                    'engagement': {
+                        'likes': int(item.like_count or 0),
+                        'reposts': int(item.repost_count or 0),
+                        'replies': int(item.reply_count or 0),
+                        'score': float(item.engagement_score or 0.0)
+                    },
                     'raw_data': item.raw_data
-                })
+                }
+                
+                if item.content_type == 'post':
+                    posts.append(item_data)
+                elif item.content_type == 'like':
+                    likes.append(item_data)
+                elif item.content_type == 'repost':
+                    reposts.append(item_data)
+                else:
+                    # Replies go in posts section
+                    posts.append(item_data)
+            
+            export_data = {
+                'posts': posts,
+                'likes': likes,
+                'reposts': reposts
+            }
             
             # Write updated data back to file
             import json as json_lib
@@ -1504,11 +1589,68 @@ def download_backup():
     except Exception as e:
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
+@app.route('/debug-session')
+@login_required
+def debug_session():
+    """Debug endpoint to check session data"""
+    json_path = get_json_path()
+    
+    debug_info = {
+        'user_handle': session.get('user_handle'),
+        'json_path': session.get('json_path'),
+        'resolved_json_path': json_path,
+        'session_id': session.get('session_id'),
+        'total_items': session.get('total_items'),
+        'progress_data': progress_data.get(session.get('session_id'), {}) if session.get('session_id') else {}
+    }
+    
+    # Try to load data if path exists
+    if json_path:
+        try:
+            from .data_manager import DataManager
+            from .auth import AuthManager
+            from .settings import SettingsManager
+            
+            auth_manager = get_auth_manager()
+            settings_file = Path.home() / ".car_inspector_settings.json"
+            settings_manager = SettingsManager(settings_file)
+            settings = settings_manager.settings
+            
+            skymarshal_dir = Path.home() / '.skymarshal'
+            backups_dir = skymarshal_dir / 'cars'
+            json_dir = skymarshal_dir / 'json'
+            
+            data_manager = DataManager(
+                auth_manager=auth_manager or AuthManager(),
+                settings=settings,
+                skymarshal_dir=skymarshal_dir,
+                backups_dir=backups_dir,
+                json_dir=json_dir
+            )
+            
+            items = data_manager.load_exported_data(Path(json_path))
+            debug_info['data_load_success'] = True
+            debug_info['items_count'] = len(items)
+            debug_info['file_exists'] = Path(json_path).exists()
+            debug_info['file_size'] = Path(json_path).stat().st_size if Path(json_path).exists() else 0
+            
+            if len(items) > 0:
+                debug_info['sample_item'] = {
+                    'type': items[0].content_type,
+                    'text': items[0].text[:100] if items[0].text else None,
+                    'likes': items[0].like_count,
+                    'reposts': items[0].repost_count,
+                    'replies': items[0].reply_count
+                }
+        except Exception as e:
+            debug_info['data_load_error'] = str(e)
+            debug_info['file_exists'] = Path(json_path).exists() if json_path else False
+    
+    return jsonify(debug_info)
+
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
 
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('FLASK_PORT', 5001))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=5000)

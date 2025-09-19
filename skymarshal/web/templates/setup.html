@@ -11,11 +11,12 @@
     
     <div class="setup-steps">
         <!-- Step 1: Download CAR -->
-        <div class="step-card" id="step-download">
-            <div class="step-header">
-                <h3>Step 1: Download Your Data</h3>
-                <span class="step-status" id="download-status"></span>
-            </div>
+        <div class="section-container" id="step-download">
+            <div class="section-number">1</div>
+            <div class="step-card">
+                <div class="step-header">
+                    <span class="step-status" id="download-status"></span>
+                </div>
             <div class="step-content">
                 <div class="import-intro">
                     <div class="import-info">
@@ -62,13 +63,19 @@
         </div>
         
         <!-- Step 2: Select Content -->
-        <div class="step-card collapsed" id="step-select">
-            <div class="step-header">
-                <h3>Step 2: Choose What to Analyze</h3>
-                <span class="step-status" id="select-status"></span>
-            </div>
-            <div class="step-content" style="display: none;">
-                <p>Select which types of content you want to analyze:</p>
+        <div class="section-container collapsed" id="step-select">
+            <div class="section-number">2</div>
+            <div class="step-card">
+                <div class="step-header">
+                    <span class="step-status" id="select-status"></span>
+                </div>
+                <div class="step-content" style="display: none;">
+                    <div class="import-intro">
+                        <div class="import-info">
+                            <h4>⚙️ Choose What to Analyze</h4>
+                            <p>Select which types of content you want to analyze:</p>
+                        </div>
+                    </div>
                 
                 <div class="content-selector">
                     <div class="content-option">
@@ -105,12 +112,14 @@
                     </div>
                 </div>
                 
-                <button id="process-btn" class="btn btn-primary btn-center" disabled>
-                    <span class="btn-text">Process Selected Content</span>
-                    <span class="btn-loading" style="display: none;">
-                        <span class="spinner"></span> Processing...
-                    </span>
-                </button>
+                <div class="import-action">
+                    <button id="process-btn" class="btn btn-primary btn-bigass" disabled>
+                        <span class="btn-text">⚙️ Process Selected Content</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span> Processing...
+                        </span>
+                    </button>
+                </div>
                 
                 <div class="progress-container" id="process-progress" style="display: none;">
                     <div class="progress-bar">
@@ -119,6 +128,7 @@
                     <div class="progress-text" id="process-progress-text">Processing...</div>
                 </div>
                 <div class="step-message" id="process-message"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -160,6 +170,7 @@ class FirehoseStream {
         this.stream = document.getElementById('firehose-stream');
         this.eventSource = null;
         this.maxMessages = 20;
+        this.healthCheckInterval = null;
     }
     
     start() {
@@ -380,6 +391,19 @@ class FirehoseStream {
             }, 1000);
         }
     }
+    
+    forceStop() {
+        // Actually stop the firehose (for cleanup if needed)
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        if (this.healthCheckInterval) {
+            clearInterval(this.healthCheckInterval);
+            this.healthCheckInterval = null;
+        }
+        this.container.style.display = 'none';
+    }
 }
 
 // Handle CAR download
@@ -408,8 +432,13 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             progressFill.style.width = '10%';
             progressText.textContent = 'Connecting to Bluesky...';
         } else if (data.status === 'downloading') {
-            progressFill.style.width = '25%';
-            progressText.textContent = 'Downloading archive...';
+            if (data.progress) {
+                progressFill.style.width = `${data.progress}%`;
+                progressText.textContent = data.message;
+            } else {
+                progressFill.style.width = '25%';
+                progressText.textContent = data.message || 'Downloading archive...';
+            }
         } else if (data.status === 'processing') {
             progressFill.style.width = '60%';
             progressText.textContent = 'Processing CAR file...';
@@ -469,6 +498,13 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             
             // Enable step 2 with animation
             enableStep2();
+            
+            // Update step 1 section number to show completion
+            const step1Number = document.querySelector('#step-download .section-number');
+            if (step1Number) {
+                step1Number.style.background = 'linear-gradient(135deg, var(--success-color), #1e8449)';
+                step1Number.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.3)';
+            }
             
             document.getElementById('download-status').textContent = '✅';
             document.getElementById('download-status').className = 'step-status completed';
@@ -630,6 +666,14 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         progressText.textContent = 'Processing complete!';
                         messageDiv.textContent = `Successfully processed ${data.total_items} items!`;
                         messageDiv.className = 'step-message success';
+                        
+                        // Update step 2 section number to show completion
+                        const step2Number = document.querySelector('#step-select .section-number');
+                        if (step2Number) {
+                            step2Number.style.background = 'linear-gradient(135deg, var(--success-color), #1e8449)';
+                            step2Number.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.3)';
+                        }
+                        
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
                         
@@ -696,6 +740,13 @@ function enableStep2() {
     // Add smooth transition
     step2.style.transition = 'opacity 0.3s ease';
     step2.style.opacity = '1';
+    
+    // Update section number to show completion
+    const sectionNumber = step2.querySelector('.section-number');
+    if (sectionNumber) {
+        sectionNumber.style.background = 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))';
+        sectionNumber.style.boxShadow = '0 4px 12px rgba(0, 133, 255, 0.3)';
+    }
     
     // Enable the process button
     document.getElementById('process-btn').disabled = false;
