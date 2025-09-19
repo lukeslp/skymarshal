@@ -26,7 +26,7 @@ from skymarshal.auth import AuthManager
 from skymarshal.data_manager import DataManager
 from skymarshal.search import SearchManager
 from skymarshal.deletion import DeletionManager
-from skymarshal.models import ContentType, SearchFilters, DeleteMode, UserSettings, console
+from skymarshal.models import ContentType, SearchFilters, DeleteMode, UserSettings, console, calculate_engagement_score
 from skymarshal.settings import SettingsManager
 
 app = Flask(__name__)
@@ -762,13 +762,13 @@ def download_car():
                     print(f"DEBUG: Saved car_path to session: {session.get('car_path')}")
                     print(f"DEBUG: Saved car_path to progress_data[{session_id}]: {progress_data.get(session_id, {}).get('car_path')}")
                     
-                    # Force session save
+                    # Force session save (mark as modified to ensure persistence)
                     try:
-                        from flask import current_app
-                        current_app.session_interface.save_session(current_app, session, None)
-                        print("DEBUG: Forced session save completed")
+                        session.permanent = True
+                        session.modified = True
+                        print("DEBUG: Session marked as modified for persistence")
                     except Exception as save_error:
-                        print(f"DEBUG: Session force save failed: {save_error}")
+                        print(f"DEBUG: Session modification failed: {save_error}")
                     
                     yield f"data: {json.dumps({'status': 'processing', 'message': 'Processing CAR file...'})}\n\n"
                     time.sleep(0.3)  # Small delay to show progress step
@@ -901,17 +901,33 @@ def process_data():
             
             # Ensure authentication (this will try to resume saved session automatically)
             if not auth_manager.is_authenticated():
-                yield f"data: {json.dumps({'status': 'processing', 'message': 'Restoring authentication session...', 'progress': 4})}\n\n"
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Checking authentication for engagement hydration...', 'progress': 4})}\n\n"
                 
                 try:
+                    # Try to get handle from session for re-auth if needed
+                    handle = session.get('user_handle')
+                    if handle and hasattr(auth_manager, 'saved_session_file'):
+                        # Try to load saved session
+                        saved_session_path = auth_manager.saved_session_file
+                        if saved_session_path.exists():
+                            try:
+                                with open(saved_session_path, 'r') as f:
+                                    saved_data = json.load(f)
+                                    if saved_data.get('handle') == handle:
+                                        # Session file exists for this user
+                                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Found saved session, attempting to restore...', 'progress': 4})}\n\n"
+                            except:
+                                pass
+                    
                     # This will automatically try to resume the saved session
                     if auth_manager.ensure_authentication():
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Authentication restored successfully!', 'progress': 5})}\n\n"
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Authentication restored! Ready for engagement hydration.', 'progress': 5})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Proceeding without engagement hydration (authentication unavailable)', 'progress': 5})}\n\n"
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Proceeding without live engagement data (authentication unavailable)', 'progress': 5})}\n\n"
                         auth_manager = None  # Set to None so hydration is skipped
                 except Exception as e:
-                    yield f"data: {json.dumps({'status': 'processing', 'message': f'Authentication restoration failed: {str(e)[:50]}...', 'progress': 5})}\n\n"
+                    print(f"DEBUG: Authentication restoration error: {e}")
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Will use cached engagement data from CAR file', 'progress': 5})}\n\n"
                     auth_manager = None  # Set to None so hydration is skipped
             
             data_manager = DataManager(
@@ -947,72 +963,55 @@ def process_data():
                 # Load the processed data to get item count
                 items = data_manager.load_exported_data(json_path)
                 
-                # Hydrate engagement data for posts if authenticated
+                # Hydrate engagement data following stats.py pattern (lines 106-111)
                 if auth_manager and auth_manager.is_authenticated():
                     yield f"data: {json.dumps({'status': 'processing', 'message': 'Hydrating engagement data...', 'progress': 65})}\n\n"
                     
                     try:
-                        posts_and_replies = [item for item in items if item.content_type in ["post", "reply"]]
+                        # Follow the exact working pattern from stats.py
+                        yield f"data: {json.dumps({'status': 'processing', 'message': f'Updating engagement for {len(items)} items...', 'progress': 67})}\n\n"
                         
-                        if posts_and_replies:
-                            yield f"data: {json.dumps({'status': 'processing', 'message': f'Updating engagement for {len(posts_and_replies)} posts...', 'progress': 67})}\n\n"
-                            
-                            # Hydrate engagement using the existing method
-                            data_manager._hydrate_post_engagement(posts_and_replies)
-                            
-                            # Save the updated engagement data back to file
-                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Saving updated engagement data...', 'progress': 68})}\n\n"
-                            
-                            # Rebuild the export data with updated engagement
-                            posts = []
-                            likes = []
-                            reposts = []
-                            
-                            for item in items:
-                                item_data = {
-                                    'uri': item.uri,
-                                    'cid': item.cid,
-                                    'type': item.content_type,
-                                    'text': item.text,
-                                    'created_at': item.created_at,
-                                    'engagement': {
-                                        'likes': int(item.like_count or 0),
-                                        'reposts': int(item.repost_count or 0),
-                                        'replies': int(item.reply_count or 0),
-                                        'score': float(item.engagement_score or 0.0)
-                                    },
-                                    'raw_data': item.raw_data
-                                }
-                                
-                                if item.content_type in ['post', 'reply']:
-                                    posts.append(item_data)
-                                elif item.content_type == 'like':
-                                    likes.append(item_data)
-                                elif item.content_type == 'repost':
-                                    reposts.append(item_data)
-                            
-                            # Save updated data
-                            import json as json_lib
-                            export_data = {
-                                'handle': handle,
-                                'posts': posts,
-                                'likes': likes,
-                                'reposts': reposts,
-                                'export_time': datetime.now().isoformat()
-                            }
-                            
-                            with open(json_path, 'w') as f:
-                                json_lib.dump(export_data, f, indent=2, default=str)
-                            
-                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Engagement data updated successfully!', 'progress': 69})}\n\n"
-                        else:
-                            yield f"data: {json.dumps({'status': 'processing', 'message': 'No posts found to hydrate', 'progress': 69})}\n\n"
+                        # Use the hydrate_items method exactly like in stats.py
+                        data_manager.hydrate_items(items)
+                        
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Engagement data updated successfully!', 'progress': 69})}\n\n"
+                        
+                        # Save the hydrated data back to JSON file
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Saving hydrated data...', 'progress': 70})}\n\n"
+                        
+                        # Export the hydrated items to ensure persistence
+                        export_data = []
+                        for item in items:
+                            export_data.append({
+                                'uri': item.uri,
+                                'cid': item.cid,
+                                'content_type': item.content_type,
+                                'text': item.text,
+                                'created_at': item.created_at,
+                                'like_count': item.like_count,
+                                'repost_count': item.repost_count,
+                                'reply_count': item.reply_count,
+                                'engagement_score': item.engagement_score,
+                                'raw_data': item.raw_data
+                            })
+                        
+                        # Overwrite the existing JSON with hydrated data
+                        import json as json_lib
+                        with open(json_path, 'w') as f:
+                            json_lib.dump(export_data, f, indent=2, default=str)
                             
                     except Exception as e:
+                        # Log the full error for debugging but show user-friendly message
+                        print(f"ERROR: Hydration failed: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        
                         # Don't fail the whole process if hydration fails
-                        yield f"data: {json.dumps({'status': 'processing', 'message': f'Engagement hydration skipped: {str(e)[:50]}...', 'progress': 69})}\n\n"
+                        yield f"data: {json.dumps({'status': 'processing', 'message': f'Warning: Could not update engagement data: {str(e)[:50]}...', 'progress': 69})}\n\n"
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Continuing with cached engagement data', 'progress': 70})}\n\n"
                 else:
                     yield f"data: {json.dumps({'status': 'processing', 'message': 'Skipping engagement hydration (authentication required)', 'progress': 69})}\n\n"
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Using cached engagement data from CAR file', 'progress': 70})}\n\n"
                 
                 yield f"data: {json.dumps({'status': 'processing', 'message': f'Loaded {len(items)} total items', 'progress': 70})}\n\n"
                 
@@ -1109,13 +1108,28 @@ def process_data():
                     progress_data[session_id]['total_items'] = len(items)
                     print(f"DEBUG: Saved json_path to progress_data[{session_id}]: {progress_data[session_id]['json_path']}")
                 
-                # Clean up old progress_data entries (keep only last 10 sessions)
+                # Clean up old progress_data and auth_storage entries (keep only last 10 sessions)
                 if len(progress_data) > 10:
                     oldest_keys = sorted(progress_data.keys(), 
                                        key=lambda k: progress_data[k].get('timestamp', 0))[:len(progress_data)-10]
                     for old_key in oldest_keys:
                         progress_data.pop(old_key, None)
-                        print(f"DEBUG: Cleaned up old progress_data for session {old_key}")
+                        # Also cleanup corresponding auth_storage to prevent memory leak
+                        auth_storage.pop(old_key, None)
+                        print(f"DEBUG: Cleaned up old progress_data and auth_storage for session {old_key}")
+                
+                # Additional auth_storage cleanup - remove entries older than 24 hours
+                current_time = time.time()
+                expired_sessions = []
+                for session_id, progress_info in progress_data.items():
+                    session_timestamp = progress_info.get('timestamp', 0)
+                    if current_time - session_timestamp > 86400:  # 24 hours
+                        expired_sessions.append(session_id)
+                
+                for expired_session in expired_sessions:
+                    progress_data.pop(expired_session, None)
+                    auth_storage.pop(expired_session, None)
+                    print(f"DEBUG: Cleaned up expired session {expired_session}")
                 
                 yield f"data: {json.dumps({'status': 'finalizing', 'message': 'Processing complete! Redirecting to dashboard...', 'progress': 100})}\n\n"
                 
@@ -1181,10 +1195,73 @@ def dashboard():
         traceback.print_exc()
         items = []
     
-    # Calculate statistics
-    search_manager = SearchManager(auth_manager=auth_manager or AuthManager(), settings=settings)
-    stats = search_manager._calculate_statistics(items)
-    print(f"DEBUG: Calculated stats: {stats}")
+    # Calculate statistics following stats.py pattern
+    print(f"DEBUG: Calculating statistics for {len(items)} items")
+    
+    # Follow the pattern from stats.py:119-202 show_basic_stats
+    total_items = len(items)
+    posts = [item for item in items if item.content_type == 'post']
+    replies = [item for item in items if item.content_type == 'reply']
+    repost_items = [item for item in items if item.content_type == 'repost']
+    like_items = [item for item in items if item.content_type == 'like']
+    
+    pr_items = posts + replies  # Posts and replies for engagement calculations
+    
+    # Compute totals only over posts/replies (like stats.py)
+    total_likes = sum(int(it.like_count or 0) for it in pr_items)
+    total_reposts = sum(int(it.repost_count or 0) for it in pr_items)
+    total_replies_count = sum(int(it.reply_count or 0) for it in pr_items)
+    total_engagement = sum(calculate_engagement_score(int(it.like_count or 0), int(it.repost_count or 0), int(it.reply_count or 0)) for it in pr_items)
+    
+    # Averages are per post/reply, not per total items
+    avg_engagement = (total_engagement / len(pr_items)) if pr_items else 0
+    avg_likes = (total_likes / len(pr_items)) if pr_items else 0
+    dead_threads = [it for it in pr_items if it.like_count == 0 and it.repost_count == 0 and it.reply_count == 0]
+    high_engagement = [it for it in pr_items if calculate_engagement_score(int(it.like_count or 0), int(it.repost_count or 0), int(it.reply_count or 0)) >= settings.high_engagement_threshold]
+    
+    # Likes-based categories (based on runtime avg like stats.py)
+    avg_likes_runtime = avg_likes
+    half = max(0.0, avg_likes_runtime * 0.5)
+    one_half = max(1.0, avg_likes_runtime * 1.5)
+    double = max(1.0, avg_likes_runtime * 2.0)
+    cat_dead = [it for it in pr_items if (it.like_count or 0) == 0]
+    cat_bomber = [it for it in pr_items if 0 < (it.like_count or 0) <= half]
+    cat_mid = [it for it in pr_items if half < (it.like_count or 0) <= one_half]
+    cat_banger = [it for it in pr_items if (it.like_count or 0) >= double]
+    cat_viral = [it for it in pr_items if (it.like_count or 0) >= 2000]
+    
+    # Create stats structure for template
+    stats = {
+        'total_posts': len(posts),
+        'total_replies': len(replies),
+        'total_likes': len(like_items),  # This is the count of like actions
+        'total_reposts': len(repost_items),  # This is the count of repost actions
+        'total_items': total_items,
+        'engagement_stats': {
+            'total_likes_received': total_likes,  # Likes received on posts
+            'total_reposts_received': total_reposts,  # Reposts received on posts  
+            'total_replies_received': total_replies_count,  # Replies received on posts
+            'total_engagement': int(total_engagement),
+            'avg_engagement': round(avg_engagement, 1),
+            'avg_likes': round(avg_likes, 1),
+        },
+        'categories': {
+            'dead_threads': len(cat_dead),
+            'bombers': len(cat_bomber),
+            'mid': len(cat_mid),
+            'bangers': len(cat_banger),
+            'viral': len(cat_viral),
+            'high_engagement': len(high_engagement)
+        },
+        'thresholds': {
+            'half': round(half, 1),
+            'one_half': round(one_half, 1),
+            'double': round(double, 1),
+            'high_engagement': settings.high_engagement_threshold
+        }
+    }
+    
+    print(f"DEBUG: Enhanced stats calculated: {stats}")
     
     return render_template('dashboard.html', 
                          handle=session['user_handle'],
@@ -1237,11 +1314,12 @@ def search():
     # Map content types from web form to SearchFilters format
     content_types = data.get('content_types', [])
     if len(content_types) == 1:
-        if 'post' in content_types:
+        content_type_str = content_types[0]
+        if content_type_str == 'post':
             content_type = ContentType.POSTS
-        elif 'like' in content_types:
+        elif content_type_str == 'like':
             content_type = ContentType.LIKES
-        elif 'repost' in content_types:
+        elif content_type_str == 'repost':
             content_type = ContentType.REPOSTS
         else:
             content_type = ContentType.ALL
@@ -1268,16 +1346,18 @@ def search():
     # Convert results for JSON serialization
     serialized_results = []
     for item in results[:100]:  # Limit to 100 for performance
-        # Handle content_type - it might be a string or an enum
+        # Handle content_type - ensure consistent string representation
         content_type_value = item.content_type
         if hasattr(content_type_value, 'value'):
             content_type_value = content_type_value.value
+        elif not isinstance(content_type_value, str):
+            content_type_value = str(content_type_value)
         
         serialized_results.append({
             'uri': item.uri,
             'content_type': content_type_value,
             'text': item.text[:200] + '...' if len(item.text) > 200 else item.text,
-            'created_at': item.created_at.isoformat(),
+            'created_at': item.created_at.isoformat() if hasattr(item.created_at, 'isoformat') else str(item.created_at),
             'likes': item.like_count,
             'reposts': item.repost_count,
             'replies': item.reply_count,
@@ -1569,9 +1649,9 @@ def firehose():
         if firehose_error:
             yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
             
-        # Fallback with mock data if firehose fails - ONLY posts and replies
-        print("INFO: Using mock posts and replies for demo")
-        yield f"data: {json.dumps({'type': 'status', 'message': 'Demo mode: showing sample posts and replies', 'timestamp': time.time()})}\n\n"
+            # Fallback with mock data if firehose fails - ONLY posts and replies
+            print("INFO: Using mock posts and replies for demo")
+            yield f"data: {json.dumps({'type': 'status', 'message': '✨ Demo mode: showing sample posts while processing continues...', 'timestamp': time.time()})}\n\n"
         
         mock_messages = [
             {'type': 'post', 'author': 'alice.bsky.social', 'text': 'Hello Bluesky! 🌅', 'timestamp': time.time()},
@@ -1645,9 +1725,9 @@ def debug_session():
     # Try to load data if path exists
     if json_path:
         try:
-            from .data_manager import DataManager
-            from .auth import AuthManager
-            from .settings import SettingsManager
+            from skymarshal.data_manager import DataManager
+            from skymarshal.auth import AuthManager
+            from skymarshal.settings import SettingsManager
             
             auth_manager = get_auth_manager()
             settings_file = Path.home() / ".car_inspector_settings.json"
