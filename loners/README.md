@@ -1,5 +1,11 @@
 # Skymarshal Loners
 
+Note on archival variants
+- Historical variants are consolidated under `loners/internal/`:
+  - `loners/internal/loners` (from `internal/loners`)
+  - `loners/internal/bluefly/loners` (from `internal/bluefly/loners`)
+- Treat these as reference only; do not import from them at runtime. Migrate any needed code into the main `loners/` package with tests.
+
 Standalone entrypoints for focused workflows built on top of the main Skymarshal CLI. Each script bootstraps the same `InteractiveContentManager` used by the core app so you can jump directly to a task without navigating the full menu.
 
 ## Supported Scripts

@@ -133,17 +133,8 @@
         </div>
     </div>
     
-    <!-- Bluesky Firehose (moved below step 2) -->
-    <div class="firehose-container-external" id="firehose-container-external" style="display: none;">
-        <!-- Processing overlay -->
-        <div class="firehose-overlay" id="firehose-overlay">
-            <div class="overlay-content">
-                <div class="overlay-title">While You Wait...</div>
-                <div class="overlay-subtitle">Enjoy the live Bluesky feed</div>
-                <div class="processing-spinner"></div>
-            </div>
-        </div>
-        
+    <!-- Firehose Loading Section -->
+    <div class="firehose-section" id="firehose-section" style="display: none;">
         <div class="firehose-header">
             <div class="firehose-title">
                 <h4>🔥 Live Bluesky Feed</h4>
@@ -159,17 +150,67 @@
     </div>
 </div>
 
+<!-- Completion Overlay -->
+<div class="completion-overlay" id="completion-overlay" style="display: none;">
+    <div class="completion-content">
+        <div class="completion-spinner"></div>
+        <div class="completion-text" id="completion-text">Processing complete!</div>
+        <div class="completion-progress">
+            <div class="completion-progress-bar">
+                <div class="completion-progress-fill" id="completion-progress-fill"></div>
+            </div>
+            <div class="completion-progress-text" id="completion-progress-text">100%</div>
+        </div>
+    </div>
+</div>
+
 <script>
 let carDownloaded = false;
 let firehoseStream = null;
 
+// Show centered completion overlay
+function showCompletionOverlay(message, progress) {
+    const overlay = document.getElementById('completion-overlay');
+    const text = document.getElementById('completion-text');
+    const progressFill = document.getElementById('completion-progress-fill');
+    const progressText = document.getElementById('completion-progress-text');
+    
+    text.textContent = message;
+    progressFill.style.width = `${progress}%`;
+    progressText.textContent = `${progress}%`;
+    
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '0';
+    
+    // Fade in
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+    });
+    
+    // Auto-hide after 3 seconds for finalizing, keep visible for completed
+    if (progress < 100) {
+        setTimeout(() => {
+            hideCompletionOverlay();
+        }, 3000);
+    }
+}
+
+// Hide completion overlay
+function hideCompletionOverlay() {
+    const overlay = document.getElementById('completion-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 300);
+}
+
 // Firehose functionality
 class FirehoseStream {
     constructor() {
-        this.container = document.getElementById('firehose-container-external');
+        this.container = document.getElementById('firehose-section');
         this.stream = document.getElementById('firehose-stream');
         this.eventSource = null;
-        this.maxMessages = 20;
+        this.maxMessages = 30;
         this.healthCheckInterval = null;
     }
     
@@ -187,27 +228,13 @@ class FirehoseStream {
             fullscreenToggle.title = 'Enter Fullscreen';
         }
 
-        // Smooth animation for external firehose
-        if (this.container.id === 'firehose-container-external') {
-            // Show overlay initially
-            const overlay = document.getElementById('firehose-overlay');
-            if (overlay) {
-                overlay.style.display = 'flex';
-            }
-            
-            // Scroll to firehose after a brief delay
-            setTimeout(() => {
-                this.container.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                });
-                
-                // Start the overlay fade after scroll + animation completes
-                setTimeout(() => {
-                    this.startOverlayFade();
-                }, 800); // Wait for scroll animation
-            }, 300);
-        }
+        // Scroll to firehose section smoothly
+        setTimeout(() => {
+            this.container.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 300);
         
         try {
             this.eventSource = new EventSource('/firehose');
@@ -258,7 +285,7 @@ class FirehoseStream {
         messageDiv.className = `firehose-message ${data.type}`;
         
         const author = data.author.replace('.bsky.social', '').substring(0, 20);
-        const text = data.text.substring(0, 80);
+        const text = data.text.substring(0, 120);
         
         messageDiv.innerHTML = `
             <span class="message-author">@${author}</span>
@@ -351,8 +378,7 @@ class FirehoseStream {
     }
     
     stop() {
-        // Don't actually stop the firehose - keep it running
-        // Just reset UI state but maintain the connection
+        // Keep firehose running but reset fullscreen state
         document.body.style.overflow = 'auto';
         this.container.classList.remove('fullscreen');
 
@@ -365,20 +391,13 @@ class FirehoseStream {
             fullscreenToggle.title = 'Enter Fullscreen';
         }
 
-        // Reset overlay for next time
-        const overlay = document.getElementById('firehose-overlay');
-        if (overlay) {
-            overlay.classList.remove('fade-out');
-            overlay.style.display = 'none';
-        }
-
-        // Keep container visible and active at bottom of the page
+        // Keep container visible
         this.container.style.display = 'block';
         
-        // Add a status message indicating processing is complete but firehose continues
+        // Add a status message indicating processing is complete
         this.addStatusMessage('Processing complete! Firehose continues running...');
         
-        // Ensure firehose keeps running by restarting if needed
+        // Ensure firehose keeps running
         this.ensureFirehoseRunning();
     }
     
@@ -513,6 +532,7 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             messageDiv.className = 'step-message error';
             eventSource.close();
             
+            
             // Reset button state on error
             btn.disabled = false;
             btn.querySelector('.btn-text').style.display = 'inline';
@@ -530,6 +550,7 @@ document.getElementById('download-btn').addEventListener('click', async () => {
         eventSource.close();
         messageDiv.textContent = 'Connection lost. Please try again.';
         messageDiv.className = 'step-message error';
+        
         
         // Reset button state on connection error
         btn.disabled = false;
@@ -578,21 +599,7 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     progressContainer.style.display = 'block';
     progressFill.style.width = '0%';
     
-    // Collapse step 2 content and show firehose below
-    const step2Content = document.querySelector('#step-select .step-content');
-    
-    // Collapse step 2 content with animation
-    if (step2Content) {
-        step2Content.style.transition = 'max-height 0.5s ease, opacity 0.3s ease';
-        step2Content.style.maxHeight = step2Content.scrollHeight + 'px';
-        
-        requestAnimationFrame(() => {
-            step2Content.style.maxHeight = '60px'; // Just enough for header
-            step2Content.style.opacity = '0.3';
-        });
-    }
-
-    // Start firehose below step 2
+    // Start firehose during processing
     if (!firehoseStream) {
         firehoseStream = new FirehoseStream();
     }
@@ -659,13 +666,15 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                     } else if (data.status === 'finalizing') {
                         progressFill.style.width = `${data.progress || 100}%`;
                         progressText.textContent = data.message;
-                        messageDiv.textContent = data.message;
-                        messageDiv.className = 'step-message success';
+                        
+                        // Show centered completion overlay
+                        showCompletionOverlay(data.message, data.progress || 100);
                     } else if (data.status === 'completed') {
                         progressFill.style.width = '100%';
                         progressText.textContent = 'Processing complete!';
-                        messageDiv.textContent = `Successfully processed ${data.total_items} items!`;
-                        messageDiv.className = 'step-message success';
+                        
+                        // Show centered completion overlay
+                        showCompletionOverlay(`Successfully processed ${data.total_items} items!`, 100);
                         
                         // Update step 2 section number to show completion
                         const step2Number = document.querySelector('#step-select .section-number');
@@ -677,23 +686,19 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
                         
-                        // Keep firehose running but restore step 2
-                        // Call stop() which now keeps firehose running
+                        // Keep firehose running
                         if (firehoseStream) {
                             firehoseStream.stop();
                         }
                         
-                        // Restore step 2 content
-                        const step2Content = document.querySelector('#step-select .step-content');
-                        if (step2Content) {
-                            step2Content.style.maxHeight = 'none';
-                            step2Content.style.opacity = '1';
-                        }
+                        // Redirect to dashboard after 3 seconds, hide overlay after 2 seconds
+                        setTimeout(() => {
+                            hideCompletionOverlay();
+                        }, 2000);
                         
-                        // Redirect to dashboard after 2 seconds
                         setTimeout(() => {
                             window.location.href = data.redirect;
-                        }, 2000);
+                        }, 3000);
                     } else if (data.status === 'error') {
                         throw new Error(data.error);
                     }
@@ -712,11 +717,6 @@ document.getElementById('process-btn').addEventListener('click', async () => {
         // Keep firehose running even on error
         if (firehoseStream) {
             firehoseStream.stop();
-        }
-
-        if (step2Content) {
-            step2Content.style.maxHeight = 'none';
-            step2Content.style.opacity = '1';
         }
     }
 });
@@ -741,7 +741,7 @@ function enableStep2() {
     step2.style.transition = 'opacity 0.3s ease';
     step2.style.opacity = '1';
     
-    // Update section number to show completion
+    // Update section number to show active state
     const sectionNumber = step2.querySelector('.section-number');
     if (sectionNumber) {
         sectionNumber.style.background = 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))';
@@ -816,19 +816,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Fullscreen toggle functionality
     const fullscreenToggle = document.getElementById('fullscreen-toggle');
-    const firehoseContainer = document.getElementById('firehose-container-external');
+    const firehoseSection = document.getElementById('firehose-section');
     
-    if (fullscreenToggle && firehoseContainer) {
+    if (fullscreenToggle && firehoseSection) {
         fullscreenToggle.addEventListener('click', () => {
-            if (firehoseContainer.classList.contains('fullscreen')) {
+            if (firehoseSection.classList.contains('fullscreen')) {
                 // Exit fullscreen
-                firehoseContainer.classList.remove('fullscreen');
+                firehoseSection.classList.remove('fullscreen');
                 fullscreenToggle.querySelector('.fullscreen-icon').textContent = '⛶';
                 fullscreenToggle.title = 'Enter Fullscreen';
                 document.body.style.overflow = 'auto';
             } else {
                 // Enter fullscreen
-                firehoseContainer.classList.add('fullscreen');
+                firehoseSection.classList.add('fullscreen');
                 fullscreenToggle.querySelector('.fullscreen-icon').textContent = '🗗';
                 fullscreenToggle.title = 'Exit Fullscreen';
                 document.body.style.overflow = 'hidden';

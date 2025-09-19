@@ -46,21 +46,9 @@
             <div class="engagement-header">
                 <h3>Engagement Metrics</h3>
                 <div class="engagement-actions">
-                    <button id="hydrate-engagement-btn" class="btn btn-primary btn-sm">
-                        <span class="btn-text">🔄 Hydrate Engagement</span>
-                        <span class="btn-loading" style="display: none;">
-                            <span class="spinner"></span> Hydrating...
-                        </span>
-                    </button>
                     <button id="refresh-data-btn" class="btn btn-outline btn-sm" title="Refresh page to show latest data">
                         <span class="btn-text">↻ Refresh</span>
                     </button>
-                    <div id="hydration-status" class="hydration-status" style="display: none;">
-                        <span class="status-text"></span>
-                        <div class="progress-bar">
-                            <div class="progress-fill"></div>
-                        </div>
-                    </div>
                 </div>
             </div>
             
@@ -92,13 +80,9 @@
             
             <div class="engagement-info">
                 <p class="info-text">
-                    <strong>💡 Engagement Hydration Required:</strong> The engagement metrics above show zeros because your CAR file only contains post content, not live engagement data. 
-                    Click "Hydrate Engagement" below to fetch the current like, repost, and reply counts for your posts from the live Bluesky API.
+                    <strong>✅ Engagement Data:</strong> The engagement metrics above show live data from your Bluesky posts. 
+                    Engagement data is automatically fetched when you process your CAR file data.
                 </p>
-                <div id="hydration-timestamp" class="hydration-timestamp" style="display: none;">
-                    <span class="timestamp-label">Last hydrated:</span>
-                    <span class="timestamp-value"></span>
-                </div>
             </div>
         </div>
     </section>
@@ -492,129 +476,26 @@ async function handleSingleDelete(e) {
     }
 }
 
-// Engagement hydration functionality
-const hydrateBtn = document.getElementById('hydrate-engagement-btn');
-const hydrationStatus = document.getElementById('hydration-status');
-const statusText = hydrationStatus.querySelector('.status-text');
-const progressFill = hydrationStatus.querySelector('.progress-fill');
-
-// Check if engagement data has been hydrated on page load
+// Page initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Check the dashboard statistics to see if engagement data has been hydrated
+    // Check the dashboard statistics to see if engagement data is available
     const totalLikes = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value')?.textContent) || 0;
     const totalReposts = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-value')?.textContent) || 0;
     const totalReplies = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(4) .stat-value')?.textContent) || 0;
     
-    if (totalLikes > 0 || totalReposts > 0 || totalReplies > 0) {
-        // Show timestamp indicating data was hydrated
-        const timestamp = document.getElementById('hydration-timestamp');
-        const timestampValue = timestamp.querySelector('.timestamp-value');
-        timestampValue.textContent = 'Data hydrated';
-        timestamp.style.display = 'block';
-        
-        // Update the info text
-        const infoText = document.querySelector('.engagement-info .info-text');
-        infoText.innerHTML = '<strong>✅ Engagement Data Available:</strong> Your posts now show current engagement metrics from the live Bluesky API. Use "Hydrate Engagement" to refresh with the latest data.';
-    } else {
-        // Check if there are any posts to hydrate
+    if (totalLikes === 0 && totalReposts === 0 && totalReplies === 0) {
+        // Check if there are any posts
         const totalPosts = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(1) .stat-value')?.textContent) || 0;
         
         if (totalPosts > 0) {
-            // Highlight the hydrate button to encourage engagement hydration
-            const hydrateBtn = document.getElementById('hydrate-engagement-btn');
-            hydrateBtn.classList.add('btn-highlighted');
-        } else {
-            // No posts to hydrate - show different message
+            // Update info text to indicate engagement hydration happens during processing
             const infoText = document.querySelector('.engagement-info .info-text');
-            infoText.innerHTML = '<strong>ℹ️ No Posts Found:</strong> No posts were found in your data to hydrate engagement for. Make sure you processed posts when importing your CAR file data.';
-            
-            // Hide the hydrate button if there are no posts
-            const hydrateBtn = document.getElementById('hydrate-engagement-btn');
-            hydrateBtn.style.display = 'none';
+            infoText.innerHTML = '<strong>ℹ️ No Engagement Data:</strong> Your posts don\'t show engagement data yet. When processing your next CAR file, engagement data will be automatically fetched during the import process.';
+        } else {
+            // No posts found
+            const infoText = document.querySelector('.engagement-info .info-text');
+            infoText.innerHTML = '<strong>ℹ️ No Posts Found:</strong> No posts were found in your data. Make sure you processed posts when importing your CAR file data.';
         }
-    }
-});
-
-hydrateBtn.addEventListener('click', async () => {
-    hydrateBtn.disabled = true;
-    hydrateBtn.classList.remove('btn-highlighted');
-    hydrateBtn.querySelector('.btn-text').style.display = 'none';
-    hydrateBtn.querySelector('.btn-loading').style.display = 'inline-flex';
-    hydrationStatus.style.display = 'block';
-    
-    try {
-        const response = await fetch('/hydrate-engagement', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-            
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    try {
-                        const data = JSON.parse(line.slice(6));
-                        
-                        if (data.status === 'starting') {
-                            statusText.textContent = data.message;
-                            progressFill.style.width = '0%';
-                        } else if (data.status === 'progress') {
-                            statusText.textContent = data.message;
-                            progressFill.style.width = `${data.progress}%`;
-                        } else if (data.status === 'completed') {
-                            statusText.textContent = data.message;
-                            progressFill.style.width = '100%';
-                            
-                            // Show timestamp
-                            const timestamp = document.getElementById('hydration-timestamp');
-                            const timestampValue = timestamp.querySelector('.timestamp-value');
-                            timestampValue.textContent = new Date().toLocaleString();
-                            timestamp.style.display = 'block';
-                            
-                            // Show success message
-                            setTimeout(() => {
-                                alert(`✅ ${data.message}`);
-                                // Reload the page to show updated engagement data
-                                window.location.reload();
-                            }, 1000);
-                        } else if (data.status === 'error') {
-                            statusText.textContent = `Error: ${data.error}`;
-                            progressFill.style.width = '0%';
-                            alert(`❌ Hydration failed: ${data.error}`);
-                        }
-                    } catch (e) {
-                        console.error('Error parsing SSE data:', e);
-                    }
-                }
-            }
-        }
-    } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
-        progressFill.style.width = '0%';
-        alert(`❌ Hydration failed: ${error.message}`);
-    } finally {
-        hydrateBtn.disabled = false;
-        hydrateBtn.querySelector('.btn-text').style.display = 'inline';
-        hydrateBtn.querySelector('.btn-loading').style.display = 'none';
-        
-        // Hide status after a delay
-        setTimeout(() => {
-            hydrationStatus.style.display = 'none';
-        }, 3000);
     }
 });
 
