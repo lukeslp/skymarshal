@@ -28,6 +28,8 @@
     --font-size-xxl: 2.1rem;
     --font-size-display: 2.6rem;
     --step-subcontainer-width: min(620px, 100%);
+    --hydration-color: #3498db;
+    --hydration-bg: #e8f4fd;
 }
 
 body {
@@ -2006,4 +2008,47 @@ small,
     .floating-notification.show {
         transform: translateY(0);
     }
+}
+
+/* Hydration status styles */
+.hydration-status {
+    background: var(--hydration-bg);
+    border: 1px solid var(--hydration-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.hydration-status .status-icon {
+    font-size: 1.5rem;
+    animation: pulse 2s infinite;
+}
+
+.hydration-status .status-text {
+    flex: 1;
+    color: var(--hydration-color);
+    font-weight: 500;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Enhanced progress messages for hydration */
+.progress-text.hydrating {
+    color: var(--hydration-color);
+    font-weight: 600;
+}
+
+.step-message.hydration {
+    background: var(--hydration-bg);
+    border-left: 4px solid var(--hydration-color);
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 var(--radius) var(--radius) 0;
 }

@@ -286,6 +286,14 @@ class DataManager:
             except Exception as e:
                 console.print(f"Backup failed: {e}")
                 return None
+    
+    def download_car(self, handle: str) -> Optional[Path]:
+        """Download CAR backup file - alias for create_timestamped_backup for compatibility."""
+        return self.create_timestamped_backup(handle)
+    
+    def import_car_replace(self, car_path: Path, handle: str, categories: Optional[set] = None) -> Optional[Path]:
+        """Import CAR file replacing existing data - alias for import_backup_replace for compatibility."""
+        return self.import_backup_replace(car_path, handle, categories)
 
     def create_timestamped_backup_with_progress(self, handle: str, progress_callback=None) -> Optional[Path]:
         """Download backup file with progress tracking."""
