@@ -697,11 +697,11 @@ def download_car():
                 settings = settings_manager.settings
                 
                 data_manager = DataManager(
-                    auth_manager=auth_manager,
-                    settings=settings,
-                    skymarshal_dir=skymarshal_dir,
-                    backups_dir=backups_dir,
-                    json_dir=json_dir
+                    auth_manager,
+                    settings,
+                    skymarshal_dir,
+                    backups_dir,
+                    json_dir
                 )
                 
                 yield f"data: {json.dumps({'status': 'starting', 'message': 'Connecting to Bluesky...'})}\n\n"
@@ -888,67 +888,32 @@ def process_data():
             settings_manager = SettingsManager(settings_file)
             settings = settings_manager.settings
             
-            # Try to get existing auth manager
+            # Always create managers following the working pattern from loners scripts
+            from skymarshal.ui import UIManager
+            ui_manager = UIManager(settings)
+            
+            # Use the existing authenticated auth manager from the session (already authenticated during login)
             auth_manager = get_auth_manager()
-            if not auth_manager:
-                # Create a new auth manager if none exists
-                yield f"data: {json.dumps({'status': 'processing', 'message': 'Setting up authentication for engagement hydration...', 'progress': 3})}\n\n"
-                
-                from skymarshal.ui import UIManager
-                ui_manager = UIManager(settings)
-                auth_manager = AuthManager(ui_manager)
-                
-                # Store it in auth_storage for this session
-                session_id = session.get('session_id')
-                if session_id:
-                    auth_storage[session_id] = auth_manager
+            if not auth_manager or not auth_manager.is_authenticated():
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'No authentication available - will use cached engagement data', 'progress': 5})}\n\n"
+                auth_manager = None
             
-            # Ensure authentication (this will try to resume saved session automatically)
-            if not auth_manager.is_authenticated():
-                yield f"data: {json.dumps({'status': 'processing', 'message': 'Checking authentication for engagement hydration...', 'progress': 4})}\n\n"
-                
-                try:
-                    # Try to get handle from session for re-auth if needed
-                    session_handle = session.get('user_handle')
-                    if session_handle and hasattr(auth_manager, 'saved_session_file'):
-                        # Try to load saved session
-                        saved_session_path = auth_manager.saved_session_file
-                        if saved_session_path.exists():
-                            try:
-                                with open(saved_session_path, 'r') as f:
-                                    saved_data = json.load(f)
-                                    if saved_data.get('handle') == session_handle:
-                                        # Session file exists for this user
-                                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Found saved session, attempting to restore...', 'progress': 4})}\n\n"
-                            except:
-                                pass
-                    
-                    # This will automatically try to resume the saved session
-                    if auth_manager.ensure_authentication():
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Authentication restored! Ready for engagement hydration.', 'progress': 5})}\n\n"
-                    else:
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Proceeding without live engagement data (authentication unavailable)', 'progress': 5})}\n\n"
-                        auth_manager = None  # Set to None so hydration is skipped
-                except Exception as e:
-                    print(f"DEBUG: Authentication restoration error: {e}")
-                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Will use cached engagement data from CAR file', 'progress': 5})}\n\n"
-                    auth_manager = None  # Set to None so hydration is skipped
-            
+            # Use exact same initialization pattern as working loners
             data_manager = DataManager(
-                auth_manager=auth_manager,
-                settings=settings,
-                skymarshal_dir=skymarshal_dir,
-                backups_dir=backups_dir,
-                json_dir=json_dir
+                auth_manager,
+                settings,
+                skymarshal_dir,
+                backups_dir,
+                json_dir
             )
             
             yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting data processing...', 'progress': 6})}\n\n"
             print(f"DEBUG: About to process CAR file: {car_path}")
-            print(f"DEBUG: Processing categories: {categories}")
-            print(f"DEBUG: Number of categories: {len(categories)}")
             
             # Convert content types to category set
             categories = set(content_types)
+            print(f"DEBUG: Processing categories: {categories}")
+            print(f"DEBUG: Number of categories: {len(categories)}")
             
             category_list = ", ".join(categories)
             yield f"data: {json.dumps({'status': 'processing', 'message': f'Processing {len(categories)} content types: {category_list}', 'progress': 10})}\n\n"
@@ -956,7 +921,7 @@ def process_data():
             # Process CAR file using import_backup_replace method
             yield f"data: {json.dumps({'status': 'processing', 'message': 'Reading CAR file structure...', 'progress': 20})}\n\n"
             
-            json_path = data_manager.import_backup_replace(
+            json_path = data_manager.import_car_replace(
                 Path(car_path), 
                 handle=handle, 
                 categories=categories
@@ -1167,8 +1132,6 @@ def dashboard():
         return redirect(url_for('setup'))
     
     # Load data
-    auth_manager = get_auth_manager()
-    
     # Set up required directories
     skymarshal_dir = Path.home() / '.skymarshal'
     backups_dir = skymarshal_dir / 'cars'
@@ -1179,12 +1142,20 @@ def dashboard():
     settings_manager = SettingsManager(settings_file)
     settings = settings_manager.settings
     
+    # Follow the working pattern from loners scripts
+    from skymarshal.ui import UIManager
+    ui_manager = UIManager(settings)
+    
+    auth_manager = get_auth_manager()
+    if not auth_manager:
+        auth_manager = AuthManager(ui_manager)
+    
     data_manager = DataManager(
-        auth_manager=auth_manager or AuthManager(),
-        settings=settings,
-        skymarshal_dir=skymarshal_dir,
-        backups_dir=backups_dir,
-        json_dir=json_dir
+        auth_manager or AuthManager(),
+        settings,
+        skymarshal_dir,
+        backups_dir,
+        json_dir
     )
     print(f"DEBUG: Attempting to load data from: {json_path}")
     print(f"DEBUG: File exists: {Path(json_path).exists()}")
@@ -1286,8 +1257,6 @@ def search():
         return jsonify({'success': False, 'error': 'No data loaded. Please complete setup first.'}), 400
     
     # Load data
-    auth_manager = get_auth_manager()
-    
     # Set up required directories
     skymarshal_dir = Path.home() / '.skymarshal'
     backups_dir = skymarshal_dir / 'cars'
@@ -1298,12 +1267,20 @@ def search():
     settings_manager = SettingsManager(settings_file)
     settings = settings_manager.settings
     
+    # Follow the working pattern from loners scripts
+    from skymarshal.ui import UIManager
+    ui_manager = UIManager(settings)
+    
+    auth_manager = get_auth_manager()
+    if not auth_manager:
+        auth_manager = AuthManager(ui_manager)
+    
     data_manager = DataManager(
-        auth_manager=auth_manager or AuthManager(),
-        settings=settings,
-        skymarshal_dir=skymarshal_dir,
-        backups_dir=backups_dir,
-        json_dir=json_dir
+        auth_manager or AuthManager(),
+        settings,
+        skymarshal_dir,
+        backups_dir,
+        json_dir
     )
     
     print(f"DEBUG: Search endpoint - json_path: {json_path}")
@@ -1369,7 +1346,7 @@ def search():
             'reposts': item.repost_count,
             'replies': item.reply_count,
             'engagement_score': item.engagement_score,
-            'has_media': item.has_media
+            'has_media': getattr(item, 'has_media', False)
         })
     
     return jsonify({
@@ -1415,11 +1392,11 @@ def delete():
         settings = settings_manager.settings
         
         data_manager = DataManager(
-            auth_manager=auth_manager or AuthManager(),
-            settings=settings,
-            skymarshal_dir=skymarshal_dir,
-            backups_dir=backups_dir,
-            json_dir=json_dir
+            auth_manager or AuthManager(),
+            settings,
+            skymarshal_dir,
+            backups_dir,
+            json_dir
         )
         all_items = data_manager.load_exported_data(Path(json_path))
         
@@ -1746,11 +1723,11 @@ def debug_session():
             json_dir = skymarshal_dir / 'json'
             
             data_manager = DataManager(
-                auth_manager=auth_manager or AuthManager(),
-                settings=settings,
-                skymarshal_dir=skymarshal_dir,
-                backups_dir=backups_dir,
-                json_dir=json_dir
+                auth_manager or AuthManager(),
+                settings,
+                skymarshal_dir,
+                backups_dir,
+                json_dir
             )
             
             items = data_manager.load_exported_data(Path(json_path))

@@ -11,40 +11,86 @@
             <div class="stat-card">
                 <div class="stat-icon">📝</div>
                 <div class="stat-content">
-                    <h3>Total Posts</h3>
+                    <h3>Posts</h3>
                     <p class="stat-value">{{ stats.total_posts }}</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">❤️</div>
-                <div class="stat-content">
-                    <h3>Total Likes</h3>
-                    <p class="stat-value">{{ stats.total_likes }}</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">🔄</div>
-                <div class="stat-content">
-                    <h3>Total Reposts</h3>
-                    <p class="stat-value">{{ stats.total_reposts }}</p>
+                    <p class="stat-detail">Original posts</p>
                 </div>
             </div>
             
             <div class="stat-card">
                 <div class="stat-icon">💬</div>
                 <div class="stat-content">
-                    <h3>Total Replies</h3>
+                    <h3>Replies</h3>
                     <p class="stat-value">{{ stats.total_replies }}</p>
+                    <p class="stat-detail">Comments/replies</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">❤️</div>
+                <div class="stat-content">
+                    <h3>Likes Given</h3>
+                    <p class="stat-value">{{ stats.total_likes }}</p>
+                    <p class="stat-detail">Your like actions</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-content">
+                    <h3>Reposts Given</h3>
+                    <p class="stat-value">{{ stats.total_reposts }}</p>
+                    <p class="stat-detail">Your repost actions</p>
                 </div>
             </div>
         </div>
         
-        <!-- Engagement Metrics -->
+        <!-- Engagement Received Section -->
+        <div class="engagement-received-section">
+            <h3>Engagement Received (on your posts/replies)</h3>
+            <div class="stats-grid">
+                <div class="stat-card engagement">
+                    <div class="stat-icon">❤️</div>
+                    <div class="stat-content">
+                        <h4>Likes Received</h4>
+                        <p class="stat-value">{{ stats.engagement_stats.total_likes_received }}</p>
+                        <p class="stat-detail">Avg: {{ stats.engagement_stats.avg_likes }} per post/reply</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card engagement">
+                    <div class="stat-icon">🔄</div>
+                    <div class="stat-content">
+                        <h4>Reposts Received</h4>
+                        <p class="stat-value">{{ stats.engagement_stats.total_reposts_received }}</p>
+                        <p class="stat-detail">On your content</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card engagement">
+                    <div class="stat-icon">💬</div>
+                    <div class="stat-content">
+                        <h4>Replies Received</h4>
+                        <p class="stat-value">{{ stats.engagement_stats.total_replies_received }}</p>
+                        <p class="stat-detail">On your content</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card engagement highlight">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <h4>Total Engagement</h4>
+                        <p class="stat-value">{{ stats.engagement_stats.total_engagement }}</p>
+                        <p class="stat-detail">Avg: {{ stats.engagement_stats.avg_engagement }} per post/reply</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Categories (following stats.py pattern) -->
         <div class="engagement-section">
             <div class="engagement-header">
-                <h3>Engagement Metrics</h3>
+                <h3>Content Performance Categories</h3>
                 <div class="engagement-actions">
                     <button id="refresh-data-btn" class="btn btn-outline btn-sm" title="Refresh page to show latest data">
                         <span class="btn-text">↻ Refresh</span>
@@ -53,36 +99,54 @@
             </div>
             
             <div class="metrics-grid">
-                <div class="metric-card">
-                    <h4>Top Posts</h4>
-                    <p class="metric-value">{{ stats.top_posts }} posts</p>
-                    <p class="metric-label">High engagement ({{ stats.engagement_thresholds.top }}+ score)</p>
+                <div class="metric-card viral">
+                    <h4>🚀 Viral</h4>
+                    <p class="metric-value">{{ stats.categories.viral }} posts</p>
+                    <p class="metric-label">≥ 2000 likes</p>
                 </div>
                 
-                <div class="metric-card">
-                    <h4>Average Posts</h4>
-                    <p class="metric-value">{{ stats.average_posts }} posts</p>
-                    <p class="metric-label">Moderate engagement ({{ stats.engagement_thresholds.average }}-{{ stats.engagement_thresholds.top }})</p>
+                <div class="metric-card banger">
+                    <h4>🔥 Bangers</h4>
+                    <p class="metric-value">{{ stats.categories.bangers }} posts</p>
+                    <p class="metric-label">≥ {{ stats.thresholds.double }} likes</p>
                 </div>
                 
-                <div class="metric-card">
-                    <h4>Low Engagement</h4>
-                    <p class="metric-value">{{ stats.low_engagement }} posts</p>
-                    <p class="metric-label">Below average ({{ stats.engagement_thresholds.low }}-{{ stats.engagement_thresholds.average }})</p>
+                <div class="metric-card mid">
+                    <h4>📈 Mid</h4>
+                    <p class="metric-value">{{ stats.categories.mid }} posts</p>
+                    <p class="metric-label">~ avg ({{ stats.engagement_stats.avg_likes }})</p>
                 </div>
                 
-                <div class="metric-card">
-                    <h4>Dead Threads</h4>
-                    <p class="metric-value">{{ stats.dead_threads }} posts</p>
-                    <p class="metric-label">No engagement</p>
+                <div class="metric-card bomber">
+                    <h4>💥 Bombers</h4>
+                    <p class="metric-value">{{ stats.categories.bombers }} posts</p>
+                    <p class="metric-label">≤ {{ stats.thresholds.half }} likes</p>
+                </div>
+                
+                <div class="metric-card dead">
+                    <h4>💀 Dead Threads</h4>
+                    <p class="metric-value">{{ stats.categories.dead_threads }} posts</p>
+                    <p class="metric-label">0 engagement</p>
+                </div>
+                
+                <div class="metric-card high-engagement">
+                    <h4>⚡ High Engagement</h4>
+                    <p class="metric-value">{{ stats.categories.high_engagement }} posts</p>
+                    <p class="metric-label">{{ stats.thresholds.high_engagement }}+ engagement score</p>
                 </div>
             </div>
             
             <div class="engagement-info">
                 <p class="info-text">
-                    <strong>✅ Engagement Data:</strong> The engagement metrics above show live data from your Bluesky posts. 
-                    Engagement data is automatically fetched when you process your CAR file data.
+                    <strong>✅ Engagement Categories:</strong> Content is categorized based on engagement patterns following Skymarshal analytics. 
+                    Engagement data is automatically hydrated during import to show real-time likes, reposts, and replies.
                 </p>
+                {% if stats.engagement_stats.total_likes_received == 0 and stats.engagement_stats.total_reposts_received == 0 and stats.engagement_stats.total_replies_received == 0 and stats.total_posts > 0 %}
+                <p class="info-text" style="color: #e74c3c; margin-top: 10px;">
+                    <strong>⚠️ No Engagement Data:</strong> Engagement hydration may have failed during import. 
+                    Try re-importing your data or check your authentication status.
+                </p>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -478,12 +542,12 @@ async function handleSingleDelete(e) {
 
 // Page initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Check the dashboard statistics to see if engagement data is available
-    const totalLikes = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value')?.textContent) || 0;
-    const totalReposts = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-value')?.textContent) || 0;
-    const totalReplies = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(4) .stat-value')?.textContent) || 0;
+    // Check the engagement received statistics to see if engagement data is available
+    const likesReceived = parseInt(document.querySelector('.engagement-received-section .stat-card:nth-child(1) .stat-value')?.textContent) || 0;
+    const repostsReceived = parseInt(document.querySelector('.engagement-received-section .stat-card:nth-child(2) .stat-value')?.textContent) || 0;
+    const repliesReceived = parseInt(document.querySelector('.engagement-received-section .stat-card:nth-child(3) .stat-value')?.textContent) || 0;
     
-    if (totalLikes === 0 && totalReposts === 0 && totalReplies === 0) {
+    if (likesReceived === 0 && repostsReceived === 0 && repliesReceived === 0) {
         // Check if there are any posts
         const totalPosts = parseInt(document.querySelector('.stats-grid .stat-card:nth-child(1) .stat-value')?.textContent) || 0;
         
@@ -504,16 +568,6 @@ document.getElementById('refresh-data-btn').addEventListener('click', () => {
     window.location.reload();
 });
 
-// Utility functions
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// Utility functions are defined in main.js
 </script>
 {% endblock %}
