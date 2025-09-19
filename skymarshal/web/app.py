@@ -848,7 +848,8 @@ def process_data():
             # Convert content types to category set
             categories = set(content_types)
             
-            yield f"data: {json.dumps({'status': 'processing', 'message': f'Processing {len(categories)} content types: {", ".join(categories)}', 'progress': 10})}\n\n"
+            category_list = ", ".join(categories)
+            yield f"data: {json.dumps({'status': 'processing', 'message': f'Processing {len(categories)} content types: {category_list}', 'progress': 10})}\n\n"
             
             # Process CAR file using import_backup_replace method
             yield f"data: {json.dumps({'status': 'processing', 'message': 'Reading CAR file structure...', 'progress': 20})}\n\n"
