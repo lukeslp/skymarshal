@@ -475,7 +475,7 @@ document.getElementById('download-btn').addEventListener('click', async () => {
             // Hide loading state and show completion
             btn.querySelector('.btn-loading').style.display = 'none';
             btn.querySelector('.btn-text').style.display = 'inline';
-            btn.querySelector('.btn-text').innerHTML = '✅ Import Complete!';
+            btn.querySelector('.btn-text').innerHTML = '✅ Download Complete!';
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
             btn.disabled = true;
@@ -504,11 +504,6 @@ document.getElementById('download-btn').addEventListener('click', async () => {
                     progressContainer.style.display = 'none';
                 }, 300);
             }, 1500);
-            
-            // Don't need to stop firehose since we don't start it during import
-            // if (firehoseStream) {
-            //     firehoseStream.stop();
-            // }
             
             // Show stats if available
             if (data.stats) {
@@ -605,6 +600,9 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     }
     firehoseStream.start();
     
+    // Show notification that firehose is starting
+    showFloatingNotification('🌊 Firehose activated! Watch live posts while we process and hydrate your data...', 'info', 4000);
+    
     try {
         const response = await fetch('/process-data', {
             method: 'POST',
@@ -613,6 +611,16 @@ document.getElementById('process-btn').addEventListener('click', async () => {
             },
             body: JSON.stringify({ content_types: contentTypes, limits: limits })
         });
+        
+        // Check for authentication errors
+        if (response.status === 401) {
+            const errorData = await response.json();
+            throw new Error(`Authentication required: ${errorData.error || 'Please log in again'}`);
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -666,15 +674,21 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                     } else if (data.status === 'finalizing') {
                         progressFill.style.width = `${data.progress || 100}%`;
                         progressText.textContent = data.message;
-                        
-                        // Show centered completion overlay
-                        showCompletionOverlay(data.message, data.progress || 100);
+                        messageDiv.textContent = data.message;
+                        messageDiv.className = 'step-message info';
                     } else if (data.status === 'completed') {
                         progressFill.style.width = '100%';
                         progressText.textContent = 'Processing complete!';
+                        messageDiv.textContent = `Successfully processed ${data.total_items} items!`;
+                        messageDiv.className = 'step-message success';
                         
-                        // Show centered completion overlay
-                        showCompletionOverlay(`Successfully processed ${data.total_items} items!`, 100);
+                        // Update button state
+                        btn.disabled = false;
+                        btn.querySelector('.btn-text').style.display = 'inline';
+                        btn.querySelector('.btn-text').innerHTML = '✅ Processing Complete!';
+                        btn.querySelector('.btn-loading').style.display = 'none';
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-success');
                         
                         // Update step 2 section number to show completion
                         const step2Number = document.querySelector('#step-select .section-number');
@@ -686,19 +700,27 @@ document.getElementById('process-btn').addEventListener('click', async () => {
                         document.getElementById('select-status').textContent = '✓';
                         document.getElementById('select-status').className = 'step-status completed';
                         
-                        // Keep firehose running
-                        if (firehoseStream) {
-                            firehoseStream.stop();
-                        }
+                        // Show success notifications
+                        showFloatingNotification('✅ Import and hydration complete!', 'success', 4000);
                         
-                        // Redirect to dashboard after 3 seconds, hide overlay after 2 seconds
                         setTimeout(() => {
-                            hideCompletionOverlay();
+                            showFloatingNotification('📊 Ready to explore your data on the dashboard!', 'info', 5000);
                         }, 2000);
                         
+                        // Keep firehose running for a bit longer, then stop
                         setTimeout(() => {
-                            window.location.href = data.redirect;
-                        }, 3000);
+                            if (firehoseStream) {
+                                firehoseStream.stop();
+                                showFloatingNotification('🌊 Firehose stopped. Redirecting to dashboard...', 'info', 3000);
+                            }
+                        }, 4000);
+                        
+                        // Redirect to dashboard after showing notifications
+                        setTimeout(() => {
+                            if (data.redirect) {
+                                window.location.href = data.redirect;
+                            }
+                        }, 7000);
                     } else if (data.status === 'error') {
                         throw new Error(data.error);
                     }
@@ -842,5 +864,59 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Floating notification system
+function showFloatingNotification(message, type = 'info', duration = 3000) {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('floating-notifications');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'floating-notifications';
+        container.className = 'floating-notifications';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `floating-notification ${type}`;
+    notification.innerHTML = `
+        <span class="notification-text">${message}</span>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    // Add close functionality
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => {
+        removeNotification(notification);
+    });
+    
+    // Add to container
+    container.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Auto-remove after duration
+    if (duration > 0) {
+        setTimeout(() => {
+            removeNotification(notification);
+        }, duration);
+    }
+    
+    return notification;
+}
+
+function removeNotification(notification) {
+    notification.classList.remove('show');
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 300);
+}
+
+// Function removed - processing now handled directly through UI flow
 </script>
 {% endblock %}

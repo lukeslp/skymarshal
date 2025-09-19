@@ -55,6 +55,11 @@ def login_required(f):
                 response.headers['Cache-Control'] = 'no-cache'
                 response.headers['Connection'] = 'keep-alive'
                 return response
+            # Check if this is an AJAX request expecting JSON
+            if (request.headers.get('Content-Type') == 'application/json' or 
+                'application/json' in request.headers.get('Accept', '') or
+                request.method == 'POST' and request.is_json):
+                return jsonify({'success': False, 'error': 'Authentication required'}), 401
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -127,7 +132,7 @@ def get_car_quick_stats(car_path):
     """Get quick statistics from a CAR file without full processing"""
     try:
         from atproto_core.car import CAR
-        from skymarshal.models import ContentType
+        from skymarshal.data_manager import cbor_decode
         
         stats = {
             'posts': 0,
@@ -141,7 +146,8 @@ def get_car_quick_stats(car_path):
         debug_info = {
             'file_size': 0,
             'total_blocks': 0,
-            'collections_found': set(),
+            'decoded_blocks': 0,
+            'record_types': set(),
             'sample_records': []
         }
         
@@ -149,59 +155,103 @@ def get_car_quick_stats(car_path):
         import os
         debug_info['file_size'] = os.path.getsize(car_path)
         
-        # Read the CAR file and count record types properly
+        if cbor_decode is None:
+            print("WARNING: No CBOR decoder available, cannot parse CAR file contents")
+            return {
+                'posts': '?',
+                'replies': '?',
+                'likes': '?',
+                'reposts': '?', 
+                'total': f'{debug_info["file_size"] // 1024}KB',
+                'error': 'No CBOR decoder available'
+            }
+        
+        # Read the CAR file and decode blocks like DataManager does
         with open(car_path, 'rb') as f:
             car = CAR.from_bytes(f.read())
             debug_info['total_blocks'] = len(car.blocks)
             
-            for cid, block_data in car.blocks.items():
+            # Decode all blocks first (like DataManager._decode_car_blocks)
+            decoded = {}
+            
+            # Handle different CAR block access patterns
+            if isinstance(car.blocks, dict):
+                # car.blocks is a dict mapping CID -> block data
+                blocks_iter = car.blocks.items()
+            else:
+                # car.blocks might be another iterator
+                blocks_iter = car.blocks
+            
+            for item in blocks_iter:
                 try:
-                    # Decode the block using the same method as DataManager
-                    if hasattr(block_data, 'data'):
-                        # If it's already decoded
-                        record = block_data.data
+                    # Handle different iterator types
+                    if isinstance(item, tuple) and len(item) == 2:
+                        cid, block = item
+                    elif hasattr(item, "cid") and hasattr(item, "data"):
+                        cid, block = item.cid, item.data
+                    elif hasattr(item, "cid") and hasattr(item, "bytes"):
+                        cid, block = item.cid, item.bytes
                     else:
-                        # Try to decode CBOR
-                        from skymarshal.data_manager import cbor_decode
-                        if cbor_decode:
-                            record = cbor_decode(block_data)
+                        continue
+                    
+                    # Handle different block data formats
+                    if isinstance(block, dict):
+                        decoded[str(cid)] = block
+                    elif isinstance(block, (bytes, bytearray)):
+                        decoded[str(cid)] = cbor_decode(block)
+                    else:
+                        if hasattr(block, "bytes"):
+                            decoded[str(cid)] = cbor_decode(block.bytes)
+                        elif hasattr(block, "data"):
+                            decoded[str(cid)] = cbor_decode(block.data)
                         else:
                             continue
                     
-                    # Check if this is a commit record with operations
-                    if isinstance(record, dict) and 'ops' in record:
-                        for op in record.get('ops', []):
-                            if 'path' in op and 'cid' in op:
-                                path = op['path']
-                                
-                                # Extract collection from path (e.g., "app.bsky.feed.post/abc123")
-                                if '/' in path:
-                                    collection = path.split('/')[0]
-                                    debug_info['collections_found'].add(collection)
-                                    
-                                    if collection == 'app.bsky.feed.post':
-                                        # This could be a post or reply - we'll categorize as posts for now
-                                        # In full processing, we'd check the record content for reply field
-                                        stats['posts'] += 1
-                                    elif collection == 'app.bsky.feed.like':
-                                        stats['likes'] += 1
-                                    elif collection == 'app.bsky.feed.repost':
-                                        stats['reposts'] += 1
-                                    else:
-                                        stats['other'] += 1
-                                    
-                                    stats['total'] += 1
+                    debug_info['decoded_blocks'] += 1
+                        
+                except Exception as decode_error:
+                    # Skip records that can't be decoded
+                    continue
+            
+            # Now count records by type (like DataManager._process_backup_records)
+            for cid, obj in decoded.items():
+                try:
+                    if not isinstance(obj, dict):
+                        continue
+
+                    rtype = obj.get("$type")
+                    if not rtype:
+                        continue
+                        
+                    debug_info['record_types'].add(rtype)
                     
                     # Store sample for debugging (first 3 records)
                     if len(debug_info['sample_records']) < 3:
                         debug_info['sample_records'].append({
-                            'type': type(record).__name__,
-                            'keys': list(record.keys()) if isinstance(record, dict) else 'not_dict',
-                            'has_ops': 'ops' in record if isinstance(record, dict) else False
+                            'type': rtype,
+                            'has_text': 'text' in obj,
+                            'has_reply': 'reply' in obj,
+                            'text_preview': obj.get('text', '')[:50] if obj.get('text') else ''
                         })
+
+                    if rtype == "app.bsky.feed.post":
+                        is_reply = bool(obj.get("reply"))
+                        if is_reply:
+                            stats['replies'] += 1
+                        else:
+                            stats['posts'] += 1
+                        stats['total'] += 1
+                    elif rtype == "app.bsky.feed.like":
+                        stats['likes'] += 1
+                        stats['total'] += 1
+                    elif rtype == "app.bsky.feed.repost":
+                        stats['reposts'] += 1
+                        stats['total'] += 1
+                    else:
+                        stats['other'] += 1
                         
-                except Exception as decode_error:
-                    # Skip records that can't be decoded
+                except Exception as record_error:
+                    # Skip records that can't be processed
                     continue
         
         # Store in session for use in facts
@@ -220,9 +270,10 @@ def get_car_quick_stats(car_path):
         print(f"CAR Stats Debug - File: {car_path}")
         print(f"File size: {debug_info['file_size']} bytes")
         print(f"Total blocks: {debug_info['total_blocks']}")
-        print(f"Collections found: {debug_info['collections_found']}")
+        print(f"Decoded blocks: {debug_info['decoded_blocks']}")
+        print(f"Record types found: {debug_info['record_types']}")
         print(f"Sample records: {debug_info['sample_records']}")
-        print(f"Final stats: posts={stats['posts']}, likes={stats['likes']}, reposts={stats['reposts']}")
+        print(f"Final stats: posts={stats['posts']}, replies={stats['replies']}, likes={stats['likes']}, reposts={stats['reposts']}, total={stats['total']}")
         
         return stats
         
@@ -818,8 +869,6 @@ def process_data():
     
     def generate():
         try:
-            auth_manager = get_auth_manager()
-            
             # Set up required directories
             skymarshal_dir = Path.home() / '.skymarshal'
             backups_dir = skymarshal_dir / 'cars'
@@ -835,15 +884,45 @@ def process_data():
             settings_manager = SettingsManager(settings_file)
             settings = settings_manager.settings
             
+            # Try to get existing auth manager
+            auth_manager = get_auth_manager()
+            if not auth_manager:
+                # Create a new auth manager if none exists
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Setting up authentication for engagement hydration...', 'progress': 3})}\n\n"
+                
+                from skymarshal.ui import UIManager
+                ui_manager = UIManager(settings)
+                auth_manager = AuthManager(ui_manager)
+                
+                # Store it in auth_storage for this session
+                session_id = session.get('session_id')
+                if session_id:
+                    auth_storage[session_id] = auth_manager
+            
+            # Ensure authentication (this will try to resume saved session automatically)
+            if not auth_manager.is_authenticated():
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Restoring authentication session...', 'progress': 4})}\n\n"
+                
+                try:
+                    # This will automatically try to resume the saved session
+                    if auth_manager.ensure_authentication():
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Authentication restored successfully!', 'progress': 5})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Proceeding without engagement hydration (authentication unavailable)', 'progress': 5})}\n\n"
+                        auth_manager = None  # Set to None so hydration is skipped
+                except Exception as e:
+                    yield f"data: {json.dumps({'status': 'processing', 'message': f'Authentication restoration failed: {str(e)[:50]}...', 'progress': 5})}\n\n"
+                    auth_manager = None  # Set to None so hydration is skipped
+            
             data_manager = DataManager(
-                auth_manager=auth_manager or AuthManager(),
+                auth_manager=auth_manager,
                 settings=settings,
                 skymarshal_dir=skymarshal_dir,
                 backups_dir=backups_dir,
                 json_dir=json_dir
             )
             
-            yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting data processing...', 'progress': 5})}\n\n"
+            yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting data processing...', 'progress': 6})}\n\n"
             
             # Convert content types to category set
             categories = set(content_types)

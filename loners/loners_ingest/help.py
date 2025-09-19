@@ -111,11 +111,11 @@ class HelpScript:
 
 - Your credentials are used to authenticate with Bluesky's AT Protocol
 - Session information is kept in memory only (not saved to disk for security)
-- Passwords are never stored. Session tokens are saved locally to `~/.skymarshal/session.json` so you don't have to login every run. Delete via the Logout action.
+- Passwords are never stored, only session tokens
 
 ## Re-authentication
 
-Sessions are persisted between launches and resumed automatically when possible. If a token expires, you'll be prompted to login again. Use Logout to clear the saved session.
+Since sessions are not saved between app launches, you'll need to login each time you start the application. This ensures maximum security of your credentials.
 
 Some operations may also require re-authentication during the session:
 - API-heavy operations if the session expires

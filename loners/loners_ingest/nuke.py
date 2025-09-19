@@ -118,7 +118,7 @@ DO NOT PROCEED unless you are absolutely certain!
                 handle = self.auth.normalize_handle(handle)
                 break
         
-        password, action = self.ui.input_with_navigation("Password: ", password=True, context="password")
+        password, action = self.ui.input_with_navigation("App Password: ", password=True, context="password")
         if action in ["back", "main"]:
             return False
         

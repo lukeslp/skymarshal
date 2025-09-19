@@ -32,7 +32,7 @@ try:
     from skymarshal.auth import AuthManager
     from skymarshal.data_manager import DataManager
     from skymarshal.ui import UIManager
-    from skymarshal.models import ContentItem, UserSettings, console
+    from skymarshal.models import ContentItem, console
 except ImportError as e:
     print(f"❌ Failed to import Skymarshal modules: {e}")
     print("💡 Make sure you're running this from the skymarshal directory")
@@ -45,43 +45,11 @@ class ContentCleanupLoner:
 
     def __init__(self):
         """Initialize the content cleanup tool."""
-        self.settings_file = Path.home() / '.car_inspector_settings.json'
-        self.settings = self._load_settings()
-
-        # Initialize directories
-        self.skymarshal_dir = Path.home() / '.skymarshal'
-        self.cars_dir = self.skymarshal_dir / 'cars'
-        self.json_dir = self.skymarshal_dir / 'json'
-
-        # Create directories if they don't exist
-        self.cars_dir.mkdir(parents=True, exist_ok=True)
-        self.json_dir.mkdir(parents=True, exist_ok=True)
-
-        # Initialize managers
-        self.ui_manager = UIManager(self.settings)
-        self.auth_manager = AuthManager(self.ui_manager)
-        self.data_manager = DataManager(
-            self.auth_manager,
-            self.settings,
-            self.skymarshal_dir,
-            self.cars_dir,
-            self.json_dir
-        )
+        self.auth_manager = AuthManager()
+        self.data_manager = DataManager()
+        self.ui_manager = UIManager()
         self.current_data = None
         self.cleanup_candidates = []
-
-    def _load_settings(self) -> UserSettings:
-        """Load user settings from file."""
-        try:
-            if self.settings_file.exists():
-                with open(self.settings_file, 'r') as f:
-                    settings_data = json.load(f)
-                return UserSettings(**settings_data)
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not load settings: {e}[/yellow]")
-
-        # Return default settings
-        return UserSettings()
 
     def run(self):
         """Run the content cleanup tool."""

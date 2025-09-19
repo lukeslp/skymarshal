@@ -9,7 +9,9 @@ This module manages all authentication-related operations including login, sessi
 re-authentication flows, and client initialization for AT Protocol operations.
 """
 
-from typing import Optional
+import json
+from pathlib import Path
+from typing import Optional, Any, Dict
 
 from atproto import Client
 from rich.prompt import Confirm, Prompt
@@ -26,6 +28,8 @@ class AuthManager:
         self.current_did: Optional[str] = None
         self.current_handle: Optional[str] = None
         self.ui = ui_manager
+        # Persist session to user config dir
+        self._session_file = Path.home() / ".skymarshal" / "session.json"
 
     def is_authenticated(self) -> bool:
         """Check if user is authenticated."""
@@ -36,6 +40,97 @@ class AuthManager:
         self.client = None
         self.current_did = None
         self.current_handle = None
+        # Best-effort cleanup of persisted session
+        try:
+            if self._session_file.exists():
+                self._session_file.unlink()
+        except Exception:
+            pass
+
+    # ---- Session persistence helpers -------------------------------------------------
+
+    def _ensure_session_dir(self) -> None:
+        try:
+            self._session_file.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+    def _export_session_payload(self) -> Optional[Dict[str, Any]]:
+        """Export session data from the client if supported by the library."""
+        if not self.client:
+            return None
+        # atproto Client may expose export_session/import_session or resume_session
+        try:
+            if hasattr(self.client, "export_session"):
+                payload = self.client.export_session()
+                if isinstance(payload, dict):
+                    return payload
+        except Exception:
+            pass
+        # Fallback: try to access a generic "session" attribute if available
+        try:
+            payload = getattr(self.client, "session", None)
+            if isinstance(payload, dict):
+                return payload
+        except Exception:
+            pass
+        return None
+
+    def _import_session_payload(self, payload: Dict[str, Any]) -> bool:
+        """Import session data into a new client if supported.
+
+        Returns True on success.
+        """
+        try:
+            self.client = Client()
+            # Prefer an explicit import/resume API if available
+            if hasattr(self.client, "import_session"):
+                self.client.import_session(payload)  # type: ignore[attr-defined]
+                return True
+            if hasattr(self.client, "resume_session"):
+                self.client.resume_session(payload)  # type: ignore[attr-defined]
+                return True
+        except Exception as e:
+            handle_error(console, e, "Session import", show_details=False)
+            self.client = None
+            return False
+        return False
+
+    def save_session(self) -> None:
+        """Persist the current session to disk (best effort)."""
+        try:
+            payload = self._export_session_payload()
+            if not payload:
+                return
+            data = {
+                "handle": self.current_handle,
+                "did": self.current_did,
+                "session": payload,
+            }
+            self._ensure_session_dir()
+            with open(self._session_file, "w") as f:
+                json.dump(data, f)
+        except Exception:
+            # Non-fatal
+            pass
+
+    def try_resume_session(self) -> bool:
+        """Attempt to restore a previous session from disk."""
+        try:
+            if not self._session_file.exists():
+                return False
+            with open(self._session_file, "r") as f:
+                data = json.load(f)
+            payload = data.get("session")
+            if not isinstance(payload, dict):
+                return False
+            if self._import_session_payload(payload):
+                self.current_handle = data.get("handle")
+                self.current_did = data.get("did")
+                return True
+            return False
+        except Exception:
+            return False
 
     def normalize_handle(self, handle: str) -> str:
         """Normalize handle: drop leading @ and append .bsky.social if missing domain."""
@@ -66,6 +161,11 @@ class AuthManager:
     def ensure_authentication(self) -> bool:
         """Ensure we have an authenticated client."""
         if self.client and self.is_authenticated():
+            return True
+
+        # First, try to resume a saved session silently
+        if self.try_resume_session():
+            console.print("[green]Resumed saved session[/]")
             return True
 
         console.print("[yellow]Re-authentication required[/]")
@@ -104,6 +204,8 @@ class AuthManager:
             except Exception as e:
                 handle_error(console, e, "Profile retrieval", show_details=False)
                 self.current_did = None
+            # Persist session for future runs
+            self.save_session()
             return True
 
         return False

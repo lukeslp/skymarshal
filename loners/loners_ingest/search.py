@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Skymarshal Export Script
+Skymarshal Search Script
 
-This script provides data export capabilities for Bluesky content.
-It can export data in various formats (JSON, CSV) with filtering options.
+This script provides advanced search and filtering capabilities for Bluesky content.
+It can search through downloaded data with various criteria including keywords,
+engagement levels, content types, and date ranges.
 
-Usage: python export.py
+Usage: python search.py
 """
 
 import os
 import sys
 import json
-import csv
+import re
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -34,8 +35,8 @@ from skymarshal.ui import UIManager
 
 console = Console()
 
-class ExportScript:
-    """Standalone data export functionality."""
+class SearchScript:
+    """Standalone search and filtering functionality."""
     
     def __init__(self):
         self.skymarshal_dir = Path.home() / '.skymarshal'
@@ -71,8 +72,8 @@ class ExportScript:
         return UserSettings()
     
     def load_data_file(self) -> bool:
-        """Load a data file for export."""
-        console.print(Rule("Load Data File", style="bright_cyan"))
+        """Load a data file for searching."""
+        console.print(Rule("📁 Load Data File", style="bright_cyan"))
         console.print()
         
         # Get available JSON files
@@ -83,8 +84,8 @@ class ExportScript:
             files = list(self.json_dir.glob("*.json"))
         
         if not files:
-            console.print("No data files found")
-            console.print("Run setup.py first to download and process data")
+            console.print("📭 No data files found")
+            console.print("💡 Run setup.py first to download and process data")
             return False
         
         console.print("Available data files:")
@@ -97,28 +98,28 @@ class ExportScript:
         
         # Load the data
         try:
-            with console.status("Loading data..."):
+            with console.status("📄 Loading data..."):
                 self.current_data = self.data_manager.load_exported_data(selected_file)
             
             self.current_data_file = selected_file
-            console.print(f"Loaded {len(self.current_data)} items from {selected_file.name}")
+            console.print(f"✅ Loaded {len(self.current_data)} items from {selected_file.name}")
             
             # Update engagement data
             try:
                 self.data_manager.hydrate_items(self.current_data)
-                console.print("Updated engagement data")
+                console.print("✅ Updated engagement data")
             except Exception as e:
                 console.print(f"[yellow]Warning: Could not update engagement data: {e}[/yellow]")
             
             return True
             
         except Exception as e:
-            console.print(f"Error loading file: {e}")
+            console.print(f"❌ Error loading file: {e}")
             return False
     
-    def build_export_filters(self) -> Optional[SearchFilters]:
-        """Build filters for content to export."""
-        console.print(Rule("Build Export Filters", style="bright_yellow"))
+    def build_search_filters(self) -> Optional[SearchFilters]:
+        """Interactive filter builder."""
+        console.print(Rule("🎛️ Build Search Filters", style="bright_yellow"))
         console.print()
         
         filters = SearchFilters()
@@ -132,7 +133,7 @@ class ExportScript:
             "5": ("likes", "Likes only"),
         }
         
-        console.print("Content Type to Export:")
+        console.print("Content Type:")
         for key, (_, desc) in content_types.items():
             console.print(f"  [{key}] {desc}")
         
@@ -143,7 +144,7 @@ class ExportScript:
         console.print()
         
         # Keyword filters
-        if Confirm.ask("Export content containing specific keywords?", default=False):
+        if Confirm.ask("Add keyword filters?", default=False):
             keywords_input = Prompt.ask("Enter keywords (comma separated)", default="")
             if keywords_input:
                 filters.keywords = [k.strip() for k in keywords_input.split(",") if k.strip()]
@@ -151,7 +152,7 @@ class ExportScript:
         console.print()
         
         # Engagement filters
-        if Confirm.ask("Export based on engagement levels?", default=False):
+        if Confirm.ask("Add engagement filters?", default=False):
             console.print()
             console.print("Engagement Filter Type:")
             console.print("  [1] Quick presets")
@@ -160,12 +161,12 @@ class ExportScript:
             filter_choice = Prompt.ask("Select filter option", choices=["1", "2"], default="1")
             
             if filter_choice == "1":
-                self._apply_export_presets(filters)
+                self._apply_engagement_presets(filters)
             else:
-                self._apply_custom_export_filters(filters)
+                self._apply_custom_engagement_filters(filters)
         
         # Date filters
-        if Confirm.ask("Export content from specific date range?", default=False):
+        if Confirm.ask("Add date range filters?", default=False):
             console.print()
             console.print("Date Range (YYYY-MM-DD or ISO8601)")
             start_date = Prompt.ask("Start date", default="")
@@ -175,18 +176,17 @@ class ExportScript:
         
         return filters
     
-    def _apply_export_presets(self, filters: SearchFilters):
-        """Apply export-specific presets."""
+    def _apply_engagement_presets(self, filters: SearchFilters):
+        """Apply engagement presets."""
         console.print()
-        console.print("Export Presets:")
+        console.print("Engagement Presets:")
         console.print("  [1] Dead threads (0 engagement)")
         console.print("  [2] Low engagement (1-5)")
         console.print("  [3] Medium engagement (6-15)")
         console.print("  [4] High engagement (16-50)")
         console.print("  [5] Viral content (50+)")
-        console.print("  [6] All content (no filter)")
         
-        preset_choice = Prompt.ask("Select preset", choices=["1", "2", "3", "4", "5", "6"], default="6")
+        preset_choice = Prompt.ask("Select preset", choices=["1", "2", "3", "4", "5"], default="1")
         
         if preset_choice == "1":
             filters.min_engagement = 0
@@ -203,10 +203,9 @@ class ExportScript:
         elif preset_choice == "5":
             filters.min_engagement = 50
             filters.max_engagement = 999999
-        # Option 6 leaves filters unchanged (all content)
     
-    def _apply_custom_export_filters(self, filters: SearchFilters):
-        """Apply custom export filters."""
+    def _apply_custom_engagement_filters(self, filters: SearchFilters):
+        """Apply custom engagement filters."""
         console.print()
         
         if Confirm.ask("Filter by engagement score?", default=False):
@@ -233,14 +232,14 @@ class ExportScript:
             filters.min_replies = min_replies
             filters.max_replies = max_replies
     
-    def filter_content(self, filters: SearchFilters) -> List[ContentItem]:
-        """Filter content based on criteria."""
+    def search_content(self, filters: SearchFilters) -> List[ContentItem]:
+        """Search content using filters."""
         if not self.current_data:
             return []
         
         filtered_items = self.current_data.copy()
         
-        # Apply filters (same logic as search script)
+        # Apply filters
         sd = parse_datetime(getattr(filters, 'start_date', None))
         ed = parse_datetime(getattr(filters, 'end_date', None))
         use_subject = self.settings.use_subject_engagement_for_reposts
@@ -305,127 +304,44 @@ class ExportScript:
         
         return filtered_items
     
-    def export_to_json(self, items: List[ContentItem], filename: str) -> bool:
-        """Export items to JSON format."""
-        try:
-            export_path = self.json_dir / f"{filename}.json"
-            
-            data = []
-            for item in items:
-                data.append({
-                    'uri': item.uri,
-                    'cid': item.cid,
-                    'type': item.content_type,
-                    'text': item.text,
-                    'created_at': item.created_at,
-                    'engagement': {
-                        'likes': item.like_count,
-                        'reposts': item.repost_count,
-                        'replies': item.reply_count,
-                        'score': item.engagement_score
-                    },
-                    'raw_data': item.raw_data
-                })
-            
-            with open(export_path, 'w') as f:
-                json.dump(data, f, indent=2)
-            
-            console.print(f"Exported {len(items)} items to {export_path}")
-            return True
-            
-        except Exception as e:
-            console.print(f"JSON export failed: {e}")
-            return False
+    def sort_results(self, items: List[ContentItem], sort_mode: str) -> List[ContentItem]:
+        """Sort search results."""
+        if sort_mode == "newest":
+            def key_dt(it: ContentItem):
+                dt = parse_datetime(it.created_at, datetime.min)
+                return dt
+            items.sort(key=key_dt, reverse=True)
+        elif sort_mode == "oldest":
+            def key_dt(it: ContentItem):
+                dt = parse_datetime(it.created_at, datetime.min)
+                return dt
+            items.sort(key=key_dt, reverse=False)
+        elif sort_mode == "engagement":
+            def key_eng(it: ContentItem):
+                return it.engagement_score
+            items.sort(key=key_eng, reverse=True)
+        elif sort_mode == "likes":
+            def key_likes(it: ContentItem):
+                return int(it.like_count or 0)
+            items.sort(key=key_likes, reverse=True)
+        elif sort_mode == "replies":
+            def key_replies(it: ContentItem):
+                return int(it.reply_count or 0)
+            items.sort(key=key_replies, reverse=True)
+        elif sort_mode == "reposts":
+            def key_reposts(it: ContentItem):
+                return int(it.repost_count or 0)
+            items.sort(key=key_reposts, reverse=True)
+        
+        return items
     
-    def export_to_csv(self, items: List[ContentItem], filename: str) -> bool:
-        """Export items to CSV format."""
-        try:
-            export_path = self.json_dir / f"{filename}.csv"
-            
-            with open(export_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    'URI', 'CID', 'Type', 'Text', 'Created At',
-                    'Likes', 'Reposts', 'Replies', 'Engagement Score',
-                    'Raw Data'
-                ])
-                
-                for item in items:
-                    writer.writerow([
-                        item.uri,
-                        item.cid,
-                        item.content_type,
-                        item.text or '',
-                        item.created_at or '',
-                        item.like_count,
-                        item.repost_count,
-                        item.reply_count,
-                        item.engagement_score,
-                        json.dumps(item.raw_data) if item.raw_data else ''
-                    ])
-            
-            console.print(f"Exported {len(items)} items to {export_path}")
-            return True
-            
-        except Exception as e:
-            console.print(f"CSV export failed: {e}")
-            return False
-    
-    def export_to_markdown(self, items: List[ContentItem], filename: str) -> bool:
-        """Export items to Markdown format."""
-        try:
-            export_path = self.json_dir / f"{filename}.md"
-            
-            with open(export_path, 'w', encoding='utf-8') as f:
-                f.write(f"# Bluesky Content Export\n\n")
-                f.write(f"Exported on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"Total items: {len(items)}\n\n")
-                
-                for i, item in enumerate(items, 1):
-                    f.write(f"## {i}. {item.content_type.title()}\n\n")
-                    f.write(f"**URI:** `{item.uri}`\n\n")
-                    f.write(f"**Created:** {item.created_at or 'Unknown'}\n\n")
-                    f.write(f"**Engagement:** {item.like_count} likes, {item.repost_count} reposts, {item.reply_count} replies (Score: {item.engagement_score})\n\n")
-                    
-                    if item.text:
-                        f.write(f"**Content:**\n\n")
-                        f.write(f"{item.text}\n\n")
-                    
-                    f.write("---\n\n")
-            
-            console.print(f"✅ Exported {len(items)} items to {export_path}")
-            return True
-            
-        except Exception as e:
-            console.print(f"❌ Markdown export failed: {e}")
-            return False
-    
-    def run_export_workflow(self):
-        """Run the complete export workflow."""
-        if not self.current_data:
-            console.print("❌ No data loaded")
-            console.print("💡 Load a data file first")
-            return
-        
-        # Build filters
-        filters = self.build_export_filters()
-        if not filters:
-            return
-        
-        # Filter content
-        with console.status("🔍 Filtering content..."):
-            items = self.filter_content(filters)
-        
-        console.print()
-        console.print(f"📊 Found {len(items)} items matching export criteria")
-        console.print()
-        
+    def display_results(self, items: List[ContentItem], limit: int = 20):
+        """Display search results."""
         if not items:
-            console.print("🔍 No items match your criteria")
+            console.print("No results to display")
             return
         
-        # Show preview
-        console.print("Preview of items to export:")
+        console.print(f"Results (showing {min(len(items), limit)} of {len(items)})")
         console.print()
         
         table = Table(show_header=True)
@@ -437,7 +353,7 @@ class ExportScript:
         table.add_column("Engagement", style="green", width=6)
         table.add_column("Date", style="dim", width=10)
         
-        for item in items[:5]:  # Show first 5
+        for item in items[:limit]:
             if item.content_type == 'like':
                 subj = (item.raw_data or {}).get('subject_uri')
                 text_preview = f"Liked: {subj}" if subj else "Like"
@@ -449,26 +365,41 @@ class ExportScript:
             
             created = item.created_at[:10] if item.created_at else ""
             
+            if item.content_type == 'repost' and self.settings.use_subject_engagement_for_reposts:
+                subj_likes = (item.raw_data or {}).get('subject_like_count', 0)
+                subj_reposts = (item.raw_data or {}).get('subject_repost_count', 0)
+                subj_replies = (item.raw_data or {}).get('subject_reply_count', 0)
+                eng = subj_likes + 2*subj_reposts + 3*subj_replies
+                like_disp = str(subj_likes)
+                repost_disp = str(subj_reposts)
+                reply_disp = str(subj_replies)
+                eng_disp = str(int(eng))
+            else:
+                like_disp = str(item.like_count)
+                repost_disp = str(item.repost_count)
+                reply_disp = str(item.reply_count)
+                eng_disp = str(int(item.engagement_score))
+            
             table.add_row(
                 item.content_type, text_preview,
-                str(item.like_count), str(item.repost_count), str(item.reply_count),
-                str(int(item.engagement_score)), created
+                like_disp, repost_disp, reply_disp, eng_disp, created
             )
         
         console.print(table)
         
-        if len(items) > 5:
+        if len(items) > limit:
             console.print()
-            console.print(f"... and {len(items) - 5} more items")
-        
+            console.print(f"... and {len(items) - limit} more items")
+    
+    def export_results(self, items: List[ContentItem]):
+        """Export search results to file."""
+        console.print()
+        console.print("💾 Export Results")
         console.print()
         
-        # Select export format
         formats = {
-            "1": ("json", "JSON format (structured data)"),
-            "2": ("csv", "CSV format (spreadsheet compatible)"),
-            "3": ("md", "Markdown format (human readable)"),
-            "4": ("all", "All formats")
+            "1": ("json", "JSON format"),
+            "2": ("csv", "CSV format")
         }
         
         console.print("Export format:")
@@ -478,56 +409,174 @@ class ExportScript:
         format_choice = Prompt.ask("Select format", choices=list(formats.keys()), default="1", show_choices=False)
         export_format, _ = formats[format_choice]
         
-        # Get filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_filename = f"export_{timestamp}"
-        filename = Prompt.ask("Filename (without extension)", default=default_filename)
+        filename = Prompt.ask("Filename (without extension)", default="search_results")
+        export_path = self.json_dir / f"{filename}.{export_format}"
         
-        # Execute export
-        success_count = 0
-        
-        if export_format == "json":
-            if self.export_to_json(items, filename):
-                success_count += 1
-        elif export_format == "csv":
-            if self.export_to_csv(items, filename):
-                success_count += 1
-        elif export_format == "md":
-            if self.export_to_markdown(items, filename):
-                success_count += 1
-        elif export_format == "all":
-            if self.export_to_json(items, filename):
-                success_count += 1
-            if self.export_to_csv(items, filename):
-                success_count += 1
-            if self.export_to_markdown(items, filename):
-                success_count += 1
-        
-        console.print()
-        if success_count > 0:
-            console.print(f"Export completed successfully ({success_count} file(s) created)")
-            console.print(f"Files saved to: {self.json_dir}")
-        else:
-            console.print("Export failed")
+        try:
+            if export_format == 'json':
+                data = []
+                for item in items:
+                    data.append({
+                        'uri': item.uri,
+                        'cid': item.cid,
+                        'type': item.content_type,
+                        'text': item.text,
+                        'created_at': item.created_at,
+                        'engagement': {
+                            'likes': item.like_count,
+                            'reposts': item.repost_count,
+                            'replies': item.reply_count,
+                            'score': item.engagement_score
+                        }
+                    })
+                
+                with open(export_path, 'w') as f:
+                    json.dump(data, f, indent=2)
+            
+            elif export_format == 'csv':
+                import csv
+                with open(export_path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['URI', 'Type', 'Text', 'Likes', 'Reposts', 'Replies', 'Engagement', 'Created'])
+                    
+                    for item in items:
+                        writer.writerow([
+                            item.uri, item.content_type, item.text or '',
+                            item.like_count, item.repost_count, item.reply_count,
+                            item.engagement_score, item.created_at or ''
+                        ])
+            
+            console.print(f"✅ Exported {len(items)} items to {export_path}")
+            
+        except Exception as e:
+            console.print(f"❌ Export failed: {e}")
     
+    def ensure_data_loaded(self) -> bool:
+        """Ensure data is loaded, guiding user through the process if needed."""
+        if self.current_data:
+            return True
+        
+        # Check if there are any data files available
+        if self.auth.current_handle:
+            files = self.data_manager.get_user_files(self.auth.current_handle, 'json')
+        else:
+            files = list(self.json_dir.glob("*.json"))
+        
+        if not files:
+            console.print("📭 No data files found")
+            console.print()
+            console.print("To search your Bluesky content, you need to download it first.")
+            console.print()
+            
+            if Confirm.ask("Would you like to download your data now?", default=True):
+                # Guide user to download data
+                console.print()
+                console.print("🔐 First, let's authenticate with Bluesky...")
+                
+                # Authenticate
+                while True:
+                    handle, action = self.ui.input_with_navigation("Bluesky handle: @", context="handle")
+                    if action in ["back", "main"]:
+                        return False
+                    if handle:
+                        handle = self.auth.normalize_handle(handle)
+                        break
+                
+                password, action = self.ui.input_with_navigation("App Password: ", password=True, context="password")
+                if action in ["back", "main"]:
+                    return False
+                
+                if not self.auth.authenticate_client(handle, password):
+                    console.print("❌ Authentication failed")
+                    return False
+                
+                # Download data
+                console.print()
+                console.print("📦 Now let's download your data...")
+                car_path = self.data_manager.download_car(handle)
+                if not car_path:
+                    console.print("❌ Failed to download data")
+                    return False
+                
+                # Process CAR file
+                console.print()
+                console.print("🔄 Processing your data...")
+                categories = self.ui.select_categories_for_processing()
+                json_path = self.data_manager.import_car_replace(car_path, handle, categories=categories)
+                
+                if not json_path:
+                    console.print("❌ Failed to process data")
+                    return False
+                
+                # Load the processed data
+                console.print()
+                console.print("📄 Loading processed data...")
+                self.current_data = self.data_manager.load_exported_data(json_path)
+                self.current_data_file = json_path
+                
+                if not self.current_data:
+                    console.print("❌ No content found in processed data")
+                    return False
+                
+                console.print(f"✅ Loaded {len(self.current_data)} items")
+                
+                # Try to hydrate engagement data (optional)
+                try:
+                    self.data_manager.hydrate_items(self.current_data)
+                    console.print("✅ Updated engagement data")
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Could not update engagement data: {e}[/yellow]")
+                    console.print("[dim]Search will use cached engagement data[/dim]")
+                
+                return True
+            else:
+                console.print("❌ Content search requires downloaded data")
+                return False
+        else:
+            # Load existing data file
+            console.print("📁 Loading your data...")
+            selected_file = self.ui.show_file_picker(files)
+            if not selected_file:
+                return False
+            
+            try:
+                with console.status("📄 Loading data..."):
+                    self.current_data = self.data_manager.load_exported_data(selected_file)
+                
+                self.current_data_file = selected_file
+                console.print(f"✅ Loaded {len(self.current_data)} items from {selected_file.name}")
+                
+                # Try to hydrate engagement data (optional)
+                try:
+                    self.data_manager.hydrate_items(self.current_data)
+                    console.print("✅ Updated engagement data")
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Could not update engagement data: {e}[/yellow]")
+                    console.print("[dim]Search will use cached engagement data[/dim]")
+                
+                return True
+                
+            except Exception as e:
+                console.print(f"❌ Error loading file: {e}")
+                return False
+
     def show_menu(self):
         """Display main menu."""
-        console.print(Rule("Data Export", style="bright_green"))
+        console.print(Rule("🔍 Search & Filter", style="bright_blue"))
         console.print()
         
-        if not self.current_data:
-            console.print("No data loaded")
-            console.print("Use 'Load Data File' to load data for export")
-            console.print()
+        # Ensure data is loaded
+        if not self.ensure_data_loaded():
+            return False
         
         options = {
-            "1": ("Load Data File", self.load_data_file),
-            "2": ("Export Content", self.run_export_workflow),
-            "3": ("Show Data Summary", self.show_data_summary),
+            "1": ("Search Content", self.run_search),
+            "2": ("Show Data Summary", self.show_data_summary),
+            "3": ("Load Different Data", self.load_data_file),
             "q": ("Quit", None)
         }
         
-        console.print("Options:")
+        console.print("Search Options:")
         for key, (desc, _) in options.items():
             console.print(f"  [{key}] {desc}")
         console.print()
@@ -547,13 +596,68 @@ class ExportScript:
         
         return True
     
-    def show_data_summary(self):
-        """Show summary of loaded data."""
-        if not self.current_data:
-            console.print("No data loaded")
+    def run_search(self):
+        """Run search workflow."""
+        
+        # Build filters
+        filters = self.build_search_filters()
+        if not filters:
             return
         
-        console.print(Rule("Data Summary", style="bright_cyan"))
+        # Search
+        with console.status("🔍 Searching..."):
+            results = self.search_content(filters)
+        
+        console.print()
+        console.print(f"📊 Found {len(results)} matching items")
+        console.print()
+        
+        if not results:
+            console.print("🔍 No items match your criteria")
+            return
+        
+        # Sort options
+        sort_opts = {
+            "1": ("Newest first", "newest"),
+            "2": ("Oldest first", "oldest"),
+            "3": ("Highest engagement", "engagement"),
+            "4": ("Most likes", "likes"),
+            "5": ("Most replies", "replies"),
+            "6": ("Most reposts", "reposts")
+        }
+        
+        console.print("Sort by:")
+        for k, (label, _) in sort_opts.items():
+            console.print(f"  [{k}] {label}")
+        
+        sort_choice = Prompt.ask("Choose sort", choices=list(sort_opts.keys()), default="1", show_choices=False)
+        _, sort_mode = sort_opts[sort_choice]
+        
+        results = self.sort_results(results, sort_mode)
+        
+        # Display results
+        self.display_results(results)
+        
+        # Post-search options
+        console.print()
+        console.print("Options:")
+        console.print("  [1] Show all results")
+        console.print("  [2] Export results")
+        console.print("  [3] New search")
+        
+        option_choice = Prompt.ask("Select option", choices=["1", "2", "3"], default="1", show_choices=False)
+        
+        if option_choice == "1":
+            self.display_results(results, limit=len(results))
+        elif option_choice == "2":
+            self.export_results(results)
+        elif option_choice == "3":
+            self.run_search()
+    
+    def show_data_summary(self):
+        """Show summary of loaded data."""
+        
+        console.print(Rule("📊 Data Summary", style="bright_cyan"))
         console.print()
         
         total_items = len(self.current_data)
@@ -593,9 +697,9 @@ class ExportScript:
         console.print(table)
     
     def run(self):
-        """Run the export script."""
+        """Run the search script."""
         console.print()
-        console.print("Skymarshal Data Export")
+        console.print("🔍 Skymarshal Search & Filter")
         console.print("=" * 50)
         console.print()
         
@@ -605,14 +709,14 @@ class ExportScript:
                     break
                 console.print()
         except KeyboardInterrupt:
-            console.print("\nGoodbye!")
+            console.print("\n👋 Goodbye!")
         except Exception as e:
-            console.print(f"\nUnexpected error: {e}")
+            console.print(f"\n❌ Unexpected error: {e}")
 
 def main():
     """Main entry point."""
-    export_script = ExportScript()
-    export_script.run()
+    search_script = SearchScript()
+    search_script.run()
 
 if __name__ == "__main__":
     main()
