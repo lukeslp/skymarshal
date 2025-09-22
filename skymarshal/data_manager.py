@@ -820,7 +820,10 @@ class DataManager:
         """
         try:
             if not items:
+                console.print("[yellow]hydrate_items called with empty items list[/yellow]")
                 return
+                
+            console.print(f"[cyan]Starting hydration for {len(items)} items[/cyan]")
 
             # First, always update engagement scores with current data
             for item in items:
@@ -841,6 +844,8 @@ class DataManager:
                 if self.settings.use_subject_engagement_for_reposts
                 else []
             )
+            
+            console.print(f"[dim]Found {len(posts_and_replies)} posts/replies and {len(reposts)} reposts to hydrate[/dim]")
 
             # Display a compact, transient progress UI for hydration steps
             with Progress(
@@ -1137,7 +1142,10 @@ class DataManager:
         try:
             uris = [it.uri for it in items if it.uri]
             if not uris:
+                console.print("[yellow]No URIs found in items for hydration[/yellow]")
                 return
+                
+            console.print(f"[dim]Extracted {len(uris)} URIs for hydration[/dim]")
 
             batch_size = max(1, min(25, self.settings.hydrate_batch_size))
             uri_batches = [
@@ -1160,11 +1168,15 @@ class DataManager:
 
                     # Validate response structure
                     if not resp or not hasattr(resp, "posts"):
+                        console.print(f"[yellow]Invalid response structure for batch: {type(resp)}[/yellow]")
                         continue
 
                     posts = getattr(resp, "posts", None)
                     if not posts:
+                        console.print(f"[yellow]No posts in response for batch of {len(batch)} URIs[/yellow]")
                         continue
+
+                    console.print(f"[dim]Processing {len(posts)} posts from API response[/dim]")
 
                     for p in posts:
                         # Validate post object structure
@@ -1179,14 +1191,19 @@ class DataManager:
                         if not it:
                             continue
 
-                        it.like_count = int(getattr(p, "like_count", 0) or 0)
-                        it.repost_count = int(getattr(p, "repost_count", 0) or 0)
-                        it.reply_count = int(getattr(p, "reply_count", 0) or 0)
-                        it.engagement_score = calculate_engagement_score(
-                            int(it.like_count or 0),
-                            int(it.repost_count or 0),
-                            int(it.reply_count or 0),
-                        )
+                        # Extract engagement counts with debugging
+                        likes = int(getattr(p, "like_count", 0) or 0)
+                        reposts = int(getattr(p, "repost_count", 0) or 0)
+                        replies = int(getattr(p, "reply_count", 0) or 0)
+                        
+                        # Debug: Log engagement data extraction
+                        if likes > 0 or reposts > 0 or replies > 0:
+                            console.print(f"[dim]Found engagement for {uri[:50]}...: likes={likes}, reposts={reposts}, replies={replies}[/dim]")
+                        
+                        it.like_count = likes
+                        it.repost_count = reposts
+                        it.reply_count = replies
+                        it.engagement_score = calculate_engagement_score(likes, reposts, replies)
 
                     processed += len(batch)
                     if callable(progress_callback):
@@ -1204,22 +1221,21 @@ class DataManager:
                         console.print(
                             f"[yellow]Hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
                         )
+                        # Still increment processed count for failed batch to continue progress tracking
                         processed += len(batch)
                         if callable(progress_callback):
                             try:
                                 progress_callback(processed)
                             except Exception:
                                 pass
-
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
                     # Continue with remaining batches using existing data
-        except Exception:
-            pass
+        except AuthenticationError:
+            # Re-raise authentication errors to be handled by caller
+            raise
+        except Exception as e:
+            # Log other unexpected errors but don't swallow them completely
+            console.print(f"[red]Unexpected error during hydration: {str(e)[:100]}[/red]")
+            raise
 
     def _hydrate_repost_subject_engagement(
         self, items: List[ContentItem], progress_callback=None
@@ -1306,22 +1322,21 @@ class DataManager:
                         console.print(
                             f"[yellow]Repost hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
                         )
+                        # Still increment processed count for failed batch to continue progress tracking
                         processed += len(batch)
                         if callable(progress_callback):
                             try:
                                 progress_callback(processed)
                             except Exception:
                                 pass
-
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
                     # Continue with remaining batches using existing data
-        except Exception:
-            pass
+        except AuthenticationError:
+            # Re-raise authentication errors to be handled by caller
+            raise
+        except Exception as e:
+            # Log other unexpected errors but don't swallow them completely
+            console.print(f"[red]Unexpected error during repost hydration: {str(e)[:100]}[/red]")
+            raise
 
     def _apply_date_filter(self, posts, likes, reposts, date_start, date_end):
         """Apply date filtering to content items."""
