@@ -81,6 +81,9 @@ HYDRATE_BUDGET_S = float(os.environ.get("SKY_HYDRATE_BUDGET_S", "10"))
 # In-memory store of AuthManager per session
 _auth_by_sid: Dict[str, AuthManager] = {}
 
+# In-memory store of hydration progress by session
+_hydration_progress: Dict[str, Dict[str, Any]] = {}
+
 
 def get_settings() -> UserSettings:
     if SettingsManager is not None:
@@ -142,6 +145,18 @@ def get_auth() -> AuthManager | None:
     return auth
 
 
+def _update_hydration_progress(session_id: str, current: int, total: int, message: str):
+    """Update hydration progress for a session."""
+    if session_id:
+        _hydration_progress[session_id] = {
+            'current': current,
+            'total': total,
+            'percentage': round((current / total * 100) if total > 0 else 0, 1),
+            'message': message,
+            'status': 'running' if current < total else 'completed'
+        }
+
+
 def _web_safe_hydrate(
     auth: AuthManager | None,
     settings: UserSettings,
@@ -149,6 +164,7 @@ def _web_safe_hydrate(
     cars_dir: Path,
     json_dir: Path,
     items,
+    session_id: str | None = None,
 ) -> Dict[str, int]:
     """Hydrate engagement counts without interactive prompts and return quotes per URI.
     
@@ -189,9 +205,15 @@ def _web_safe_hydrate(
     # For small datasets, use detailed engagement (individual calls per post)
     if len(posts_to_hydrate) <= 50:
         print("DEBUG: Using detailed engagement for small dataset")
+        _update_hydration_progress(session_id, 0, len(posts_to_hydrate), "Starting detailed engagement hydration...")
+        
+        successful_hydrations = 0
         for i, item in enumerate(posts_to_hydrate):
             try:
                 uri = item.uri
+                post_title = (getattr(item, "text", "") or "")[:50] + "..." if len(getattr(item, "text", "") or "") > 50 else (getattr(item, "text", "") or "Post")
+                
+                _update_hydration_progress(session_id, i, len(posts_to_hydrate), f"Hydrating: {post_title}")
                 print(f"DEBUG: Hydrating {i+1}/{len(posts_to_hydrate)}: {uri}")
                 
                 # Get detailed engagement using the working method
@@ -202,6 +224,7 @@ def _web_safe_hydrate(
                 item.repost_count = pe.repost_count
                 item.reply_count = pe.reply_count
                 quotes_by_uri[uri] = pe.quote_count
+                successful_hydrations += 1
                 
                 # Update engagement score if available
                 if hasattr(item, "update_engagement_score"):
@@ -211,15 +234,22 @@ def _web_safe_hydrate(
                 
             except Exception as e:
                 print(f"DEBUG: Failed to hydrate {getattr(item, 'uri', 'unknown')}: {e}")
+                # Still count as processed for progress tracking
                 continue
+        
+        _update_hydration_progress(session_id, len(posts_to_hydrate), len(posts_to_hydrate), 
+                                 f"Completed! Successfully hydrated {successful_hydrations}/{len(posts_to_hydrate)} posts")
     else:
         # For larger datasets, use batch processing with fast hydrate
         print("DEBUG: Using batch processing for large dataset")
+        _update_hydration_progress(session_id, 0, len(posts_to_hydrate), "Starting batch engagement hydration...")
+        
         try:
             engagement_data = hydrator.hydrate_posts_batch(posts_to_hydrate, detailed=False)
             
             # Update items with batch results
-            for item in posts_to_hydrate:
+            successful_hydrations = 0
+            for i, item in enumerate(posts_to_hydrate):
                 uri = getattr(item, "uri", None)
                 if uri and uri in engagement_data:
                     pe = engagement_data[uri]
@@ -227,23 +257,36 @@ def _web_safe_hydrate(
                     item.repost_count = pe.repost_count
                     item.reply_count = pe.reply_count
                     quotes_by_uri[uri] = pe.quote_count
+                    successful_hydrations += 1
                     
                     if hasattr(item, "update_engagement_score"):
                         item.update_engagement_score()
+                
+                _update_hydration_progress(session_id, i + 1, len(posts_to_hydrate), 
+                                         f"Processing batch results... ({i + 1}/{len(posts_to_hydrate)})")
             
+            _update_hydration_progress(session_id, len(posts_to_hydrate), len(posts_to_hydrate), 
+                                     f"Batch completed! Hydrated {successful_hydrations}/{len(posts_to_hydrate)} posts")
             print(f"DEBUG: Batch hydrated {len(engagement_data)} items")
             
         except Exception as e:
             print(f"DEBUG: Batch hydration failed, falling back to detailed: {e}")
+            _update_hydration_progress(session_id, 0, len(posts_to_hydrate), "Batch failed, using detailed hydration...")
+            
             # Fallback to detailed for each item
-            for item in posts_to_hydrate:
+            successful_hydrations = 0
+            for i, item in enumerate(posts_to_hydrate):
                 try:
                     uri = item.uri
+                    post_title = (getattr(item, "text", "") or "")[:50] + "..." if len(getattr(item, "text", "") or "") > 50 else (getattr(item, "text", "") or "Post")
+                    _update_hydration_progress(session_id, i, len(posts_to_hydrate), f"Fallback hydrating: {post_title}")
+                    
                     pe = hydrator.get_detailed_engagement(uri)
                     item.like_count = pe.like_count
                     item.repost_count = pe.repost_count
                     item.reply_count = pe.reply_count
                     quotes_by_uri[uri] = pe.quote_count
+                    successful_hydrations += 1
                     
                     if hasattr(item, "update_engagement_score"):
                         item.update_engagement_score()
@@ -251,6 +294,9 @@ def _web_safe_hydrate(
                 except Exception as e2:
                     print(f"DEBUG: Failed fallback hydration for {getattr(item, 'uri', 'unknown')}: {e2}")
                     continue
+            
+            _update_hydration_progress(session_id, len(posts_to_hydrate), len(posts_to_hydrate), 
+                                     f"Fallback completed! Hydrated {successful_hydrations}/{len(posts_to_hydrate)} posts")
     
     print(f"DEBUG: Hydration complete. Updated {len(quotes_by_uri)} items with quote counts")
     return quotes_by_uri
@@ -395,7 +441,8 @@ def process_car():
     )
     items = posts_sorted[:100]
     # Use existing hydrator to ensure per-edge counts (likes/reposts/replies/quotes)
-    quotes_by_uri = _web_safe_hydrate(auth, settings, base, cars_dir, json_dir, items)
+    session_id = session.get("sid")
+    quotes_by_uri = _web_safe_hydrate(auth, settings, base, cars_dir, json_dir, items, session_id)
 
     # Save the hydrated data back to the JSON file
     try:
@@ -490,7 +537,8 @@ def refresh_engagement():
         posts_to_hydrate = posts_to_hydrate[:100]
         
         # Hydrate engagement data
-        quotes_by_uri = _web_safe_hydrate(auth, settings, base, cars_dir, json_dir, posts_to_hydrate)
+        session_id = session.get("sid")
+        quotes_by_uri = _web_safe_hydrate(auth, settings, base, cars_dir, json_dir, posts_to_hydrate, session_id)
         
         # Save updated data back to JSON
         try:
@@ -619,6 +667,33 @@ def car_download_status():
         "download_url": download_task.result.get("download_url") if download_task.result else None,
         "file_size": download_task.result.get("file_size") if download_task.result else None,
         "duration": download_task.duration
+    })
+
+
+@app.route("/hydration-status", methods=["GET"])
+def hydration_status():
+    """Get hydration progress for current session."""
+    session_id = session.get("sid")
+    if not session_id:
+        return jsonify({"success": False, "error": "No session"}), 401
+    
+    progress = _hydration_progress.get(session_id)
+    if not progress:
+        return jsonify({
+            "success": True,
+            "status": "none",
+            "message": "No hydration in progress"
+        })
+    
+    return jsonify({
+        "success": True,
+        "status": progress.get("status", "running"),
+        "progress": {
+            "current": progress.get("current", 0),
+            "total": progress.get("total", 0),
+            "percentage": progress.get("percentage", 0),
+            "message": progress.get("message", "")
+        }
     })
 
 @app.route("/start-parallel-hydration", methods=["POST"])

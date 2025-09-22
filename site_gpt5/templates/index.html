@@ -78,6 +78,22 @@
             <div id="carProgressText" class="muted" style="font-size:12px; margin-top:4px;">0%</div>
           </div>
         </div>
+
+        <!-- Hydration Progress Status -->
+        <div class="card hidden" id="hydrationCard" style="margin-top:10px; border-color:#10b981;">
+          <div class="row" style="align-items:center; justify-content:space-between">
+            <div>
+              <div style="font-weight:600">🔄 Engagement Hydration</div>
+              <div id="hydrationStatus" class="muted">Processing engagement data...</div>
+            </div>
+          </div>
+          <div id="hydrationProgress" class="hidden" style="margin-top:8px;">
+            <div style="background:#f0f0f0; border-radius:4px; height:8px; overflow:hidden;">
+              <div id="hydrationProgressBar" style="background:#10b981; height:100%; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <div id="hydrationProgressText" class="muted" style="font-size:12px; margin-top:4px;">0%</div>
+          </div>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -179,18 +195,47 @@
       const processBtn = $('processBtn');
       if (processBtn) processBtn.onclick = async () => {
         $('actionStatus').innerText = 'Processing and enriching...';
+        
+        // Show hydration progress card
+        $('hydrationCard').classList.remove('hidden');
+        $('hydrationProgress').classList.remove('hidden');
+        
+        // Start monitoring hydration progress
+        startHydrationMonitoring();
+        
         try {
           const res = await post('/process');
           $('actionStatus').innerText = 'Processed.';
           renderStats(res.stats);
         } catch (e) {
           $('actionStatus').innerText = 'Processing failed: ' + e.message;
+          // Stop monitoring on error
+          stopHydrationMonitoring();
+          updateHydrationUI({ status: 'failed', progress: { message: 'Processing failed: ' + e.message } });
         }
       };
 
       const refreshBtn = $('refreshBtn');
       if (refreshBtn) refreshBtn.onclick = async () => {
-        location.reload();
+        $('actionStatus').innerText = 'Refreshing engagement data...';
+        
+        // Show hydration progress card
+        $('hydrationCard').classList.remove('hidden');
+        $('hydrationProgress').classList.remove('hidden');
+        
+        // Start monitoring hydration progress
+        startHydrationMonitoring();
+        
+        try {
+          const res = await post('/refresh-engagement');
+          $('actionStatus').innerText = res.message || 'Refreshed engagement data.';
+          // Reload to show updated stats
+          setTimeout(() => location.reload(), 1000);
+        } catch (e) {
+          $('actionStatus').innerText = 'Refresh failed: ' + e.message;
+          stopHydrationMonitoring();
+          updateHydrationUI({ status: 'failed', progress: { message: 'Refresh failed: ' + e.message } });
+        }
       };
 
       const logoutBtn = $('logoutBtn');
@@ -271,6 +316,75 @@
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(1024));
         return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+      }
+
+      // Hydration monitoring functions
+      let hydrationInterval = null;
+      
+      function startHydrationMonitoring() {
+        if (hydrationInterval) clearInterval(hydrationInterval);
+        
+        hydrationInterval = setInterval(async () => {
+          try {
+            const response = await fetch('/hydration-status');
+            const data = await response.json();
+            
+            if (data.success) {
+              updateHydrationUI(data);
+              
+              // Stop monitoring if completed or failed
+              if (data.status === 'completed' || data.status === 'failed') {
+                stopHydrationMonitoring();
+              }
+            }
+          } catch (e) {
+            console.error('Failed to check hydration status:', e);
+          }
+        }, 500); // Check every 500ms for faster updates
+      }
+      
+      function stopHydrationMonitoring() {
+        if (hydrationInterval) {
+          clearInterval(hydrationInterval);
+          hydrationInterval = null;
+        }
+      }
+      
+      function updateHydrationUI(data) {
+        const statusEl = $('hydrationStatus');
+        const progressEl = $('hydrationProgressBar');
+        const progressTextEl = $('hydrationProgressText');
+        
+        switch (data.status) {
+          case 'running':
+            statusEl.innerText = data.progress.message || 'Processing engagement data...';
+            progressEl.style.width = data.progress.percentage + '%';
+            progressEl.style.background = '#10b981';
+            progressTextEl.innerText = Math.round(data.progress.percentage) + '%';
+            break;
+            
+          case 'completed':
+            statusEl.innerText = data.progress.message || 'Engagement hydration completed!';
+            progressEl.style.width = '100%';
+            progressEl.style.background = '#10b981';
+            progressTextEl.innerText = '100%';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+              $('hydrationCard').classList.add('hidden');
+            }, 5000);
+            break;
+            
+          case 'failed':
+            statusEl.innerText = data.progress.message || 'Engagement hydration failed';
+            progressEl.style.width = '0%';
+            progressEl.style.background = '#dc2626';
+            progressTextEl.innerText = 'Error';
+            break;
+            
+          default:
+            statusEl.innerText = 'Preparing engagement hydration...';
+        }
       }
 
       // Check for existing CAR download on page load

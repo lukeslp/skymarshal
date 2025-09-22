@@ -23,7 +23,7 @@ import logging
 
 # Removed batch_processor dependency to fix circular imports and complexity issues
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)  # Reduce noise from API errors
 logger = logging.getLogger(__name__)
 
 APPVIEW = "https://public.api.bsky.app/xrpc"
@@ -58,18 +58,32 @@ class BlueskyEngagementHydrator:
                 r = self.session.get(url, params=params, timeout=timeout)
                 if r.status_code == 200:
                     return r.json()
-                if r.status_code == 429:
+                elif r.status_code == 429:
                     wait_time = min(2 ** attempt, 8)
                     logger.warning(f"Rate limited ({path}), waiting {wait_time}s (attempt {attempt+1})")
                     time.sleep(wait_time)
                     continue
-                logger.warning(f"HTTP {r.status_code} {path}")
+                elif r.status_code == 500:
+                    # Bluesky API sometimes returns 500 for specific posts - this is expected
+                    logger.debug(f"Server error 500 for {path} - likely post unavailable")
+                    if attempt >= 1:  # Give up faster on 500s as they're often permanent
+                        return None
+                elif r.status_code == 404:
+                    # Post not found - expected for deleted posts
+                    logger.debug(f"Post not found (404) for {path}")
+                    return None
+                else:
+                    logger.warning(f"HTTP {r.status_code} {path}")
             except requests.exceptions.Timeout:
-                logger.warning(f"Timeout {path} (attempt {attempt+1})")
+                logger.debug(f"Timeout {path} (attempt {attempt+1})")
             except requests.exceptions.RequestException as e:
-                logger.warning(f"Request error {path}: {e}")
+                logger.debug(f"Request error {path}: {e}")
+            
+            # Exponential backoff, but shorter delays for better UX
             if attempt < self.max_retries - 1:
-                time.sleep(min(2 ** attempt, 4))
+                time.sleep(min(0.5 * (2 ** attempt), 2))
+        
+        logger.debug(f"All attempts failed for {path}")
         return None
 
     def get_post_details(self, uris: List[str]) -> Dict[str, PostEngagement]:
