@@ -1162,6 +1162,8 @@ class DataManager:
                     client = self.auth.client
                     if client is None:
                         raise AuthenticationError("Authentication required for hydration")
+                        
+                    console.print(f"[dim]Making API call for batch of {len(batch)} URIs: {[uri[:50] for uri in batch]}[/dim]")
 
                     # Direct API call without automatic re-auth to avoid loops
                     resp = client.get_posts(uris=batch)
@@ -1189,12 +1191,18 @@ class DataManager:
 
                         it = index.get(uri)
                         if not it:
+                            console.print(f"[yellow]Warning: URI {uri} not found in index[/yellow]")
                             continue
 
                         # Extract engagement counts with debugging
                         likes = int(getattr(p, "like_count", 0) or 0)
                         reposts = int(getattr(p, "repost_count", 0) or 0)
                         replies = int(getattr(p, "reply_count", 0) or 0)
+                        
+                        # Debug: Show available attributes if no engagement found
+                        if likes == 0 and reposts == 0 and replies == 0:
+                            attrs = [attr for attr in dir(p) if not attr.startswith('_')]
+                            console.print(f"[yellow]No engagement found for {uri[:50]}..., available attrs: {attrs}[/yellow]")
                         
                         # Debug: Log engagement data extraction
                         if likes > 0 or reposts > 0 or replies > 0:
