@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from flask import Flask, jsonify, render_template, request, Response, session
+from flask import Flask, jsonify, render_template, request, Response, session, send_from_directory
 
 try:
     from atproto import Client
@@ -27,6 +27,9 @@ except Exception:  # pragma: no cover
     Client = None  # type: ignore
 
 from improved_hydration import BlueskyEngagementHydrator
+from utils import normalize_handle, PostDataExporter, format_file_safe_name
+from batch_processor import create_standard_batch_processor
+from background_tasks import get_car_download_manager, get_task_manager, TaskStatus
 
 app = Flask(
     __name__,
@@ -39,11 +42,7 @@ app.secret_key = secrets.token_hex(32)
 _auth: Dict[str, Dict[str, Any]] = {}
 
 
-def _normalize_handle(handle: str) -> str:
-    h = handle.lstrip("@").strip()
-    if "." not in h:
-        h = f"{h}.bsky.social"
-    return h
+# Handle normalization moved to utils.py
 
 
 def _list_last_posts(client: Client, did: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -105,7 +104,7 @@ def index():
 def login():
     try:
         data = request.get_json(force=True)
-        handle = _normalize_handle(data.get("handle", ""))
+        handle = normalize_handle(data.get("handle", ""))
         password = data.get("password", "")
         if not handle or not password:
             return jsonify({"success": False, "error": "Handle and password required"}), 400
@@ -140,50 +139,104 @@ def hydrate_stream():
 
     def generate():
         try:
+            limit = 50
+            try:
+                limit = int(request.args.get("limit", 50))
+            except Exception:
+                limit = 50
+            limit = max(1, min(500, limit))
+
             yield send({"stage": "start", "message": f"Hello {display_name} (@{handle})"})
-            yield send({"stage": "listing", "message": "Listing last 50 posts..."})
-            posts = _list_last_posts(client, did, limit=50)
+            yield send({"stage": "listing", "message": f"Listing last {limit} posts..."})
+            posts = _list_last_posts(client, did, limit=limit)
             yield send({"stage": "listed", "count": len(posts)})
 
-            hydrator = BlueskyEngagementHydrator(client=None)  # Use public AppView for edges
+            # Use optimized 25-item batch processing instead of individual processing
             total = len(posts)
             hydrated = []
             totals = {"likes": 0, "reposts": 0, "replies": 0, "quotes": 0}
 
-            for i, p in enumerate(posts, 1):
-                uri = p["uri"]
-                yield send({"stage": "hydrating", "index": i, "total": total, "uri": uri})
-                pe = hydrator.get_detailed_engagement(uri)
-                hydrated.append({
-                    "uri": uri,
-                    "text": p.get("text"),
-                    "created_at": p.get("created_at"),
-                    "like_count": pe.like_count,
-                    "repost_count": pe.repost_count,
-                    "reply_count": pe.reply_count,
-                    "quote_count": pe.quote_count,
-                })
-                totals["likes"] += pe.like_count
-                totals["reposts"] += pe.repost_count
-                totals["replies"] += pe.reply_count
-                totals["quotes"] += pe.quote_count
-                # gentle pacing to avoid rate peaks
-                time.sleep(0.2)
+            # Create batch processor for optimal API efficiency
+            batch_processor = create_standard_batch_processor(client)
+            
+            # Extract URIs for batch processing
+            uris = [p["uri"] for p in posts]
+            post_lookup = {p["uri"]: p for p in posts}
+            
+            yield send({"stage": "batch_processing", "message": f"Processing {len(uris)} posts in 25-item batches..."})
+            
+            # Process posts in 25-item batches
+            batch_result = batch_processor.batch_get_posts(uris)
+            
+            processed_count = 0
+            for batch_data in batch_result.results:
+                if isinstance(batch_data, list):
+                    for post_data in batch_data:
+                        uri = post_data.get('uri')
+                        original_post = post_lookup.get(uri, {})
+                        
+                        processed_count += 1
+                        yield send({
+                            "stage": "hydrating", 
+                            "index": processed_count, 
+                            "total": total, 
+                            "uri": uri,
+                            "batch_mode": True
+                        })
+                        
+                        # Use detailed hydration for accurate quote/reply counts
+                        hydrator = BlueskyEngagementHydrator(client=client)
+                        pe = hydrator.get_detailed_engagement(uri)
+                        
+                        hydrated.append({
+                            "uri": uri,
+                            "text": original_post.get("text"),
+                            "created_at": original_post.get("created_at"),
+                            "like_count": pe.like_count,
+                            "repost_count": pe.repost_count,
+                            "reply_count": pe.reply_count,
+                            "quote_count": pe.quote_count,
+                        })
+                        totals["likes"] += pe.like_count
+                        totals["reposts"] += pe.repost_count
+                        totals["replies"] += pe.reply_count
+                        totals["quotes"] += pe.quote_count
+            
+            yield send({
+                "stage": "batch_complete", 
+                "message": f"Batch processing complete! {batch_result.success_rate:.1f}% success rate"
+            })
 
-            # Save JSON file under site_gpt5/tmp
+            # Save JSON file under site_gpt5/tmp using utility
             out_dir = Path(__file__).parent / "tmp"
             out_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out_path = out_dir / f"hydrated_{handle.replace('.', '_')}_{ts}.json"
+            out_name = f"hydrated_{format_file_safe_name(handle, ts)}.json"
+            out_path = out_dir / out_name
+            
+            # Convert hydrated items to content item format for utility
+            content_items = []
+            for h in hydrated:
+                item = type('ContentItem', (), {
+                    'uri': h['uri'],
+                    'cid': h.get('cid'),
+                    'content_type': 'post',
+                    'text': h.get('text'),
+                    'created_at': h.get('created_at'),
+                    'like_count': h['like_count'],
+                    'repost_count': h['repost_count'],
+                    'reply_count': h['reply_count'], 
+                    'quote_count': h['quote_count'],
+                    'raw_data': {}
+                })()
+                content_items.append(item)
+            
+            export_data = PostDataExporter.export_post_data(
+                content_items, handle, did, display_name
+            )
+            
             with open(out_path, "w") as f:
-                json.dump({
-                    "handle": handle,
-                    "display_name": display_name,
-                    "did": did,
-                    "exported_at": datetime.now().isoformat(),
-                    "count": len(hydrated),
-                    "posts": hydrated,
-                }, f, indent=2)
+                json.dump(export_data, f, indent=2)
 
             yield send({
                 "stage": "done",
@@ -196,12 +249,139 @@ def hydrate_stream():
                     "reposts": totals["reposts"],
                     "quotes": totals["quotes"],
                     "json_path": str(out_path),
+                    "download": f"/download-json?name={out_name}",
                 },
             })
         except Exception as e:  # pragma: no cover
             yield send({"stage": "error", "error": str(e)})
 
     return Response(generate(), mimetype="text/event-stream")
+
+
+@app.route("/download-json")
+def download_json():
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"success": False, "error": "Missing file name"}), 400
+    # Security: only serve files from tmp/
+    tmp_dir = Path(__file__).parent / "tmp"
+    target = tmp_dir / name
+    if not target.exists() or target.parent != tmp_dir:
+        return jsonify({"success": False, "error": "File not found"}), 404
+    return send_from_directory(str(tmp_dir), name, as_attachment=True)
+
+@app.route("/start-car-download", methods=["POST"])
+def start_car_download():
+    """Start background CAR file download."""
+    sid = session.get("sid")
+    if not sid or sid not in _auth:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    handle = _auth[sid]["handle"]
+    client = _auth[sid]["client"]
+    
+    # Mock DataManager for CAR download (since web_simple doesn't have full Skymarshal integration)
+    try:
+        from skymarshal.data_manager import DataManager
+        from skymarshal.models import UserSettings
+        from skymarshal.auth import AuthManager
+        
+        # Create mock auth manager with the client
+        mock_auth = type('MockAuth', (), {
+            'client': client,
+            'current_handle': handle,
+            'is_authenticated': lambda: True
+        })()
+        
+        settings = UserSettings()
+        base = Path.home() / ".skymarshal"
+        cars_dir = base / "cars" 
+        json_dir = base / "json"
+        base.mkdir(parents=True, exist_ok=True)
+        cars_dir.mkdir(parents=True, exist_ok=True)
+        json_dir.mkdir(parents=True, exist_ok=True)
+        
+        data_manager = DataManager(mock_auth, settings, base, cars_dir, json_dir)
+        
+        # Start background download
+        car_manager = get_car_download_manager()
+        task_id = car_manager.start_car_download(mock_auth, handle, data_manager)
+        
+        return jsonify({
+            "success": True,
+            "task_id": task_id,
+            "message": "CAR download started in background"
+        })
+        
+    except ImportError:
+        # Fallback: simple message if Skymarshal not available
+        return jsonify({
+            "success": False,
+            "error": "CAR download requires full Skymarshal installation"
+        }), 501
+
+@app.route("/car-download-status", methods=["GET"])
+def car_download_status():
+    """Get CAR download status."""
+    sid = session.get("sid")
+    if not sid or sid not in _auth:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    handle = _auth[sid]["handle"]
+    car_manager = get_car_download_manager()
+    download_task = car_manager.get_download_status(handle)
+    
+    if not download_task:
+        return jsonify({
+            "success": True,
+            "status": "none",
+            "message": "No CAR download in progress"
+        })
+    
+    return jsonify({
+        "success": True,
+        "status": download_task.status.value,
+        "progress": {
+            "current": download_task.progress.current,
+            "total": download_task.progress.total,
+            "percentage": download_task.progress.percentage,
+            "message": download_task.progress.message
+        },
+        "download_url": f"/download-car?handle={handle}" if download_task.status == TaskStatus.COMPLETED else None,
+        "file_size": download_task.result.get("file_size") if download_task.result else None,
+        "duration": download_task.duration
+    })
+
+@app.route("/download-car", methods=["GET"])
+def download_car_file():
+    """Download completed CAR file."""
+    handle = request.args.get("handle")
+    sid = session.get("sid")
+    
+    if not sid or sid not in _auth:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    session_handle = _auth[sid]["handle"]
+    if session_handle != handle:
+        return jsonify({"success": False, "error": "Access denied"}), 403
+    
+    car_manager = get_car_download_manager()
+    download_task = car_manager.get_download_status(handle)
+    
+    if not download_task or download_task.status != TaskStatus.COMPLETED:
+        return jsonify({"success": False, "error": "CAR file not ready"}), 404
+    
+    if download_task.result and "car_path" in download_task.result:
+        car_path = Path(download_task.result["car_path"])
+        if car_path.exists():
+            return send_from_directory(
+                str(car_path.parent),
+                car_path.name,
+                as_attachment=True,
+                download_name=f"{handle}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.car"
+            )
+    
+    return jsonify({"success": False, "error": "CAR file not found"}), 404
 
 
 if __name__ == "__main__":

@@ -34,8 +34,6 @@ except ImportError:
     print("Missing dependency: pip install atproto requests")
     sys.exit(1)
 
-from utils import normalize_handle, PostDataExporter, format_file_safe_name
-
 APPVIEW = "https://public.api.bsky.app/xrpc"
 
 
@@ -192,7 +190,9 @@ def main():
     ap.add_argument("--delay", type=float, default=0.2, help="Delay between post edge calls (seconds)")
     args = ap.parse_args()
 
-    handle = normalize_handle(args.handle)
+    handle = args.handle.lstrip("@")
+    if "." not in handle:
+        handle = f"{handle}.bsky.social"
 
     client = Client()
     print(f"Logging in as {handle}...")
@@ -216,28 +216,15 @@ def main():
     hydrated = hydrate_engagement(posts, per_post_delay=args.delay)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = args.out or f"bluesky_posts_{format_file_safe_name(handle, ts)}.json"
+    out_path = args.out or f"bluesky_posts_{handle.replace('.', '_')}_{ts}.json"
 
-    # Convert HydratedPost objects to content item format for utility
-    content_items = []
-    for hp in hydrated:
-        item = type('ContentItem', (), {
-            'uri': hp.uri,
-            'cid': hp.cid,
-            'content_type': 'post',
-            'text': hp.text,
-            'created_at': hp.created_at,
-            'like_count': hp.like_count,
-            'repost_count': hp.repost_count,
-            'reply_count': hp.reply_count,
-            'quote_count': hp.quote_count,
-            'raw_data': {}
-        })()
-        content_items.append(item)
-    
-    data_out = PostDataExporter.export_post_data(
-        content_items, handle, did, display_name
-    )
+    data_out = {
+        "handle": handle,
+        "did": did,
+        "exported_at": datetime.now().isoformat(),
+        "count": len(hydrated),
+        "posts": [asdict(hp) for hp in hydrated],
+    }
 
     with open(out_path, "w") as f:
         json.dump(data_out, f, indent=2)

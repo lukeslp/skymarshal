@@ -27,6 +27,24 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from skymarshal.auth import AuthManager
 from skymarshal.data_manager import DataManager
 from skymarshal.models import UserSettings, calculate_engagement_score, parse_datetime
+
+# Import local utilities
+from utils import (
+    normalize_handle, 
+    create_bluesky_client, 
+    HydrationConfig,
+    PostDataExporter,
+    EngagementAggregator,
+    safe_getattr
+)
+from hydration_service import create_hydration_service
+from background_tasks import (
+    get_task_manager, 
+    get_car_download_manager, 
+    get_parallel_hydration_manager,
+    TaskStatus,
+    TaskType
+)
 # from improved_hydration import (
 #     BlueskyEngagementHydrator,
 #     hydrate_bluesky_posts,
@@ -135,186 +153,30 @@ def _web_safe_hydrate(
     items,
 ) -> Dict[str, int]:
     """Hydrate engagement counts without interactive prompts and return quotes per URI.
-
-    Attempts one silent re-auth using stored payload if auth errors occur.
-    """
-    deadline = time.time() + HYDRATE_BUDGET_S
-    print(f"DEBUG: Starting hydration with {len(list(items))} items, FAST_HYDRATE={FAST_HYDRATE}")
     
-    # Small dataset: go straight to exact endpoints for precise metrics
-    try:
-        if len(list(items)) <= 50:
-            print(f"DEBUG: Small dataset path - using exact endpoints")
-            client = None
-            if auth and getattr(auth, "client", None) is not None:
-                client = auth.client
-                print(f"DEBUG: Using authenticated client")
-            elif ATClient is not None:
-                try:
-                    client = ATClient()
-                    print(f"DEBUG: Using unauthenticated client")
-                except Exception:
-                    client = None
-            if client is not None:
-                print(f"DEBUG: Calling _hydrate_post_edges_exact with {len(items)} items")
-                result = _hydrate_post_edges_exact(client, items)
-                print(f"DEBUG: _hydrate_post_edges_exact returned {len(result)} quotes")
-                return result
-            else:
-                print(f"DEBUG: No client available for small dataset path")
-    except Exception as e:
-        print(f"DEBUG: Small dataset path failed: {e}")
-        pass
-
-    # Large dataset: optionally fast path first
-    if FAST_HYDRATE:
-        try:
-            client = None
-            if auth and getattr(auth, "client", None) is not None:
-                client = auth.client
-            elif ATClient is not None:
-                try:
-                    client = ATClient()
-                except Exception:
-                    client = None
-            if client is not None:
-                index = {getattr(it, "uri", None): it for it in items if getattr(it, "uri", None)}
-                uris = [it.uri for it in items if getattr(it, "content_type", "") in ("post", "reply") and it.uri]
-                for i in range(0, len(uris), 25):
-                    if time.time() > deadline:
-                        break
-                    batch = uris[i : i + 25]
-                    posts = []
-                    try:
-                        resp = client.get_posts(uris=batch)
-                        posts = getattr(resp, "posts", []) or []
-                    except Exception:
-                        try:
-                            params = [("uris", u) for u in batch]
-                            r = requests.get("https://api.bsky.app/xrpc/app.bsky.feed.getPosts", params=params, timeout=3.0)
-                            if r.ok:
-                                posts = r.json().get("posts", [])
-                        except Exception:
-                            posts = []
-                    for p in posts:
-                        uri = getattr(p, "uri", None) if hasattr(p, "uri") else p.get("uri")
-                        it = index.get(uri)
-                        if not it:
-                            continue
-                        like_v = getattr(p, "like_count", None) if hasattr(p, "like_count") else p.get("likeCount", 0)
-                        repost_v = getattr(p, "repost_count", None) if hasattr(p, "repost_count") else p.get("repostCount", 0)
-                        reply_v = getattr(p, "reply_count", None) if hasattr(p, "reply_count") else p.get("replyCount", 0)
-                        it.like_count = int(like_v or 0)
-                        it.repost_count = int(repost_v or 0)
-                        it.reply_count = int(reply_v or 0)
-                        if hasattr(it, "update_engagement_score"):
-                            it.update_engagement_score()
-        except Exception:
-            pass
-
-    if not auth or not auth.is_authenticated():
-        # Attempt unauthenticated hydration via public AppView endpoints if available
-        if ATClient is None:
-            return {}
-        try:
-            client = ATClient()
-            # conservative chunk
-            chunk_size = 20
-            index = {getattr(it, "uri", None): it for it in items if getattr(it, "uri", None)}
-            uris = [it.uri for it in items if getattr(it, "content_type", "") in ("post", "reply") and it.uri]
-            for i in range(0, len(uris), chunk_size):
-                batch = uris[i : i + chunk_size]
-                attempts = 0
-                backoff = 1.0
-                while attempts < 3:
-                    try:
-                        resp = client.get_posts(uris=batch)
-                        posts = getattr(resp, "posts", []) or []
-                        for p in posts:
-                            uri = getattr(p, "uri", None)
-                            it = index.get(uri)
-                            if not it:
-                                continue
-                            it.like_count = int(getattr(p, "like_count", 0) or 0)
-                            it.repost_count = int(getattr(p, "repost_count", 0) or 0)
-                            it.reply_count = int(getattr(p, "reply_count", 0) or 0)
-                            if hasattr(it, "update_engagement_score"):
-                                it.update_engagement_score()
-                        break
-                    except Exception:
-                        attempts += 1
-                        time.sleep(backoff)
-                        backoff = min(backoff * 2, 8.0)
-            # Refine counts using exact endpoints and collect quotes
-            return _hydrate_post_edges_exact(client, items)
-        except Exception:
-            return {}
-
-    dm = DataManager(auth, settings, base, cars_dir, json_dir)
-    # Posts + replies
-    pr_items = [it for it in items if getattr(it, "content_type", "") in ("post", "reply")]
-    rp_items = [it for it in items if getattr(it, "content_type", "") == "repost"] if settings.use_subject_engagement_for_reposts else []
-
-    # Use conservative chunk size to reduce auth/rate pressure
-    chunk_size = max(1, min(20, getattr(settings, "hydrate_batch_size", 25)))
-
-    def hydrate_with_retries(callable_fn, chunk_label: str):
-        attempts = 0
-        backoff = 1.0
-        while attempts < 3:
-            try:
-                callable_fn()
-                return True
-            except Exception as e:
-                msg = str(e).lower()
-                # Try single-session rebuild on auth errors
-                if any(s in msg for s in ("auth", "unauthorized", "token", "expired", "forbidden")):
-                    try:
-                        stored = session.get("auth_session")
-                        if stored and isinstance(stored, dict):
-                            rebuilt = AuthManager()
-                            if rebuilt._import_session_payload(stored):  # type: ignore[attr-defined]
-                                rebuilt.current_handle = session.get("handle")
-                                rebuilt.current_did = session.get("did")
-                                _auth_by_sid[session.get("sid")] = rebuilt  # type: ignore[index]
-                                nonlocal dm
-                                dm = DataManager(rebuilt, settings, base, cars_dir, json_dir)
-                                # Retry immediately after rebuild (does not consume backoff attempt)
-                                callable_fn()
-                                return True
-                    except Exception:
-                        pass
-                # Backoff for transient/rate issues
-                attempts += 1
-                time.sleep(backoff)
-                backoff = min(backoff * 2, 8.0)
-        return False
-
-    # Hydrate posts/replies in chunks (for larger datasets)
-    for i in range(0, len(pr_items), chunk_size):
-        chunk = pr_items[i : i + chunk_size]
-        hydrate_with_retries(lambda c=chunk: dm._hydrate_post_engagement(c), "posts")  # type: ignore[attr-defined]
-
-    # Hydrate repost subject metrics in chunks (optional)
-    for i in range(0, len(rp_items), chunk_size):
-        chunk = rp_items[i : i + chunk_size]
-        hydrate_with_retries(lambda c=chunk: dm._hydrate_repost_subject_engagement(c), "reposts")  # type: ignore[attr-defined]
-
-    # Update scores
-    for it in items:
-        if hasattr(it, "update_engagement_score"):
-            it.update_engagement_score()
-    # Refine counts using exact endpoints and collect quotes
-    client = getattr(dm, "auth", None)
-    client = getattr(client, "client", None)
-    if client is None and ATClient is not None:
-        try:
-            client = ATClient()
-        except Exception:
-            client = None
-    if client is not None:
-        return _hydrate_post_edges_exact(client, items)
-    return {}
+    Uses the new HydrationOrchestrator for cleaner, more maintainable hydration logic.
+    """
+    # Create hydration service with current configuration
+    hydration_service = create_hydration_service(
+        fast_hydrate=FAST_HYDRATE,
+        budget_seconds=HYDRATE_BUDGET_S
+    )
+    
+    # Use the orchestrator to handle hydration
+    quotes_by_uri = hydration_service.hydrate(auth, settings, base, cars_dir, json_dir, items)
+    
+    # Fallback to exact endpoints if we have a client available
+    client = None
+    if auth and safe_getattr(auth, "client", None) is not None:
+        client = auth.client
+    elif ATClient is not None:
+        client = create_bluesky_client()
+    
+    if client is not None and not quotes_by_uri:
+        # Use existing exact endpoints function as fallback
+        quotes_by_uri = _hydrate_post_edges_exact(client, items)
+    
+    return quotes_by_uri
 
 
 def _safe_get(obj, name: str, default=None):
@@ -477,7 +339,7 @@ def login():
         return jsonify({"success": False, "error": "Handle and app password required"}), 400
 
     auth = AuthManager()
-    norm = auth.normalize_handle(handle)
+    norm = normalize_handle(handle)
 
     if not auth.authenticate_client(norm, password):
         # Allow non-app passwords: proceed with limited guest mode (no write, public hydration only)
@@ -530,14 +392,19 @@ def download_car():
     base, cars_dir, json_dir = get_dirs()
     data_manager = DataManager(auth, settings, base, cars_dir, json_dir)
 
-    # Download timestamped CAR
-    car_path = data_manager.download_car(handle)
-    if not car_path:
-        return jsonify({"success": False, "error": "CAR download failed"}), 500
+    # Start background CAR download
+    car_manager = get_car_download_manager()
+    task_id = car_manager.start_car_download(auth, handle, data_manager)
 
-    session["car_path"] = str(car_path)
+    # Store task ID in session for tracking
+    session["car_download_task_id"] = task_id
     session.modified = True
-    return jsonify({"success": True, "car": str(car_path)})
+
+    return jsonify({
+        "success": True, 
+        "task_id": task_id,
+        "message": "CAR download started in background"
+    })
 
 
 @app.route("/process", methods=["POST"]) 
@@ -595,63 +462,40 @@ def process_car():
         hydrated_items = [item for item in items if (item.like_count > 0 or item.repost_count > 0 or item.reply_count > 0)]
         print(f"DEBUG: Found {len(hydrated_items)} items with engagement data after hydration")
         
-        export_data = []
-        for item in items_all:  # Save all items, not just the 100 processed
-            item_dict = {
-                'uri': item.uri,
-                'cid': item.cid,
-                'content_type': item.content_type,
-                'text': item.text,
-                'created_at': item.created_at,
-                'like_count': getattr(item, 'like_count', 0),
-                'repost_count': getattr(item, 'repost_count', 0),
-                'reply_count': getattr(item, 'reply_count', 0),
-                'quote_count': quotes_by_uri.get(getattr(item, 'uri', ''), 0),
-                'engagement_score': getattr(item, 'engagement_score', 0),
-                'raw_data': item.raw_data
-            }
-            export_data.append(item_dict)
+        # Use utility for consistent export format
+        export_data_dict = PostDataExporter.export_post_data(
+            items_all, handle, quotes_by_uri=quotes_by_uri
+        )
         
         with open(out_json, 'w') as f:
-            json_lib.dump(export_data, f, indent=2, default=str)
-        print(f"DEBUG: Saved {len(export_data)} items with hydrated engagement data")
-        print(f"DEBUG: Items with engagement: {len([x for x in export_data if x['like_count'] > 0 or x['repost_count'] > 0 or x['reply_count'] > 0])}")
+            json_lib.dump(export_data_dict['posts'], f, indent=2, default=str)
+        print(f"DEBUG: Saved {len(export_data_dict['posts'])} items with hydrated engagement data")
+        print(f"DEBUG: Items with engagement: {len([x for x in export_data_dict['posts'] if x['like_count'] > 0 or x['repost_count'] > 0 or x['reply_count'] > 0])}")
     except Exception as e:
         print(f"DEBUG: Failed to save hydrated data: {e}")
 
     # Compute engagement metrics for user's posts (likes/reposts/replies received)
     posts = items  # recent posts only
-    total_likes_received = sum(int(getattr(it, "like_count", 0) or 0) for it in posts)
-    total_reposts_received = sum(int(getattr(it, "repost_count", 0) or 0) for it in posts)
-    total_replies_received = sum(int(getattr(it, "reply_count", 0) or 0) for it in posts)
-    total_engagement = sum(
-        int(
-            calculate_engagement_score(
-                int(it.like_count or 0), int(it.repost_count or 0), int(it.reply_count or 0)
-            )
-        )
-        for it in posts
-    )
-    avg_engagement = (total_engagement / len(posts)) if posts else 0.0
-    total_quotes_received = 0
-    try:
-        if isinstance(quotes_by_uri, dict):
-            total_quotes_received = sum(int(quotes_by_uri.get(getattr(it, "uri", ""), 0) or 0) for it in posts)
-    except Exception:
-        total_quotes_received = 0
+    
+    # Add quote counts to items for aggregation
+    for item in posts:
+        item.quote_count = quotes_by_uri.get(getattr(item, "uri", ""), 0)
+    
+    # Use utility for consistent engagement calculation
+    engagement_stats = EngagementAggregator.calculate_totals(posts)
 
     stats = {
         "counts": {
-            "posts": len(posts),
-            "total_items": len(posts),
+            "posts": engagement_stats["posts"],
+            "total_items": engagement_stats["posts"],
         },
         "engagement": {
-            "likes_received": total_likes_received,
-            "reposts_received": total_reposts_received,
-            "replies_received": total_replies_received,
-            "quotes_received": total_quotes_received,
-            "total_engagement": int(total_engagement),
-            "avg_engagement": round(avg_engagement, 2),
+            "likes_received": engagement_stats["likes_received"],
+            "reposts_received": engagement_stats["reposts_received"],
+            "replies_received": engagement_stats["replies_received"],
+            "quotes_received": engagement_stats["quotes_received"],
+            "total_engagement": engagement_stats["total_engagement"],
+            "avg_engagement": engagement_stats["avg_engagement"],
         },
     }
 
@@ -741,6 +585,109 @@ def refresh_engagement():
         return jsonify({"success": False, "error": f"Refresh failed: {str(e)}"})
 
 
+@app.route("/task-status/<task_id>", methods=["GET"])
+def get_task_status(task_id: str):
+    """Get status of a background task."""
+    task_manager = get_task_manager()
+    task = task_manager.get_task(task_id)
+    
+    if not task:
+        return jsonify({"success": False, "error": "Task not found"}), 404
+    
+    return jsonify({
+        "success": True,
+        "task": {
+            "id": task.task_id,
+            "type": task.task_type.value,
+            "status": task.status.value,
+            "progress": {
+                "current": task.progress.current,
+                "total": task.progress.total,
+                "percentage": task.progress.percentage,
+                "message": task.progress.message
+            },
+            "result": task.result,
+            "error": task.error,
+            "duration": task.duration,
+            "metadata": task.metadata
+        }
+    })
+
+@app.route("/download-car", methods=["GET"])
+def download_car_file():
+    """Download completed CAR file."""
+    handle = request.args.get("handle")
+    path = request.args.get("path")
+    
+    if not handle:
+        return jsonify({"success": False, "error": "Handle required"}), 400
+    
+    # Check if user has access to this handle's data
+    session_handle = session.get("handle")
+    if session_handle != handle:
+        return jsonify({"success": False, "error": "Access denied"}), 403
+    
+    # Get CAR download status
+    car_manager = get_car_download_manager()
+    download_task = car_manager.get_download_status(handle)
+    
+    if not download_task or download_task.status != TaskStatus.COMPLETED:
+        return jsonify({"success": False, "error": "CAR file not ready"}), 404
+    
+    # Get CAR path from task result
+    if download_task.result and "car_path" in download_task.result:
+        car_path = Path(download_task.result["car_path"])
+        if car_path.exists():
+            from flask import send_file
+            return send_file(
+                car_path,
+                as_attachment=True,
+                download_name=f"{handle}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.car"
+            )
+    
+    return jsonify({"success": False, "error": "CAR file not found"}), 404
+
+@app.route("/car-download-status", methods=["GET"])
+def car_download_status():
+    """Get CAR download status for current user."""
+    handle = session.get("handle")
+    if not handle:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    
+    car_manager = get_car_download_manager()
+    download_task = car_manager.get_download_status(handle)
+    
+    if not download_task:
+        return jsonify({
+            "success": True,
+            "status": "none",
+            "message": "No CAR download in progress"
+        })
+    
+    return jsonify({
+        "success": True,
+        "status": download_task.status.value,
+        "progress": {
+            "current": download_task.progress.current,
+            "total": download_task.progress.total,
+            "percentage": download_task.progress.percentage,
+            "message": download_task.progress.message
+        },
+        "download_url": download_task.result.get("download_url") if download_task.result else None,
+        "file_size": download_task.result.get("file_size") if download_task.result else None,
+        "duration": download_task.duration
+    })
+
+@app.route("/start-parallel-hydration", methods=["POST"])
+def start_parallel_hydration():
+    """Start parallel hydration for multiple users (future feature)."""
+    # This would be used for batch processing multiple users
+    # For now, return not implemented
+    return jsonify({
+        "success": False, 
+        "error": "Parallel hydration not implemented in this interface"
+    }), 501
+
 @app.route("/logout", methods=["POST"]) 
 def logout():
     sid = session.get("sid")
@@ -752,6 +699,13 @@ def logout():
             except Exception:
                 pass
             _auth_by_sid.pop(sid, None)
+        
+        # Cancel any background tasks for this session
+        task_manager = get_task_manager()
+        task_id = session.get("car_download_task_id")
+        if task_id:
+            task_manager.cancel_task(task_id)
+        
         session.clear()
     except Exception:
         session.clear()

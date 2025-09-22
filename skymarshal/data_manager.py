@@ -568,6 +568,25 @@ class DataManager:
             console.print(f"Failed to write data: {e}")
             return None
 
+    def load_json_data(self, export_path: Path) -> List[Dict[str, Any]]:
+        """Load raw JSON data from export file without converting to ContentItem objects."""
+        with open(export_path, "r") as f:
+            raw_data = json.load(f)
+        
+        # Normalize historical export formats to return a flat list
+        if isinstance(raw_data, list):
+            return raw_data
+        elif isinstance(raw_data, dict):
+            # If it's the newer format with posts/likes/reposts sections, combine them
+            all_items = []
+            for section in ["posts", "likes", "reposts"]:
+                items = raw_data.get(section, [])
+                if isinstance(items, list):
+                    all_items.extend(items)
+            return all_items if all_items else raw_data.get("data", [])
+        else:
+            return []
+
     def load_exported_data(self, export_path: Path) -> List[ContentItem]:
         """Load data from export file."""
         with open(export_path, "r") as f:
@@ -2095,6 +2114,27 @@ class DataManager:
         return self.export_user_data(
             handle, limit, categories, date_start, date_end, replace_existing
         )
+
+    def download_and_process_car(self, handle: str) -> bool:
+        """
+        Legacy method for webapp.py compatibility.
+        Downloads CAR file and processes it to JSON format.
+        
+        Args:
+            handle: Bluesky handle to download and process
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            json_path = self.download_backup_and_import(
+                handle=handle,
+                categories=None,  # Process all content types
+                replace_mode=True
+            )
+            return json_path is not None
+        except Exception:
+            return False
 
     def download_backup_and_import(
         self, handle: str, categories: Optional[set] = None, replace_mode: bool = True

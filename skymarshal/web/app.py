@@ -737,7 +737,7 @@ def download_car():
                             'downloaded': downloaded_bytes
                         })
                 
-                # Create custom progress-aware backup method
+                # Use optimized single-step download and import method
                 car_path = data_manager.create_timestamped_backup_with_progress(handle, progress_callback)
                 
                 # Send any progress updates that were collected
@@ -802,6 +802,85 @@ def download_car():
     except Exception as e:
         # Fallback to JSON response if streaming fails
         return jsonify({'status': 'error', 'error': f'Streaming setup failed: {str(e)}'}), 500
+
+@app.route('/download-and-process', methods=['POST'])
+@login_required
+def download_and_process():
+    """Optimized endpoint that downloads fresh data and processes it in one step"""
+    data = request.get_json()
+    content_types = data.get('content_types', ['posts'])
+    limits = data.get('limits', {})
+    
+    handle = session['user_handle']
+    
+    def generate():
+        try:
+            # Set up required directories
+            skymarshal_dir = Path.home() / '.skymarshal'
+            backups_dir = skymarshal_dir / 'cars'
+            json_dir = skymarshal_dir / 'json'
+            
+            # Create directories
+            skymarshal_dir.mkdir(exist_ok=True)
+            backups_dir.mkdir(exist_ok=True)
+            json_dir.mkdir(exist_ok=True)
+            
+            # Create settings
+            settings_file = Path.home() / ".car_inspector_settings.json"
+            settings_manager = SettingsManager(settings_file)
+            settings = settings_manager.settings
+            
+            # Get authenticated auth manager
+            auth_manager = get_auth_manager()
+            if not auth_manager or not auth_manager.is_authenticated():
+                yield f"data: {json.dumps({'status': 'error', 'error': 'Authentication required'})}\\n\\n"
+                return
+            
+            data_manager = DataManager(
+                auth_manager,
+                settings,
+                skymarshal_dir,
+                backups_dir,
+                json_dir
+            )
+            
+            yield f"data: {json.dumps({'status': 'processing', 'message': 'Starting optimized download and processing...', 'progress': 5})}\\n\\n"
+            
+            # Convert content types to category set
+            categories = set(content_types)
+            category_list = ", ".join(categories)
+            
+            yield f"data: {json.dumps({'status': 'processing', 'message': f'Downloading and processing {category_list}...', 'progress': 10})}\\n\\n"
+            
+            # Use the optimized single-step method
+            json_path = data_manager.download_backup_and_import(
+                handle=handle,
+                categories=categories,
+                replace_mode=True
+            )
+            
+            if json_path:
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Data downloaded and processed successfully!', 'progress': 80})}\\n\\n"
+                
+                # Store paths in session
+                session['json_path'] = str(json_path)
+                session.modified = True
+                
+                # Also store in progress_data as backup
+                session_id = session.get('session_id')
+                if session_id:
+                    if session_id not in progress_data:
+                        progress_data[session_id] = {}
+                    progress_data[session_id]['json_path'] = str(json_path)
+                
+                yield f"data: {json.dumps({'status': 'completed', 'message': 'Processing complete!', 'progress': 100, 'redirect': url_for('dashboard')})}\\n\\n"
+            else:
+                yield f"data: {json.dumps({'status': 'error', 'error': 'Failed to download and process data'})}\\n\\n"
+                
+        except Exception as e:
+            yield f"data: {json.dumps({'status': 'error', 'error': str(e)})}\\n\\n"
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/process-data', methods=['POST'])
 @login_required
@@ -924,14 +1003,25 @@ def process_data():
             category_list = ", ".join(categories)
             yield f"data: {json.dumps({'status': 'processing', 'message': f'Processing {len(categories)} content types: {category_list}', 'progress': 10})}\n\n"
             
-            # Process CAR file using import_backup_replace method
-            yield f"data: {json.dumps({'status': 'processing', 'message': 'Reading CAR file structure...', 'progress': 20})}\n\n"
-            
-            json_path = data_manager.import_car_replace(
-                Path(car_path), 
-                handle=handle, 
-                categories=categories
-            )
+            # Check if we already have a CAR file or need to download fresh
+            if Path(car_path).exists():
+                # Process existing CAR file using import_car_replace method
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Reading CAR file structure...', 'progress': 20})}\n\n"
+                
+                json_path = data_manager.import_car_replace(
+                    Path(car_path), 
+                    handle=handle, 
+                    categories=categories
+                )
+            else:
+                # Use optimized single-step download and import for fresh data
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Downloading and processing fresh data...', 'progress': 20})}\n\n"
+                
+                json_path = data_manager.download_backup_and_import(
+                    handle=handle,
+                    categories=categories,
+                    replace_mode=True
+                )
             
             yield f"data: {json.dumps({'status': 'processing', 'message': 'CAR file processed successfully!', 'progress': 60})}\n\n"
             

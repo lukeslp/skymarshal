@@ -21,6 +21,8 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import logging
 
+from batch_processor import create_standard_batch_processor, BlueskyBatchProcessor
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -71,55 +73,31 @@ class BlueskyEngagementHydrator:
         return None
 
     def get_post_details(self, uris: List[str]) -> Dict[str, PostEngagement]:
+        """Get post details using optimized 25-item batch processing."""
+        if not uris:
+            return {}
+        
+        # Use the new batch processor for consistent 25-item batching
+        batch_processor = create_standard_batch_processor(self.client)
+        batch_result = batch_processor.batch_get_posts(uris)
+        
+        # Convert batch results to PostEngagement objects
         results: Dict[str, PostEngagement] = {}
-
-        for i in range(0, len(uris), 25):
-            batch = uris[i : i + 25]
-
-            # Try authenticated client first
-            if self.client is not None:
-                try:
-                    resp = self.client.get_posts(uris=batch)
-                    posts = getattr(resp, "posts", []) or []
-                    for p in posts:
-                        uri = getattr(p, "uri", None)
-                        if not uri:
-                            continue
+        for post_data_list in batch_result.results:
+            if isinstance(post_data_list, list):
+                for post_data in post_data_list:
+                    uri = post_data.get('uri')
+                    if uri:
                         results[uri] = PostEngagement(
                             uri=uri,
-                            like_count=int(getattr(p, "like_count", 0) or 0),
-                            repost_count=int(getattr(p, "repost_count", 0) or 0),
-                            reply_count=int(getattr(p, "reply_count", 0) or 0),
+                            like_count=post_data.get('like_count', 0),
+                            repost_count=post_data.get('repost_count', 0),
+                            reply_count=post_data.get('reply_count', 0),
                         )
-                    continue
-                except Exception as e:
-                    logger.warning(f"Client get_posts failed, fallback to HTTP: {e}")
-
-            # Fallback to HTTP getPosts
-            params = []
-            for u in batch:
-                params.append(("uris", u))
-            data = None
-            try:
-                # requests encodes list params correctly via list of tuples
-                r = self.session.get(f"{APPVIEW}/app.bsky.feed.getPosts", params=params, timeout=3.0)
-                if r.ok:
-                    data = r.json()
-            except Exception as e:
-                logger.warning(f"HTTP getPosts error: {e}")
-
-            if data and isinstance(data, dict) and "posts" in data:
-                for post in data.get("posts", []) or []:
-                    uri = post.get("uri")
-                    if not uri:
-                        continue
-                    results[uri] = PostEngagement(
-                        uri=uri,
-                        like_count=int(post.get("likeCount", 0) or 0),
-                        repost_count=int(post.get("repostCount", 0) or 0),
-                        reply_count=int(post.get("replyCount", 0) or 0),
-                    )
-
+        
+        logger.info(f"Batch processed {len(uris)} URIs, got {len(results)} results "
+                   f"({batch_result.success_rate:.1f}% success rate)")
+        
         return results
 
     def _count_paginated(self, path: str, base_params: Dict[str, Any], items_key: str, max_pages: int = 50) -> int:

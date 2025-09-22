@@ -61,6 +61,23 @@
           <button id="refreshBtn" class="secondary">Refresh Stats</button>
         </div>
         <div id="actionStatus" class="muted"></div>
+        
+        <!-- Background CAR Download Status -->
+        <div class="card hidden" id="carDownloadCard" style="margin-top:10px; border-color:#0ea5e9;">
+          <div class="row" style="align-items:center; justify-content:space-between">
+            <div>
+              <div style="font-weight:600">📦 CAR File Backup</div>
+              <div id="carDownloadStatus" class="muted">Preparing backup...</div>
+            </div>
+            <button id="downloadCarBtn" class="secondary hidden" disabled>Download Backup</button>
+          </div>
+          <div id="carDownloadProgress" class="hidden" style="margin-top:8px;">
+            <div style="background:#f0f0f0; border-radius:4px; height:8px; overflow:hidden;">
+              <div id="carProgressBar" style="background:#0ea5e9; height:100%; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <div id="carProgressText" class="muted" style="font-size:12px; margin-top:4px;">0%</div>
+          </div>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -142,10 +159,18 @@
 
       const downloadBtn = $('downloadBtn');
       if (downloadBtn) downloadBtn.onclick = async () => {
-        $('actionStatus').innerText = 'Downloading CAR...';
+        $('actionStatus').innerText = 'Starting CAR download...';
         try {
-          await post('/download');
-          $('actionStatus').innerText = 'CAR downloaded. Now process + enrich.';
+          const res = await post('/download');
+          $('actionStatus').innerText = 'CAR download started in background.';
+          
+          // Show background download card
+          $('carDownloadCard').classList.remove('hidden');
+          $('carDownloadProgress').classList.remove('hidden');
+          
+          // Start monitoring background download
+          startCarDownloadMonitoring();
+          
         } catch (e) {
           $('actionStatus').innerText = 'Download failed: ' + e.message;
         }
@@ -175,6 +200,96 @@
         } catch (e) {}
         location.href = '/';
       };
+
+      // CAR Download monitoring functions
+      let carDownloadInterval = null;
+      
+      function startCarDownloadMonitoring() {
+        if (carDownloadInterval) clearInterval(carDownloadInterval);
+        
+        carDownloadInterval = setInterval(async () => {
+          try {
+            const response = await fetch('/car-download-status');
+            const data = await response.json();
+            
+            if (data.success) {
+              updateCarDownloadUI(data);
+              
+              // Stop monitoring if completed or failed
+              if (data.status === 'completed' || data.status === 'failed') {
+                clearInterval(carDownloadInterval);
+                carDownloadInterval = null;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to check CAR download status:', e);
+          }
+        }, 1000); // Check every second
+      }
+      
+      function updateCarDownloadUI(data) {
+        const statusEl = $('carDownloadStatus');
+        const progressEl = $('carProgressBar');
+        const progressTextEl = $('carProgressText');
+        const downloadBtnEl = $('downloadCarBtn');
+        
+        switch (data.status) {
+          case 'running':
+            statusEl.innerText = data.progress.message || 'Downloading CAR file...';
+            progressEl.style.width = data.progress.percentage + '%';
+            progressTextEl.innerText = Math.round(data.progress.percentage) + '%';
+            break;
+            
+          case 'completed':
+            statusEl.innerText = `CAR backup ready! (${formatFileSize(data.file_size)})`;
+            progressEl.style.width = '100%';
+            progressTextEl.innerText = '100%';
+            
+            // Show download button
+            downloadBtnEl.classList.remove('hidden');
+            downloadBtnEl.disabled = false;
+            downloadBtnEl.onclick = () => {
+              const url = data.download_url || `/download-car?handle=${encodeURIComponent('{{ handle or "" }}')}`;
+              window.location.href = url;
+            };
+            break;
+            
+          case 'failed':
+            statusEl.innerText = 'CAR backup failed';
+            progressEl.style.width = '0%';
+            progressEl.style.background = '#dc2626';
+            progressTextEl.innerText = 'Error';
+            break;
+            
+          default:
+            statusEl.innerText = 'Preparing CAR backup...';
+        }
+      }
+      
+      function formatFileSize(bytes) {
+        if (!bytes) return '';
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+      }
+
+      // Check for existing CAR download on page load
+      if ({{ 'true' if logged_in else 'false' }}) {
+        fetch('/car-download-status')
+          .then(r => r.json())
+          .then(data => {
+            if (data.success && data.status !== 'none') {
+              $('carDownloadCard').classList.remove('hidden');
+              $('carDownloadProgress').classList.remove('hidden');
+              updateCarDownloadUI(data);
+              
+              if (data.status === 'running') {
+                startCarDownloadMonitoring();
+              }
+            }
+          })
+          .catch(e => console.error('Failed to check initial CAR status:', e));
+      }
 
       // Initial render injected by server
       const initialStats = {{ stats | tojson | safe if stats else 'null' }};

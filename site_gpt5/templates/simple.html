@@ -29,7 +29,27 @@
             <div class="muted">Logged in</div>
             <div><strong id="who"></strong></div>
           </div>
-          <button id="startBtn">Hydrate Last 50</button>
+          <div>
+            <button id="startBtn">Hydrate Last 50</button>
+            <button id="carDownloadBtn" class="muted" style="margin-left:10px;">📦 Backup CAR</button>
+          </div>
+        </div>
+        
+        <!-- CAR Download Status -->
+        <div id="carDownloadStatus" class="hidden" style="margin-top:15px; padding:10px; background:#f8f9fa; border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600">📦 CAR File Backup</div>
+              <div id="carStatusText" class="muted">Preparing backup...</div>
+            </div>
+            <button id="downloadReadyBtn" class="hidden" disabled>Download</button>
+          </div>
+          <div id="carProgress" class="hidden" style="margin-top:8px;">
+            <div style="background:#e0e0e0; border-radius:4px; height:6px; overflow:hidden;">
+              <div id="carProgressBar" style="background:#0ea5e9; height:100%; width:0%; transition:width 0.5s;"></div>
+            </div>
+            <div id="carProgressText" class="muted" style="font-size:12px; margin-top:4px;">0%</div>
+          </div>
         </div>
       </section>
 
