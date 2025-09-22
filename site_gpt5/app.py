@@ -32,12 +32,10 @@ from skymarshal.models import UserSettings, calculate_engagement_score, parse_da
 from utils import (
     normalize_handle, 
     create_bluesky_client, 
-    HydrationConfig,
     PostDataExporter,
     EngagementAggregator,
     safe_getattr
 )
-from hydration_service import create_hydration_service
 from background_tasks import (
     get_task_manager, 
     get_car_download_manager, 
@@ -154,166 +152,111 @@ def _web_safe_hydrate(
 ) -> Dict[str, int]:
     """Hydrate engagement counts without interactive prompts and return quotes per URI.
     
-    Uses the new HydrationOrchestrator for cleaner, more maintainable hydration logic.
+    Uses the simplified, working hydration approach from WORKING/ implementations.
     """
-    # Create hydration service with current configuration
-    hydration_service = create_hydration_service(
-        fast_hydrate=FAST_HYDRATE,
-        budget_seconds=HYDRATE_BUDGET_S
-    )
-    
-    # Use the orchestrator to handle hydration
-    quotes_by_uri = hydration_service.hydrate(auth, settings, base, cars_dir, json_dir, items)
-    
-    # Fallback to exact endpoints if we have a client available
+    # Get client for hydration
     client = None
     if auth and safe_getattr(auth, "client", None) is not None:
         client = auth.client
     elif ATClient is not None:
         client = create_bluesky_client()
     
-    if client is not None and not quotes_by_uri:
-        # Use existing exact endpoints function as fallback
-        quotes_by_uri = _hydrate_post_edges_exact(client, items)
+    if client is None:
+        print("DEBUG: No client available for hydration")
+        return {}
     
-    return quotes_by_uri
-
-
-def _safe_get(obj, name: str, default=None):
-    try:
-        return getattr(obj, name)
-    except Exception:
-        return default
-
-
-def _count_paginated_items(client, method_name: str, uri: str, list_key: str, per_page: int = 100, max_pages: int = 50, deadline: float | None = None) -> int:
-    total = 0
-    cursor = None
-    pages = 0
-    attempts = 0
-    while pages < max_pages:
-        if deadline is not None and time.time() > deadline:
-            break
-        try:
-            # Always prefer HTTP AppView with short timeout to avoid client-level hangs
-            endpoint = None
-            if method_name == "get_likes":
-                endpoint = "https://api.bsky.app/xrpc/app.bsky.feed.getLikes"
-            elif method_name == "get_reposted_by":
-                endpoint = "https://api.bsky.app/xrpc/app.bsky.feed.getRepostedBy"
-            elif method_name == "get_quotes":
-                endpoint = "https://api.bsky.app/xrpc/app.bsky.feed.getQuotes"
-            if endpoint is None:
-                break
-            params = {"uri": uri, "limit": per_page}
-            if cursor:
-                params["cursor"] = cursor
-            r = requests.get(endpoint, params=params, timeout=3.0)
-            if not r.ok:
-                raise RuntimeError(f"HTTP {r.status_code}")
-            data = r.json()
-            items = data.get(list_key, []) or []
-            total += len(items)
-            cursor = data.get("cursor")
-            if not cursor:
-                break
-            pages += 1
-            attempts = 0  # reset on success
-        except Exception:
-            attempts += 1
-            if attempts >= 3:
-                break
-            time.sleep(min(0.4 * (2 ** (attempts - 1)), 2.0))
-    return total
-
-
-def _count_post_replies(client, uri: str, max_depth: int = 1, deadline: float | None = None) -> int:
-    try:
-        if deadline is not None and time.time() > deadline:
-            return 0
-        # Prefer HTTP with timeout
-        params = {"uri": uri, "depth": max_depth, "parentHeight": 0}
-        try:
-            r = requests.get("https://api.bsky.app/xrpc/app.bsky.feed.getPostThread", params=params, timeout=3.0)
-            if not r.ok:
-                raise RuntimeError("thread http failed")
-            data = r.json()
-            root = data.get("thread")
-        except Exception:
-            # Fallback to client if HTTP fails
-            if ATModels is not None:
-                model_params = ATModels.AppBskyFeedGetPostThread.Params(uri=uri, depth=max_depth, parent_height=0)
-                resp = client.app.bsky.feed.get_post_thread(model_params)
-                root = _safe_get(resp, "thread", None)
-            else:
-                method = _safe_get(_safe_get(_safe_get(client, "app", None), "bsky", None), "feed", None)
-                method = _safe_get(method, "get_post_thread")
-                if not callable(method):
-                    return 0
-                resp = method({"uri": uri, "depth": max_depth, "parentHeight": 0})
-                root = _safe_get(resp, "thread", None)
-
-        if root is None:
-            return 0
-
-        def traverse(node) -> int:
-            total = 0
-            replies = _safe_get(node, "replies", None) or []
-            for r in replies:
-                post = _safe_get(r, "post", None)
-                if post is not None:
-                    total += 1
-                total += traverse(r)
-            return total
-
-        return traverse(root)
-    except Exception:
-        return 0
-
-
-def _hydrate_post_edges_exact(client, items) -> Dict[str, int]:
-    """Use feed endpoints to get precise counts per post and collect quotes per URI."""
-    quotes_by_uri: Dict[str, int] = {}
-    posts = [it for it in items if getattr(it, "content_type", "") in ("post", "reply") and getattr(it, "uri", None)]
-    # Process one-by-one with per-post retries/backoff to avoid sticking
-    deadline = time.time() + HYDRATE_BUDGET_S
-    for it in posts:
-        uri = it.uri
-        likes = reposts = quotes = replies = 0
-        tries = 0
-        delay = 0.5
-        while tries < 3:
-            if time.time() > deadline:
-                break
+    print(f"DEBUG: Starting hydration for {len(items)} items")
+    
+    # Use the working hydration approach - simple and direct
+    from improved_hydration import BlueskyEngagementHydrator
+    
+    # Create hydrator with conservative settings
+    hydrator = BlueskyEngagementHydrator(client=client, rate_limit_delay=0.4)
+    
+    # Filter to posts and replies only
+    posts_to_hydrate = [item for item in items 
+                       if getattr(item, "content_type", "") in ("post", "reply") 
+                       and getattr(item, "uri", None)]
+    
+    if not posts_to_hydrate:
+        print("DEBUG: No posts found to hydrate")
+        return {}
+    
+    print(f"DEBUG: Hydrating {len(posts_to_hydrate)} posts using detailed engagement")
+    
+    quotes_by_uri = {}
+    
+    # For small datasets, use detailed engagement (individual calls per post)
+    if len(posts_to_hydrate) <= 50:
+        print("DEBUG: Using detailed engagement for small dataset")
+        for i, item in enumerate(posts_to_hydrate):
             try:
-                # Likes
-                likes = _count_paginated_items(client, "get_likes", uri, "likes", deadline=deadline)
-                # Reposts
-                reposts = _count_paginated_items(client, "get_reposted_by", uri, "reposted_by", deadline=deadline)
-                # Quotes
-                quotes = _count_paginated_items(client, "get_quotes", uri, "posts", deadline=deadline)
-                # Replies (limited depth)
-                replies = _count_post_replies(client, uri, max_depth=1, deadline=deadline)
-                break
-            except Exception:
-                tries += 1
-                time.sleep(delay)
-                delay = min(delay * 2, 4.0)
-
-        # Apply
-        it.like_count = int(likes)
-        it.repost_count = int(reposts)
-        it.reply_count = int(replies)
-        if hasattr(it, "update_engagement_score"):
-            it.update_engagement_score()
+                uri = item.uri
+                print(f"DEBUG: Hydrating {i+1}/{len(posts_to_hydrate)}: {uri}")
+                
+                # Get detailed engagement using the working method
+                pe = hydrator.get_detailed_engagement(uri)
+                
+                # Update the item with engagement data
+                item.like_count = pe.like_count
+                item.repost_count = pe.repost_count
+                item.reply_count = pe.reply_count
+                quotes_by_uri[uri] = pe.quote_count
+                
+                # Update engagement score if available
+                if hasattr(item, "update_engagement_score"):
+                    item.update_engagement_score()
+                
+                print(f"DEBUG: Hydrated {uri}: L={pe.like_count} R={pe.repost_count} Rep={pe.reply_count} Q={pe.quote_count}")
+                
+            except Exception as e:
+                print(f"DEBUG: Failed to hydrate {getattr(item, 'uri', 'unknown')}: {e}")
+                continue
+    else:
+        # For larger datasets, use batch processing with fast hydrate
+        print("DEBUG: Using batch processing for large dataset")
         try:
-            print(f"DEBUG: Hydrated {uri}: likes={likes}, reposts={reposts}, replies={replies}, quotes={quotes}")
-            print(f"DEBUG: Item after update: like_count={it.like_count}, repost_count={it.repost_count}, reply_count={it.reply_count}")
-        except Exception:
-            pass
-        quotes_by_uri[uri] = int(quotes)
-
+            engagement_data = hydrator.hydrate_posts_batch(posts_to_hydrate, detailed=False)
+            
+            # Update items with batch results
+            for item in posts_to_hydrate:
+                uri = getattr(item, "uri", None)
+                if uri and uri in engagement_data:
+                    pe = engagement_data[uri]
+                    item.like_count = pe.like_count
+                    item.repost_count = pe.repost_count
+                    item.reply_count = pe.reply_count
+                    quotes_by_uri[uri] = pe.quote_count
+                    
+                    if hasattr(item, "update_engagement_score"):
+                        item.update_engagement_score()
+            
+            print(f"DEBUG: Batch hydrated {len(engagement_data)} items")
+            
+        except Exception as e:
+            print(f"DEBUG: Batch hydration failed, falling back to detailed: {e}")
+            # Fallback to detailed for each item
+            for item in posts_to_hydrate:
+                try:
+                    uri = item.uri
+                    pe = hydrator.get_detailed_engagement(uri)
+                    item.like_count = pe.like_count
+                    item.repost_count = pe.repost_count
+                    item.reply_count = pe.reply_count
+                    quotes_by_uri[uri] = pe.quote_count
+                    
+                    if hasattr(item, "update_engagement_score"):
+                        item.update_engagement_score()
+                        
+                except Exception as e2:
+                    print(f"DEBUG: Failed fallback hydration for {getattr(item, 'uri', 'unknown')}: {e2}")
+                    continue
+    
+    print(f"DEBUG: Hydration complete. Updated {len(quotes_by_uri)} items with quote counts")
     return quotes_by_uri
+
+
+# Removed complex hydration functions - now using simplified BlueskyEngagementHydrator approach
 
 
 @app.route("/", methods=["GET"]) 

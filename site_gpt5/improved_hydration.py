@@ -21,7 +21,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import logging
 
-from batch_processor import create_standard_batch_processor, BlueskyBatchProcessor
+# Removed batch_processor dependency to fix circular imports and complexity issues
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,32 +73,98 @@ class BlueskyEngagementHydrator:
         return None
 
     def get_post_details(self, uris: List[str]) -> Dict[str, PostEngagement]:
-        """Get post details using optimized 25-item batch processing."""
+        """Get post details using simple batch getPosts API calls."""
         if not uris:
             return {}
         
-        # Use the new batch processor for consistent 25-item batching
-        batch_processor = create_standard_batch_processor(self.client)
-        batch_result = batch_processor.batch_get_posts(uris)
-        
-        # Convert batch results to PostEngagement objects
         results: Dict[str, PostEngagement] = {}
-        for post_data_list in batch_result.results:
-            if isinstance(post_data_list, list):
-                for post_data in post_data_list:
-                    uri = post_data.get('uri')
-                    if uri:
-                        results[uri] = PostEngagement(
-                            uri=uri,
-                            like_count=post_data.get('like_count', 0),
-                            repost_count=post_data.get('repost_count', 0),
-                            reply_count=post_data.get('reply_count', 0),
-                        )
+        batch_size = 25  # Optimal size for Bluesky getPosts API
         
-        logger.info(f"Batch processed {len(uris)} URIs, got {len(results)} results "
-                   f"({batch_result.success_rate:.1f}% success rate)")
+        # Process URIs in batches of 25
+        for i in range(0, len(uris), batch_size):
+            batch = uris[i:i + batch_size]
+            
+            try:
+                # Try authenticated client first if available
+                if self.client:
+                    resp = self.client.get_posts(uris=batch)
+                    posts = getattr(resp, "posts", []) or []
+                else:
+                    # Fallback to HTTP
+                    posts = self._fetch_posts_http(batch)
+                
+                # Process each post in the batch
+                for post in posts:
+                    uri = self._get_post_uri(post)
+                    if not uri:
+                        continue
+                    
+                    results[uri] = PostEngagement(
+                        uri=uri,
+                        like_count=int(self._get_post_like_count(post) or 0),
+                        repost_count=int(self._get_post_repost_count(post) or 0),
+                        reply_count=int(self._get_post_reply_count(post) or 0),
+                    )
+                
+                # Rate limiting between batches
+                if i + batch_size < len(uris):
+                    time.sleep(self.rate_limit_delay)
+                    
+            except Exception as e:
+                logger.warning(f"Batch {i//batch_size + 1} failed: {e}")
+                # Try individual posts in this batch as fallback
+                for uri in batch:
+                    try:
+                        results[uri] = PostEngagement(uri=uri)  # Empty engagement data
+                    except Exception:
+                        pass
         
+        logger.info(f"Batch processed {len(uris)} URIs, got {len(results)} results")
         return results
+
+    def _fetch_posts_http(self, uris: List[str]) -> List[Dict[str, Any]]:
+        """Fetch posts using HTTP fallback."""
+        try:
+            params = [("uris", uri) for uri in uris]
+            r = self.session.get(f"{APPVIEW}/app.bsky.feed.getPosts", params=params, timeout=3.0)
+            if r.ok:
+                data = r.json()
+                return data.get("posts", [])
+        except Exception as e:
+            logger.warning(f"HTTP getPosts failed: {e}")
+        return []
+
+    def _get_post_uri(self, post: Any) -> Optional[str]:
+        """Extract URI from post object."""
+        if hasattr(post, "uri"):
+            return getattr(post, "uri")
+        elif isinstance(post, dict):
+            return post.get("uri")
+        return None
+
+    def _get_post_like_count(self, post: Any) -> int:
+        """Extract like count from post object."""
+        if hasattr(post, "like_count"):
+            return getattr(post, "like_count", 0)
+        elif isinstance(post, dict):
+            return post.get("likeCount", 0)
+        return 0
+
+    def _get_post_repost_count(self, post: Any) -> int:
+        """Extract repost count from post object."""
+        if hasattr(post, "repost_count"):
+            return getattr(post, "repost_count", 0)
+        elif isinstance(post, dict):
+            return post.get("repostCount", 0)
+        return 0
+
+    def _get_post_reply_count(self, post: Any) -> int:
+        """Extract reply count from post object."""
+        if hasattr(post, "reply_count"):
+            return getattr(post, "reply_count", 0)
+        elif isinstance(post, dict):
+            return post.get("replyCount", 0)
+        return 0
 
     def _count_paginated(self, path: str, base_params: Dict[str, Any], items_key: str, max_pages: int = 50) -> int:
         total = 0
