@@ -31,6 +31,22 @@ from utils import normalize_handle, PostDataExporter, format_file_safe_name
 from batch_processor import create_standard_batch_processor
 from background_tasks import get_car_download_manager, get_task_manager, TaskStatus
 
+
+def _iter_batch_post_payloads(batch_result):
+    """Yield post dicts from a BatchResult regardless of payload shape."""
+
+    for payload in getattr(batch_result, "results", []):
+        if isinstance(payload, dict):
+            candidate_posts = [payload]
+        elif isinstance(payload, list):
+            candidate_posts = payload
+        else:
+            continue
+
+        for post_data in candidate_posts:
+            if isinstance(post_data, dict) and post_data.get("uri"):
+                yield post_data
+
 app = Flask(
     __name__,
     template_folder=str(Path(__file__).parent / "templates"),
@@ -169,38 +185,40 @@ def hydrate_stream():
             batch_result = batch_processor.batch_get_posts(uris)
             
             processed_count = 0
-            for batch_data in batch_result.results:
-                if isinstance(batch_data, list):
-                    for post_data in batch_data:
-                        uri = post_data.get('uri')
-                        original_post = post_lookup.get(uri, {})
-                        
-                        processed_count += 1
-                        yield send({
-                            "stage": "hydrating", 
-                            "index": processed_count, 
-                            "total": total, 
-                            "uri": uri,
-                            "batch_mode": True
-                        })
-                        
-                        # Use detailed hydration for accurate quote/reply counts
-                        hydrator = BlueskyEngagementHydrator(client=client)
-                        pe = hydrator.get_detailed_engagement(uri)
-                        
-                        hydrated.append({
-                            "uri": uri,
-                            "text": original_post.get("text"),
-                            "created_at": original_post.get("created_at"),
-                            "like_count": pe.like_count,
-                            "repost_count": pe.repost_count,
-                            "reply_count": pe.reply_count,
-                            "quote_count": pe.quote_count,
-                        })
-                        totals["likes"] += pe.like_count
-                        totals["reposts"] += pe.repost_count
-                        totals["replies"] += pe.reply_count
-                        totals["quotes"] += pe.quote_count
+            for post_data in _iter_batch_post_payloads(batch_result):
+                uri = post_data.get("uri")
+                original_post = post_lookup.get(uri, {})
+
+                processed_count += 1
+                yield send(
+                    {
+                        "stage": "hydrating",
+                        "index": processed_count,
+                        "total": total,
+                        "uri": uri,
+                        "batch_mode": True,
+                    }
+                )
+
+                # Use detailed hydration for accurate quote/reply counts
+                hydrator = BlueskyEngagementHydrator(client=client)
+                pe = hydrator.get_detailed_engagement(uri)
+
+                hydrated.append(
+                    {
+                        "uri": uri,
+                        "text": original_post.get("text"),
+                        "created_at": original_post.get("created_at"),
+                        "like_count": pe.like_count,
+                        "repost_count": pe.repost_count,
+                        "reply_count": pe.reply_count,
+                        "quote_count": pe.quote_count,
+                    }
+                )
+                totals["likes"] += pe.like_count
+                totals["reposts"] += pe.repost_count
+                totals["replies"] += pe.reply_count
+                totals["quotes"] += pe.quote_count
             
             yield send({
                 "stage": "batch_complete", 
