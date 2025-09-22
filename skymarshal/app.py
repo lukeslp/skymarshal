@@ -11,6 +11,8 @@ It provides an interactive interface for comprehensive Bluesky content managemen
 """
 
 import json
+import signal
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -33,6 +35,25 @@ from .models import (
 from .search import SearchManager
 from .settings import SettingsManager
 from .ui import UIManager
+
+
+def _configure_sigpipe() -> None:
+    """Ensure SIGPIPE terminates the process without raising BrokenPipeError."""
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (AttributeError, ValueError):
+        # Windows or non-main thread environments may not support SIGPIPE.
+        pass
+
+
+def _handle_broken_pipe() -> None:
+    """Flush best-effort and exit quietly when downstream pipes close early."""
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    # Avoid noisy tracebacks for common shell piping scenarios like `head`.
+    sys.exit(0)
 
 
 class InteractiveContentManager:
@@ -1124,6 +1145,8 @@ class InteractiveContentManager:
 
                 console.print()
 
+        except BrokenPipeError:
+            raise
         except Exception as e:
             console.print(f"\nUnexpected error: {e}")
             console.print("Please report this issue if it persists.")
@@ -1726,7 +1749,7 @@ class InteractiveContentManager:
                     return
 
 
-def cli():
+def cli() -> None:
     """Skymarshal — Bluesky Content Management Tool
 
     Interactive tool for managing your Bluesky content.
@@ -1735,33 +1758,35 @@ def cli():
       - skymarshal            Launch interactive interface
       - skymarshal --help     Show this help and exit
     """
-    import sys
+    _configure_sigpipe()
 
-    args = sys.argv[1:]
-    if args:
-        if len(args) == 1 and args[0] in {"-h", "--help"}:
-            help_text = (
-                "Skymarshal — Interactive Tool for Bluesky\n\n"
-                "Usage:\n"
-                "  skymarshal            Launch interactive interface\n"
-                "  skymarshal --help     Show this help and exit\n\n"
-                "Notes:\n"
-                "  - Skymarshal is interactive-only; no other options are supported.\n"
-                "  - Use the on-screen menus to access all features.\n"
-            )
-            console.print(help_text)
-            return
-        else:
+    try:
+        args = sys.argv[1:]
+        if args:
+            if len(args) == 1 and args[0] in {"-h", "--help"}:
+                help_text = (
+                    "Skymarshal — Interactive Tool for Bluesky\n\n"
+                    "Usage:\n"
+                    "  skymarshal            Launch interactive interface\n"
+                    "  skymarshal --help     Show this help and exit\n\n"
+                    "Notes:\n"
+                    "  - Skymarshal is interactive-only; no other options are supported.\n"
+                    "  - Use the on-screen menus to access all features.\n"
+                )
+                console.print(help_text)
+                return
             console.print("Unrecognized option(s). Skymarshal supports only --help.")
             console.print(
                 "Run 'skymarshal' for the interactive interface, or 'skymarshal --help'."
             )
             sys.exit(2)
 
-    # Launch interactive interface
-    show_banner()
-    inspector = InteractiveContentManager()
-    inspector.run()
+        # Launch interactive interface
+        show_banner()
+        inspector = InteractiveContentManager()
+        inspector.run()
+    except BrokenPipeError:
+        _handle_broken_pipe()
 
 
 if __name__ == "__main__":

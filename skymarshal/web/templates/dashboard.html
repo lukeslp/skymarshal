@@ -142,10 +142,19 @@
                     Engagement data is automatically hydrated during import to show real-time likes, reposts, and replies.
                 </p>
                 {% if stats.engagement_stats.total_likes_received == 0 and stats.engagement_stats.total_reposts_received == 0 and stats.engagement_stats.total_replies_received == 0 and stats.total_posts > 0 %}
-                <p class="info-text" style="color: #e74c3c; margin-top: 10px;">
-                    <strong>⚠️ No Engagement Data:</strong> Engagement hydration may have failed during import. 
-                    Try re-importing your data or check your authentication status.
-                </p>
+                <div class="engagement-warning">
+                    <p>
+                        <strong>⚠️ No Engagement Data:</strong> Your posts don't show engagement data yet. This is because CAR files don't contain like/repost counts - they need to be fetched from Bluesky's API.
+                    </p>
+                    <div class="engagement-warning-actions">
+                        <button id="refreshEngagementBtn" class="btn btn-success btn-sm" type="button">
+                            🔄 Refresh Engagement Data
+                        </button>
+                        <small class="engagement-warning-note">
+                            This will fetch real engagement data for up to 500 of your most recent posts.
+                        </small>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -567,6 +576,42 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('refresh-data-btn').addEventListener('click', () => {
     window.location.reload();
 });
+
+// Refresh engagement data functionality
+const refreshEngagementBtn = document.getElementById('refreshEngagementBtn');
+if (refreshEngagementBtn) {
+    refreshEngagementBtn.addEventListener('click', async function() {
+        const btn = this;
+        const originalText = btn.textContent;
+        
+        btn.disabled = true;
+        btn.textContent = '🔄 Refreshing...';
+        
+        try {
+            const response = await fetch('/refresh-engagement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert(`✅ Success! Updated engagement data for ${data.hydrated} items. The page will reload to show updated statistics.`);
+                // Reload the page to show updated data
+                window.location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        } catch (error) {
+            alert(`❌ Network error: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    });
+}
 
 // Utility functions are defined in main.js
 </script>

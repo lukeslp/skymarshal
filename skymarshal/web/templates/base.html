@@ -1,9 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Skymarshal Web{% endblock %}</title>
+    <script>
+        (function () {
+            const themeKey = 'skymarshal-theme';
+            try {
+                const storedTheme = localStorage.getItem(themeKey);
+                const prefersDark = window.matchMedia(
+                    '(prefers-color-scheme: dark)'
+                ).matches;
+                const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+                document.documentElement.dataset.theme = theme;
+            } catch (error) {
+                document.documentElement.dataset.theme = 'light';
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -17,6 +32,16 @@
                 </a>
             </div>
             <div class="nav-right">
+                <button
+                    type="button"
+                    id="theme-toggle"
+                    class="btn-theme-toggle"
+                    aria-pressed="false"
+                    aria-label="Switch to dark mode"
+                >
+                    <span class="theme-toggle-label" data-theme="dark">Dark</span>
+                    <span class="theme-toggle-label" data-theme="light">Light</span>
+                </button>
                 {% if session.user_handle %}
                 <div class="nav-user">
                     <div class="user-info">

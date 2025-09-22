@@ -7,6 +7,11 @@
     <div class="setup-header">
         <h2>Welcome, @{{ handle }}!</h2>
         <p>Let's download your Bluesky data and get started.</p>
+        
+        <!-- Make handle available to JavaScript -->
+        <script>
+            window.userHandle = '{{ handle }}';
+        </script>
     </div>
     
     <div class="setup-steps">
@@ -22,7 +27,7 @@
                     <div class="import-info">
                         <h4>📥 Import Your Repository</h4>
                         <p>First, we'll download your complete Bluesky repository. This contains all of your posts, comments, likes, and reposts in a compressed CAR format.</p>
-                        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                        <p class="setup-subnote">
                             ⚡ This is a one-click process that downloads and prepares your data for analysis.
                         </p>
                     </div>
@@ -77,7 +82,7 @@
                         <div class="import-info">
                             <h4>⚙️ Choose What to Analyze</h4>
                             <p>Select which types of content you want to analyze. The system will automatically hydrate engagement data (likes, reposts, replies) during processing.</p>
-                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                            <p class="setup-subnote">
                                 🌊 A live firehose feed will appear to entertain you while processing happens in the background.
                             </p>
                         </div>

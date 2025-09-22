@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Skymarshal{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 40px;">
+    <h2>📊 Account Analytics for @{{ handle }}</h2>
+    <p style="color: #666; font-size: 1.1rem; margin-top: 10px;">
+        Comprehensive analysis of your Bluesky account activity and engagement
+    </p>
+</div>
+
+<!-- Overview Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>{{ "{:,}".format(stats.total_items) }}</h3>
+        <p>Total Items</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ "{:,}".format(stats.posts) }}</h3>
+        <p>Posts</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ "{:,}".format(stats.likes) }}</h3>
+        <p>Likes</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ "{:,}".format(stats.reposts) }}</h3>
+        <p>Reposts</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ "{:.1f}".format(stats.avg_engagement) }}</h3>
+        <p>Avg Engagement</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ "{:.1f}%".format(stats.engagement_rate) }}</h3>
+        <p>Engagement Rate</p>
+    </div>
+</div>
+
+<!-- Engagement Distribution -->
+<div class="chart-container">
+    <h3>🎯 Engagement Distribution</h3>
+    <div style="margin-bottom: 20px;">
+        <div class="engagement-bar">
+            <div class="engagement-label">Dead (0)</div>
+            <div class="engagement-progress">
+                <div class="engagement-fill" style="width: {{ (stats.engagement_distribution.dead / stats.posts * 100) if stats.posts > 0 else 0 }}%; background: #dc3545;"></div>
+            </div>
+            <div class="engagement-value">{{ stats.engagement_distribution.dead }}</div>
+        </div>
+        <div class="engagement-bar">
+            <div class="engagement-label">Low (1-2)</div>
+            <div class="engagement-progress">
+                <div class="engagement-fill" style="width: {{ (stats.engagement_distribution.low / stats.posts * 100) if stats.posts > 0 else 0 }}%; background: #ffc107;"></div>
+            </div>
+            <div class="engagement-value">{{ stats.engagement_distribution.low }}</div>
+        </div>
+        <div class="engagement-bar">
+            <div class="engagement-label">Medium (3-10)</div>
+            <div class="engagement-progress">
+                <div class="engagement-fill" style="width: {{ (stats.engagement_distribution.medium / stats.posts * 100) if stats.posts > 0 else 0 }}%; background: #17a2b8;"></div>
+            </div>
+            <div class="engagement-value">{{ stats.engagement_distribution.medium }}</div>
+        </div>
+        <div class="engagement-bar">
+            <div class="engagement-label">High (11-50)</div>
+            <div class="engagement-progress">
+                <div class="engagement-fill" style="width: {{ (stats.engagement_distribution.high / stats.posts * 100) if stats.posts > 0 else 0 }}%; background: #28a745;"></div>
+            </div>
+            <div class="engagement-value">{{ stats.engagement_distribution.high }}</div>
+        </div>
+        <div class="engagement-bar">
+            <div class="engagement-label">Viral (50+)</div>
+            <div class="engagement-progress">
+                <div class="engagement-fill" style="width: {{ (stats.engagement_distribution.viral / stats.posts * 100) if stats.posts > 0 else 0 }}%; background: #6f42c1;"></div>
+            </div>
+            <div class="engagement-value">{{ stats.engagement_distribution.viral }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="chart-container">
+    <h3>📅 Recent Activity</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+            <h4 style="color: #667eea; font-size: 2rem; margin-bottom: 10px;">{{ stats.recent_activity.last_7_days }}</h4>
+            <p style="color: #666;">Last 7 Days</p>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+            <h4 style="color: #667eea; font-size: 2rem; margin-bottom: 10px;">{{ stats.recent_activity.last_30_days }}</h4>
+            <p style="color: #666;">Last 30 Days</p>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+            <h4 style="color: #667eea; font-size: 2rem; margin-bottom: 10px;">{{ stats.recent_activity.last_90_days }}</h4>
+            <p style="color: #666;">Last 90 Days</p>
+        </div>
+    </div>
+</div>
+
+<!-- Content Quality -->
+<div class="chart-container">
+    <h3>📝 Content Quality Metrics</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+        <div style="text-align: center; padding: 20px; background: #e3f2fd; border-radius: 10px;">
+            <h4 style="color: #1976d2; font-size: 1.8rem; margin-bottom: 10px;">{{ "{:.0f}".format(stats.content_quality.avg_text_length) }}</h4>
+            <p style="color: #666;">Average Text Length</p>
+            <small style="color: #999;">characters per post</small>
+        </div>
+        <div style="text-align: center; padding: 20px; background: #e8f5e8; border-radius: 10px;">
+            <h4 style="color: #2e7d32; font-size: 1.8rem; margin-bottom: 10px;">{{ stats.content_quality.posts_with_engagement }}</h4>
+            <p style="color: #666;">Posts with Engagement</p>
+            <small style="color: #999;">{{ "{:.1f}%".format((stats.content_quality.posts_with_engagement / stats.posts * 100) if stats.posts > 0 else 0) }} of total posts</small>
+        </div>
+    </div>
+</div>
+
+<!-- Top Performing Posts -->
+{% if stats.top_posts %}
+<div class="top-posts">
+    <h3 style="margin-bottom: 25px;">🔥 Top Performing Posts</h3>
+    {% for post in stats.top_posts[:5] %}
+    <div class="post-item">
+        <div class="post-text">
+            {{ post.text[:200] }}{% if post.text|length > 200 %}...{% endif %}
+        </div>
+        <div class="post-stats">
+            <div class="post-stat">
+                <span>❤️</span>
+                <span>{{ post.likes or 0 }}</span>
+            </div>
+            <div class="post-stat">
+                <span>🔁</span>
+                <span>{{ post.reposts or 0 }}</span>
+            </div>
+            <div class="post-stat">
+                <span>💬</span>
+                <span>{{ post.replies or 0 }}</span>
+            </div>
+            <div class="post-stat">
+                <span>📊</span>
+                <span>{{ "{:.1f}".format(post.engagement_score) }} score</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Insights -->
+<div style="margin-top: 30px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px;">
+    <h3 style="margin-bottom: 20px;">💡 Key Insights</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <div>
+            <h4 style="margin-bottom: 10px; opacity: 0.9;">Engagement Performance</h4>
+            {% set dead_percentage = (stats.engagement_distribution.dead / stats.posts * 100) if stats.posts > 0 else 0 %}
+            {% set viral_percentage = (stats.engagement_distribution.viral / stats.posts * 100) if stats.posts > 0 else 0 %}
+            {% if dead_percentage > 50 %}
+            <p>{{ "{:.1f}%".format(dead_percentage) }} of your posts have no engagement. Consider reviewing your content strategy and posting times.</p>
+            {% elif dead_percentage < 20 %}
+            <p>Excellent! Only {{ "{:.1f}%".format(dead_percentage) }} of your posts have zero engagement. You're creating compelling content!</p>
+            {% else %}
+            <p>{{ "{:.1f}%".format(dead_percentage) }} of your posts have no engagement. This is within normal range, but there's room for improvement.</p>
+            {% endif %}
+        </div>
+        <div>
+            <h4 style="margin-bottom: 10px; opacity: 0.9;">Content Quality</h4>
+            {% if stats.content_quality.avg_text_length < 50 %}
+            <p>Your posts average {{ "{:.0f}".format(stats.content_quality.avg_text_length) }} characters. Consider writing longer, more detailed posts for better engagement.</p>
+            {% elif stats.content_quality.avg_text_length > 300 %}
+            <p>Your posts average {{ "{:.0f}".format(stats.content_quality.avg_text_length) }} characters. Try shorter posts occasionally - they often get better engagement.</p>
+            {% else %}
+            <p>Your post length ({{ "{:.0f}".format(stats.content_quality.avg_text_length) }} characters) is well-balanced for good engagement.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div style="margin-top: 30px; text-align: center;">
+    <a href="{{ url_for('dashboard') }}" class="btn" style="margin-right: 15px;">
+        🔄 Process New Data
+    </a>
+    <button onclick="window.print()" class="btn" style="background: #28a745;">
+        🖨️ Print Report
+    </button>
+</div>
+{% endblock %}

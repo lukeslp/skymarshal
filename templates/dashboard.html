@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Skymarshal{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 40px;">
+    <h2>👋 Welcome, @{{ handle }}!</h2>
+    <p style="color: #666; font-size: 1.1rem; margin-top: 10px;">
+        Ready to analyze your Bluesky account? Let's download and process your data.
+    </p>
+</div>
+
+<div style="max-width: 600px; margin: 0 auto;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 30px;">
+        <h3 style="margin-bottom: 15px; font-size: 1.5rem;">🚀 Process Your Account Data</h3>
+        <p style="margin-bottom: 25px; opacity: 0.9; line-height: 1.6;">
+            Click the button below to download your Bluesky account data, process it, and generate comprehensive analytics including engagement metrics, posting patterns, and content insights.
+        </p>
+        <button id="processBtn" class="btn" style="background: white; color: #667eea; font-size: 1.1rem; padding: 15px 30px;">
+            📥 Download & Analyze Data
+        </button>
+    </div>
+    
+    <div class="loading" id="loadingDiv">
+        <div class="spinner"></div>
+        <p><strong>Processing your account data...</strong></p>
+        <p style="color: #666; margin-top: 10px;">This may take a few minutes depending on your account size.</p>
+        <div id="progressText" style="margin-top: 15px; color: #667eea; font-weight: 600;"></div>
+    </div>
+    
+    <div id="resultsDiv" style="display: none;">
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h4>✅ Data Processing Complete!</h4>
+            <p id="resultsText" style="margin-top: 10px;"></p>
+        </div>
+        <div style="text-align: center;">
+            <a href="{{ url_for('statistics') }}" class="btn" style="font-size: 1.1rem; padding: 15px 30px;">
+                📊 View Statistics
+            </a>
+        </div>
+    </div>
+    
+    <div style="margin-top: 40px; padding: 25px; background: #f8f9fa; border-radius: 15px;">
+        <h4 style="color: #333; margin-bottom: 20px;">📋 What gets analyzed?</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+            <div>
+                <h5 style="color: #667eea; margin-bottom: 10px;">📝 Posts</h5>
+                <ul style="color: #666; line-height: 1.6;">
+                    <li>Text content analysis</li>
+                    <li>Engagement metrics</li>
+                    <li>Posting patterns</li>
+                </ul>
+            </div>
+            <div>
+                <h5 style="color: #667eea; margin-bottom: 10px;">❤️ Likes</h5>
+                <ul style="color: #666; line-height: 1.6;">
+                    <li>Like counts</li>
+                    <li>Content preferences</li>
+                    <li>Interaction patterns</li>
+                </ul>
+            </div>
+            <div>
+                <h5 style="color: #667eea; margin-bottom: 10px;">🔁 Reposts</h5>
+                <ul style="color: #666; line-height: 1.6;">
+                    <li>Sharing behavior</li>
+                    <li>Content amplification</li>
+                    <li>Community engagement</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 25px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 15px;">
+        <h4 style="color: #856404; margin-bottom: 15px;">⏱️ Processing Information</h4>
+        <ul style="color: #856404; line-height: 1.6;">
+            <li><strong>Download:</strong> Fetches your complete account backup (.car file)</li>
+            <li><strong>Processing:</strong> Extracts and analyzes posts, likes, and reposts</li>
+            <li><strong>Enrichment:</strong> Adds engagement scores and categorization</li>
+            <li><strong>Statistics:</strong> Generates comprehensive analytics dashboard</li>
+        </ul>
+        <p style="margin-top: 15px; font-style: italic;">
+            ⚠️ Large accounts (10K+ items) may take several minutes to process.
+        </p>
+    </div>
+</div>
+
+<script>
+document.getElementById('processBtn').addEventListener('click', function() {
+    const btn = this;
+    const loadingDiv = document.getElementById('loadingDiv');
+    const resultsDiv = document.getElementById('resultsDiv');
+    const progressText = document.getElementById('progressText');
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.textContent = '🔄 Processing...';
+    loadingDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    
+    // Simulate progress updates
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        
+        const steps = [
+            '📥 Downloading account data...',
+            '🔍 Extracting posts and interactions...',
+            '💫 Enriching with engagement metrics...',
+            '📊 Calculating statistics...',
+            '✨ Finalizing analysis...'
+        ];
+        
+        const stepIndex = Math.min(Math.floor(progress / 20), steps.length - 1);
+        progressText.textContent = steps[stepIndex];
+    }, 1000);
+    
+    // Make the actual request
+    fetch('/process', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        clearInterval(progressInterval);
+        
+        if (data.success) {
+            // Show success
+            loadingDiv.style.display = 'none';
+            resultsDiv.style.display = 'block';
+            
+            const stats = data.statistics;
+            document.getElementById('resultsText').innerHTML = `
+                <strong>Successfully processed ${data.total_items.toLocaleString()} items:</strong><br>
+                • ${stats.posts.toLocaleString()} posts<br>
+                • ${stats.likes.toLocaleString()} likes<br>
+                • ${stats.reposts.toLocaleString()} reposts<br>
+                • Average engagement: ${stats.avg_engagement.toFixed(1)} per post
+            `;
+        } else {
+            // Show error
+            loadingDiv.style.display = 'none';
+            showAlert(data.error || 'Processing failed', 'error');
+            btn.disabled = false;
+            btn.textContent = '📥 Download & Analyze Data';
+        }
+    })
+    .catch(error => {
+        clearInterval(progressInterval);
+        loadingDiv.style.display = 'none';
+        showAlert('Network error: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '📥 Download & Analyze Data';
+    });
+});
+</script>
+{% endblock %}

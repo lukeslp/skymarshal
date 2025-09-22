@@ -71,6 +71,7 @@ class ContentItem:
     created_at: Optional[str] = None
     reply_count: int = 0
     repost_count: int = 0
+    quote_count: int = 0
     like_count: int = 0
     engagement_score: float = 0.0
     raw_data: Optional[Dict] = None
@@ -101,6 +102,7 @@ class UserSettings:
     # Derived metrics (updated at runtime after data load)
     avg_likes_per_post: float = 0.0
     avg_engagement_per_post: float = 0.0
+    interaction_detail_limit: int = 100
 
 
 @dataclass

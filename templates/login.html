@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Skymarshal{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    <h2 style="text-align: center; margin-bottom: 30px; color: #333;">🔐 Login to Bluesky</h2>
+    
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="handle">Bluesky Handle</label>
+            <input type="text" id="handle" name="handle" placeholder="username.bsky.social or @username" required>
+            <small style="color: #666; margin-top: 5px; display: block;">
+                Enter your full handle (e.g., alice.bsky.social) or just your username
+            </small>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Your Bluesky password" required>
+            <small style="color: #666; margin-top: 5px; display: block;">
+                Your password is only used for authentication and is not stored
+            </small>
+        </div>
+        
+        <div style="text-align: center;">
+            <button type="submit" class="btn" id="loginBtn">
+                🚀 Authenticate & Continue
+            </button>
+        </div>
+    </form>
+    
+    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+        <h4 style="color: #333; margin-bottom: 15px;">🔒 Privacy & Security</h4>
+        <ul style="color: #666; line-height: 1.6;">
+            <li>Your credentials are used only for authentication</li>
+            <li>No passwords are stored or logged</li>
+            <li>All data processing happens locally</li>
+            <li>Your account data remains private</li>
+        </ul>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 20px; background: #e3f2fd; border-radius: 10px;">
+        <h4 style="color: #1976d2; margin-bottom: 15px;">📊 What happens next?</h4>
+        <ol style="color: #666; line-height: 1.6;">
+            <li>Authenticate with your Bluesky account</li>
+            <li>Download your account data (.car file)</li>
+            <li>Process and enrich data with engagement metrics</li>
+            <li>View comprehensive analytics and statistics</li>
+        </ol>
+    </div>
+</div>
+
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.textContent = '🔄 Authenticating...';
+});
+</script>
+{% endblock %}

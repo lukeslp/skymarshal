@@ -10,6 +10,12 @@ rich>=13.0.0
 # Command line interface framework (not used)
 # click>=8.0.0
 
+# Flask web framework for webapp
+flask>=3.0.0
+
+# Data analysis and CSV export
+pandas>=2.0.0
+
 # Development dependencies (optional - install with pip install -r requirements-dev.txt)
 # pytest>=7.0.0
 # pytest-cov>=4.0.0

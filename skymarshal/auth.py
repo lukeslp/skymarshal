@@ -11,7 +11,7 @@ re-authentication flows, and client initialization for AT Protocol operations.
 
 import json
 from pathlib import Path
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Tuple
 
 from atproto import Client
 from rich.prompt import Confirm, Prompt
@@ -30,6 +30,8 @@ class AuthManager:
         self.ui = ui_manager
         # Persist session to user config dir
         self._session_file = Path.home() / ".skymarshal" / "session.json"
+        # Cache in-memory credentials so background jobs can refresh tokens without prompts
+        self._cached_credentials: Optional[Tuple[str, str]] = None
 
     def is_authenticated(self) -> bool:
         """Check if user is authenticated."""
@@ -40,6 +42,7 @@ class AuthManager:
         self.client = None
         self.current_did = None
         self.current_handle = None
+        self._cached_credentials = None
         # Best-effort cleanup of persisted session
         try:
             if self._session_file.exists():
@@ -149,6 +152,10 @@ class AuthManager:
             profile = self.client.login(handle, password)
             self.current_handle = handle
             self.current_did = profile.did if hasattr(profile, "did") else None
+            if password:
+                self._cached_credentials = (handle, password)
+            # Persist the session so future runs can resume without prompting
+            self.save_session()
             return True
         except Exception as e:
             # Reset state on failure
@@ -167,6 +174,14 @@ class AuthManager:
         if self.try_resume_session():
             console.print("[green]Resumed saved session[/]")
             return True
+
+        # Attempt silent re-authentication using cached credentials before prompting
+        if self._cached_credentials:
+            cached_handle, cached_password = self._cached_credentials
+            if self.authenticate_client(cached_handle, cached_password):
+                self.save_session()
+                console.print(f"[green]Re-authenticated as @{self.current_handle}[/]")
+                return True
 
         console.print("[yellow]Re-authentication required[/]")
 
@@ -254,6 +269,14 @@ class AuthManager:
                         )
                     return func(*args, **kwargs)
                 else:
+                    # Already authenticated but still failing - try cached credentials once
+                    if self._cached_credentials and self.authenticate_client(
+                        *self._cached_credentials
+                    ):
+                        return func(*args, **kwargs)
+                    # Fall back to an interactive/session resume attempt before giving up
+                    if self.ensure_authentication():
+                        return func(*args, **kwargs)
                     # Already authenticated but still failing - likely a real auth issue
                     raise AuthenticationError(
                         "Authentication failed",

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bluesky Hydrator (Simple)</title>
+    <link rel="stylesheet" href="/static/simple.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Bluesky Hydrator (Simple)</h1>
+      <section id="loginSection" class="card">
+        <h3>Login</h3>
+        <div class="row">
+          <label>Handle</label>
+          <input id="handle" placeholder="user.bsky.social or @user" />
+        </div>
+        <div class="row">
+          <label>App Password</label>
+          <input id="password" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" />
+        </div>
+        <button id="loginBtn">Login</button>
+        <div id="loginMsg" class="muted"></div>
+      </section>
+
+      <section id="infoSection" class="card hidden">
+        <div class="row space">
+          <div>
+            <div class="muted">Logged in</div>
+            <div><strong id="who"></strong></div>
+          </div>
+          <button id="startBtn">Hydrate Last 50</button>
+        </div>
+      </section>
+
+      <section id="progressSection" class="card hidden">
+        <h3>Progress</h3>
+        <div id="progressLog" class="log"></div>
+        <pre id="summary" class="hidden"></pre>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function log(msg) {
+        const el = $('progressLog');
+        const line = document.createElement('div');
+        line.textContent = msg;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      async function postJSON(url, data) {
+        const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+        const json = await res.json().catch(()=>({}));
+        if (!res.ok || json.success === false) throw new Error(json.error || 'Request failed');
+        return json;
+      }
+
+      const info = {{ info|tojson|safe if info else 'null' }};
+      if (info) {
+        $('loginSection').classList.add('hidden');
+        $('infoSection').classList.remove('hidden');
+        $('who').textContent = `${info.display_name} (@${info.handle})`;
+      }
+
+      $('loginBtn').onclick = async () => {
+        $('loginMsg').textContent = '';
+        try {
+          const data = await postJSON('/login', {handle: $('handle').value, password: $('password').value});
+          $('loginSection').classList.add('hidden');
+          $('infoSection').classList.remove('hidden');
+          $('who').textContent = `${data.display_name} (@${data.handle})`;
+        } catch (e) {
+          $('loginMsg').textContent = e.message;
+        }
+      };
+
+      $('startBtn').onclick = () => {
+        $('progressSection').classList.remove('hidden');
+        const es = new EventSource('/hydrate-stream');
+        es.onmessage = (ev) => {
+          const data = JSON.parse(ev.data);
+          if (data.stage === 'start') {
+            log(data.message);
+          } else if (data.stage === 'listing') {
+            log(data.message);
+          } else if (data.stage === 'listed') {
+            log(`Found ${data.count} posts`);
+          } else if (data.stage === 'hydrating') {
+            log(`Hydrating ${data.index}/${data.total}: ${data.uri}`);
+          } else if (data.stage === 'done') {
+            log('Done!');
+            const s = data.summary;
+            $('summary').classList.remove('hidden');
+            $('summary').textContent = `\nSummary\n- Username: ${s.username}\n- Handle:   ${s.handle}\n- Posts:    ${s.posts}\n- Likes:    ${s.likes}\n- Comments: ${s.comments}\n- Reposts:  ${s.reposts}\n- Quotes:   ${s.quotes}\nSaved: ${s.json_path}`;
+            es.close();
+          } else if (data.stage === 'error') {
+            log('Error: ' + data.error);
+            es.close();
+          }
+        };
+        es.onerror = () => { log('Stream error'); es.close(); };
+      };
+    </script>
+  </body>
+</html>

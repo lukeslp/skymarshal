@@ -1,0 +1,48 @@
+{
+  "handle": "accesscounts.bsky.social",
+  "did": "did:plc:h4sxfifal7vdagu77d2o5qow",
+  "exported_at": "2025-09-22T00:40:11.276583",
+  "count": 4,
+  "posts": [
+    {
+      "uri": "at://did:plc:h4sxfifal7vdagu77d2o5qow/app.bsky.feed.post/3lmj4flp2hc25",
+      "cid": "bafyreidowg7iignqoinjsikkw6wfbhoqcbbjdeaigenxlljm67pyxghwve",
+      "text": "High res image of the day: frequency and impact of autoimmune disorders!\n\nRecommended, this is legit informative",
+      "created_at": "2025-04-11T03:49:32.826Z",
+      "like_count": 23,
+      "repost_count": 5,
+      "reply_count": 1,
+      "quote_count": 2
+    },
+    {
+      "uri": "at://did:plc:h4sxfifal7vdagu77d2o5qow/app.bsky.feed.post/3lmfpl2yvvk2v",
+      "cid": "bafyreiec44pyb54rasiifsgiutieas6o5ohzl6gm2ovdfh6uqlpxkakcse",
+      "text": "I\u2019ve put together a new high res image viewer and will be sharing some other interesting graphics between my own visualizations\n\nWhat do you think of this explainer of left vs right? Presented without further comment",
+      "created_at": "2025-04-09T19:21:58.791Z",
+      "like_count": 2,
+      "repost_count": 0,
+      "reply_count": 2,
+      "quote_count": 1
+    },
+    {
+      "uri": "at://did:plc:h4sxfifal7vdagu77d2o5qow/app.bsky.feed.post/3llwdbwqlv223",
+      "cid": "bafyreig5ysdpd4ypmntynacnz77viomkoy3gg5kzfqyte3t4ho6zibtr4y",
+      "text": "This is an interactive I put together of the board and executive overlap between DOW30 companies. It\u2019s incredibly incestuous. And Chevron is its heart\n\nI was going to wait to share this because I just shared the global wealth one, but most of these are in freefall today",
+      "created_at": "2025-04-03T16:32:11.356Z",
+      "like_count": 31,
+      "repost_count": 10,
+      "reply_count": 1,
+      "quote_count": 1
+    },
+    {
+      "uri": "at://did:plc:h4sxfifal7vdagu77d2o5qow/app.bsky.feed.post/3lluo6a3hqs2m",
+      "cid": "bafyreigzs2h5ftlxphkax5lg5iofgl2k3luavzf3bfcd2neyykgbmes7am",
+      "text": "First post! \n\nThis is a site I made that lets you compare the net worth of billionaires and corporations to the GDP of entire countries. \n\nTake a look! I want to raise awareness of the scale. There are many people and companies with more wealth than the annual output of nations. \n\nLet\u2019s fix it.",
+      "created_at": "2025-04-03T00:41:38.615Z",
+      "like_count": 68,
+      "repost_count": 33,
+      "reply_count": 2,
+      "quote_count": 4
+    }
+  ]
+}

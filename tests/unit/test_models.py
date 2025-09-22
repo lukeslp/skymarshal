@@ -32,6 +32,7 @@ class TestContentItem:
         assert item.text == "Test post"
         assert item.like_count == 5
         assert item.repost_count == 2
+        assert item.quote_count == 0
         assert item.reply_count == 1
         assert item.engagement_score == 0.0  # Default
 
@@ -47,6 +48,7 @@ class TestContentItem:
         assert item.created_at is None
         assert item.reply_count == 0
         assert item.repost_count == 0
+        assert item.quote_count == 0
         assert item.like_count == 0
         assert item.engagement_score == 0.0
         assert item.raw_data is None
@@ -70,6 +72,7 @@ class TestUserSettings:
         assert settings.fetch_order == 'newest'
         assert settings.avg_likes_per_post == 0.0
         assert settings.avg_engagement_per_post == 0.0
+        assert settings.interaction_detail_limit == 100
 
     def test_user_settings_custom_values(self):
         """Test UserSettings with custom values."""

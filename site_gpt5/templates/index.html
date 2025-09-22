@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skymarshal — Simple Stats</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 0; }
+      header { padding: 20px; border-bottom: 1px solid #ddd; display: flex; align-items: center; gap: 12px; }
+      main { max-width: 960px; margin: 0 auto; padding: 24px; }
+      .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; }
+      .col { flex: 1 1 220px; }
+      input, button { font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc; }
+      button { cursor: pointer; border-color: #888; background: #0ea5e9; color: white; }
+      button.secondary { background: #64748b; }
+      .hidden { display: none; }
+      .error { color: #dc2626; }
+      .muted { color: #6b7280; }
+      .stat { font-size: 28px; font-weight: 700; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Blue_Sky_%28Unsplash%29.jpg" width="44" height="44" style="border-radius: 8px; object-fit: cover" alt="" />
+      <div>
+        <div style="font-weight: 700">Skymarshal — Simple Stats</div>
+        <div class="muted">Authenticate → Download CAR → Process → View stats</div>
+      </div>
+    </header>
+    <main>
+      <!-- Login card -->
+      <div class="card {{ 'hidden' if logged_in else '' }}" id="loginCard">
+        <h3>Login to Bluesky</h3>
+        <p class="muted">Use your handle and an app password (from Bluesky settings).</p>
+        <div class="row">
+          <div class="col">
+            <input id="handle" placeholder="@yourname or yourname.bsky.social" />
+          </div>
+          <div class="col">
+            <input id="password" placeholder="App password (xxxx-xxxx-xxxx-xxxx)" type="password" />
+          </div>
+          <div class="col" style="flex: 0 0 auto">
+            <button id="loginBtn">Login</button>
+          </div>
+        </div>
+        <div id="loginError" class="error"></div>
+      </div>
+
+      <!-- Action card for authenticated session -->
+      <div class="card {{ '' if logged_in else 'hidden' }}" id="actionsCard">
+        <div class="row" style="align-items:center; justify-content: space-between">
+          <h3 style="margin:0">Welcome, <span id="who">{{ handle or '' }}</span></h3>
+          <button id="logoutBtn" class="secondary" title="Logout">Logout</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button id="downloadBtn">1) Download CAR</button>
+          <button id="processBtn" class="secondary">2) Process + Enrich</button>
+          <button id="refreshBtn" class="secondary">Refresh Stats</button>
+        </div>
+        <div id="actionStatus" class="muted"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card {{ '' if stats else 'hidden' }}" id="statsCard">
+        <h3>Statistics</h3>
+        <div id="statsEmpty" class="muted">No stats yet. Complete steps above.</div>
+        <div id="statsGrid" class="grid hidden">
+          <div class="card">
+            <div class="muted">Posts</div>
+            <div class="stat" id="statPosts">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Total items</div>
+            <div class="stat" id="statTotal">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Avg engagement (posts)</div>
+            <div class="stat" id="statAvgEng">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Engagement total</div>
+            <div class="stat" id="statEngTotal">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Likes received</div>
+            <div class="stat" id="statLikesReceived">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Reposts received</div>
+            <div class="stat" id="statRepostsReceived">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Replies received</div>
+            <div class="stat" id="statRepliesReceived">0</div>
+          </div>
+          <div class="card">
+            <div class="muted">Quotes received</div>
+            <div class="stat" id="statQuotesReceived">0</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      async function post(url, payload) {
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload||{}) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.success === false) throw new Error(j.error || 'Request failed');
+        return j;
+      }
+
+      function renderStats(stats) {
+        if (!stats) { $('statsEmpty').classList.remove('hidden'); $('statsGrid').classList.add('hidden'); return; }
+        $('statsEmpty').classList.add('hidden');
+        $('statsGrid').classList.remove('hidden');
+        $('statPosts').innerText   = stats.counts.posts;
+        $('statTotal').innerText   = stats.counts.total_items;
+        $('statAvgEng').innerText  = stats.engagement.avg_engagement;
+        $('statEngTotal').innerText= stats.engagement.total_engagement;
+        $('statLikesReceived').innerText   = stats.engagement.likes_received;
+        $('statRepostsReceived').innerText = stats.engagement.reposts_received;
+        $('statRepliesReceived').innerText = stats.engagement.replies_received;
+        $('statQuotesReceived').innerText  = stats.engagement.quotes_received;
+      }
+
+      // Event wiring
+      const loginBtn = $('loginBtn');
+      if (loginBtn) loginBtn.onclick = async () => {
+        $('loginError').innerText = '';
+        try {
+          const res = await post('/login', { handle: $('handle').value, password: $('password').value });
+          location.reload();
+        } catch (e) {
+          $('loginError').innerText = e.message;
+        }
+      };
+
+      const downloadBtn = $('downloadBtn');
+      if (downloadBtn) downloadBtn.onclick = async () => {
+        $('actionStatus').innerText = 'Downloading CAR...';
+        try {
+          await post('/download');
+          $('actionStatus').innerText = 'CAR downloaded. Now process + enrich.';
+        } catch (e) {
+          $('actionStatus').innerText = 'Download failed: ' + e.message;
+        }
+      };
+
+      const processBtn = $('processBtn');
+      if (processBtn) processBtn.onclick = async () => {
+        $('actionStatus').innerText = 'Processing and enriching...';
+        try {
+          const res = await post('/process');
+          $('actionStatus').innerText = 'Processed.';
+          renderStats(res.stats);
+        } catch (e) {
+          $('actionStatus').innerText = 'Processing failed: ' + e.message;
+        }
+      };
+
+      const refreshBtn = $('refreshBtn');
+      if (refreshBtn) refreshBtn.onclick = async () => {
+        location.reload();
+      };
+
+      const logoutBtn = $('logoutBtn');
+      if (logoutBtn) logoutBtn.onclick = async () => {
+        try {
+          await fetch('/logout', { method: 'POST' });
+        } catch (e) {}
+        location.href = '/';
+      };
+
+      // Initial render injected by server
+      const initialStats = {{ stats | tojson | safe if stats else 'null' }};
+      if (initialStats) renderStats(initialStats);
+    </script>
+  </body>
+</html>

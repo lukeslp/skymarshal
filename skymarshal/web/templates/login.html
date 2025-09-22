@@ -3,93 +3,480 @@
 {% block title %}Login - Skymarshal{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <h2>Welcome to Skymarshal</h2>
-        <p class="auth-subtitle">Sign in with your Bluesky account to manage your content</p>
-        
-        <form id="login-form" class="auth-form">
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h2>🔐 Sign in to Bluesky</h2>
+            <p>Access your account analytics and management tools</p>
+        </div>
+
+        <form id="loginForm" class="login-form">
             <div class="form-group">
                 <label for="handle">Bluesky Handle</label>
-                <input type="text" id="handle" name="handle" placeholder="username or username.bsky.social" required>
-                <small class="form-hint">Enter your handle without the @ symbol</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="password">App Password</label>
-                <input type="password" id="password" name="password" required>
-                <small class="form-hint">
-                    Use an app password from <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener">Bluesky settings</a>
-                    <br>⚠️ Do not use your regular Bluesky password
+                <input 
+                    type="text" 
+                    id="handle" 
+                    name="handle" 
+                    placeholder="username.bsky.social or @username" 
+                    required
+                    autocomplete="username"
+                >
+                <small class="form-help">
+                    Enter your full handle (e.g., alice.bsky.social) or just your username
                 </small>
             </div>
-            
-            <div id="error-message" class="error-message" style="display: none;"></div>
-            
-            <button type="submit" class="btn btn-primary btn-block" id="login-btn">
-                <span class="btn-text">Sign In</span>
-                <span class="btn-loading" style="display: none;">
-                    <span class="spinner"></span> Authenticating...
-                </span>
-            </button>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    placeholder="Your Bluesky app password" 
+                    required
+                    autocomplete="current-password"
+                >
+                <small class="form-help">
+                    <strong>Recommended:</strong> Use an app password from your Bluesky settings for better security
+                </small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    🚀 Sign In
+                </button>
+            </div>
         </form>
-        
-        <div class="auth-footer">
-            <p>Your credentials are never stored and are only used to create a temporary session.</p>
+
+        <!-- App Password Warning Dialog -->
+        <div id="appPasswordWarning" class="warning-dialog" style="display: none;">
+            <div class="warning-content">
+                <div class="warning-header">
+                    <h3>⚠️ App Password Recommended</h3>
+                </div>
+                <div class="warning-body">
+                    <p>
+                        It looks like you're using your regular Bluesky password. For better security, 
+                        we recommend using an <strong>app password</strong> instead.
+                    </p>
+                    <div class="app-password-steps">
+                        <h4>How to create an app password:</h4>
+                        <ol>
+                            <li>Go to your <a href="https://bsky.app/settings/app-passwords" target="_blank">Bluesky Settings → App Passwords</a></li>
+                            <li>Click "Add App Password"</li>
+                            <li>Enter a name like "Skymarshal"</li>
+                            <li>Copy the generated password</li>
+                            <li>Use it here instead of your regular password</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="warning-actions">
+                    <button type="button" class="btn btn-secondary" id="createAppPasswordBtn">
+                        🔗 Create App Password
+                    </button>
+                    <button type="button" class="btn btn-warning" id="signInAnywayBtn">
+                        ⚠️ Sign In Anyway
+                    </button>
+                    <button type="button" class="btn btn-ghost" id="cancelWarningBtn">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p>Authenticating...</p>
+            </div>
+        </div>
+
+        <!-- Info Sections -->
+        <div class="info-sections">
+            <div class="info-card">
+                <h4>🔒 Privacy & Security</h4>
+                <ul>
+                    <li>Your credentials are used only for authentication</li>
+                    <li>No passwords are stored or logged</li>
+                    <li>All data processing happens locally</li>
+                    <li>Your account data remains private</li>
+                </ul>
+            </div>
+
+            <div class="info-card">
+                <h4>📊 What happens next?</h4>
+                <ol>
+                    <li>Authenticate with your Bluesky account</li>
+                    <li>Download and process your account data</li>
+                    <li>View comprehensive analytics and statistics</li>
+                    <li>Manage your content with powerful tools</li>
+                </ol>
+            </div>
         </div>
     </div>
 </div>
 
-<script>
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const handle = document.getElementById('handle').value;
-    const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('error-message');
-    const loginBtn = document.getElementById('login-btn');
-    
-    // Show loading state
-    loginBtn.disabled = true;
-    loginBtn.querySelector('.btn-text').style.display = 'none';
-    loginBtn.querySelector('.btn-loading').style.display = 'inline-flex';
-    errorDiv.style.display = 'none';
-    
-    try {
-        const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ handle, password })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            window.location.href = data.redirect;
-        } else {
-            if (data.suggestion === 'app_password') {
-                errorDiv.innerHTML = `
-                    ${data.error || 'Login failed'}
-                    <br><br>
-                    <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener" class="btn-link">
-                        🔗 Create App Password in Bluesky Settings
-                    </a>
-                `;
-            } else {
-                errorDiv.textContent = data.error || 'Login failed';
-            }
-            errorDiv.style.display = 'block';
-        }
-    } catch (error) {
-        errorDiv.textContent = 'An error occurred. Please try again.';
-        errorDiv.style.display = 'block';
-    } finally {
-        loginBtn.disabled = false;
-        loginBtn.querySelector('.btn-text').style.display = 'inline';
-        loginBtn.querySelector('.btn-loading').style.display = 'none';
+<style>
+.login-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h2 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.8rem;
+}
+
+.login-header p {
+    color: #666;
+    font-size: 1rem;
+}
+
+.login-form .form-group {
+    margin-bottom: 25px;
+}
+
+.login-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.login-form input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.login-form input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-help {
+    display: block;
+    margin-top: 6px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    margin: 5px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #5a6fd8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: #28a745;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #218838;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+.btn-ghost:hover {
+    background: #f8f9fa;
+}
+
+.warning-dialog {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.warning-content {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+}
+
+.warning-header h3 {
+    margin: 0 0 20px 0;
+    color: #856404;
+}
+
+.warning-body {
+    margin-bottom: 25px;
+}
+
+.app-password-steps {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.app-password-steps h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.app-password-steps ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.app-password-steps li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.app-password-steps a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.app-password-steps a:hover {
+    text-decoration: underline;
+}
+
+.warning-actions {
+    text-align: center;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.info-sections {
+    margin-top: 30px;
+    display: grid;
+    gap: 20px;
+}
+
+.info-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.info-card h4 {
+    color: #333;
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+}
+
+.info-card ul,
+.info-card ol {
+    margin: 0;
+    padding-left: 20px;
+    color: #666;
+    line-height: 1.6;
+}
+
+.info-card li {
+    margin-bottom: 5px;
+}
+
+@media (max-width: 600px) {
+    .login-container {
+        padding: 10px;
     }
+    
+    .login-card {
+        padding: 20px;
+    }
+    
+    .warning-content {
+        padding: 20px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const appPasswordWarning = document.getElementById('appPasswordWarning');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loginBtn = document.getElementById('loginBtn');
+    
+    let lastCredentials = null;
+
+    // Handle form submission
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleLogin(false);
+    });
+
+    // Handle "Sign in anyway" button
+    document.getElementById('signInAnywayBtn').addEventListener('click', async function() {
+        appPasswordWarning.style.display = 'none';
+        await handleLogin(true);
+    });
+
+    // Handle "Create App Password" button
+    document.getElementById('createAppPasswordBtn').addEventListener('click', function() {
+        window.open('https://bsky.app/settings/app-passwords', '_blank');
+    });
+
+    // Handle cancel button
+    document.getElementById('cancelWarningBtn').addEventListener('click', function() {
+        appPasswordWarning.style.display = 'none';
+        loginBtn.disabled = false;
+    });
+
+    async function handleLogin(forceLogin = false) {
+        const handle = document.getElementById('handle').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!handle || !password) {
+            alert('Please enter both handle and password');
+            return;
+        }
+
+        // Store credentials for potential retry
+        lastCredentials = { handle, password };
+
+        loginBtn.disabled = true;
+        loadingOverlay.style.display = 'flex';
+
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    handle: handle,
+                    password: password,
+                    force_login: forceLogin
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Success - redirect to setup
+                window.location.href = data.redirect;
+            } else {
+                loadingOverlay.style.display = 'none';
+                
+                if (data.show_force_login && !forceLogin) {
+                    // Show app password warning
+                    appPasswordWarning.style.display = 'flex';
+                } else {
+                    // Show error message
+                    alert(`Login failed: ${data.error}`);
+                    loginBtn.disabled = false;
+                }
+            }
+        } catch (error) {
+            loadingOverlay.style.display = 'none';
+            alert(`Network error: ${error.message}`);
+            loginBtn.disabled = false;
+        }
+    }
+
+    // Auto-focus handle field
+    document.getElementById('handle').focus();
 });
 </script>
 {% endblock %}

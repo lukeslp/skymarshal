@@ -421,9 +421,10 @@ class DataManager:
                         content_type=p.get("type"),
                         text=p.get("text"),
                         created_at=p.get("created_at"),
-                        like_count=0,
-                        repost_count=0,
                         reply_count=0,
+                        repost_count=0,
+                        quote_count=0,
+                        like_count=0,
                         engagement_score=0,
                         raw_data=None,
                     )
@@ -436,6 +437,7 @@ class DataManager:
                             "likes": int(it.like_count or 0),
                             "reposts": int(it.repost_count or 0),
                             "replies": int(it.reply_count or 0),
+                            "quotes": int(it.quote_count or 0),
                             "score": float(it.engagement_score or 0.0),
                         }
         except Exception:
@@ -521,9 +523,10 @@ class DataManager:
                         content_type=p.get("type"),
                         text=p.get("text"),
                         created_at=p.get("created_at"),
-                        like_count=0,
-                        repost_count=0,
                         reply_count=0,
+                        repost_count=0,
+                        quote_count=0,
+                        like_count=0,
                         engagement_score=0,
                         raw_data=None,
                     )
@@ -536,6 +539,7 @@ class DataManager:
                             "likes": int(it.like_count or 0),
                             "reposts": int(it.repost_count or 0),
                             "replies": int(it.reply_count or 0),
+                            "quotes": int(it.quote_count or 0),
                             "score": float(it.engagement_score or 0.0),
                         }
         except Exception:
@@ -613,9 +617,10 @@ class DataManager:
                 content_type=post_data.get("type", "post"),
                 text=post_data.get("text"),
                 created_at=post_data.get("created_at"),
-                like_count=int((engagement or {}).get("likes", 0) or 0),
-                repost_count=int((engagement or {}).get("reposts", 0) or 0),
                 reply_count=int((engagement or {}).get("replies", 0) or 0),
+                repost_count=int((engagement or {}).get("reposts", 0) or 0),
+                quote_count=int((engagement or {}).get("quotes", 0) or 0),
+                like_count=int((engagement or {}).get("likes", 0) or 0),
                 engagement_score=float((engagement or {}).get("score", 0) or 0.0),
                 raw_data=post_data.get("raw_data") or post_data,
             )
@@ -633,9 +638,10 @@ class DataManager:
                 content_type="like",
                 text=None,
                 created_at=like.get("created_at"),
-                like_count=0,
-                repost_count=0,
                 reply_count=0,
+                repost_count=0,
+                quote_count=0,
+                like_count=0,
                 engagement_score=0,
                 raw_data={
                     "subject_uri": like.get("subject_uri"),
@@ -656,9 +662,10 @@ class DataManager:
                 content_type="repost",
                 text=None,
                 created_at=rp.get("created_at"),
-                like_count=0,
-                repost_count=0,
                 reply_count=0,
+                repost_count=0,
+                quote_count=0,
+                like_count=0,
                 engagement_score=0,
                 raw_data={
                     "subject_uri": rp.get("subject_uri"),
@@ -779,9 +786,10 @@ class DataManager:
                         content_type="reply" if reply else "post",
                         text=text,
                         created_at=created_at,
-                        like_count=0,
-                        repost_count=0,
                         reply_count=0,
+                        repost_count=0,
+                        quote_count=0,
+                        like_count=0,
                         engagement_score=0,
                         raw_data=None,
                     )
@@ -812,11 +820,12 @@ class DataManager:
 
         return items
 
-    def hydrate_items(self, items: List[ContentItem]):
-        """Update like/repost/reply counts for loaded items when missing (read-only).
+    def hydrate_items(self, items: List[ContentItem], collect_details: bool = False):
+        """Update engagement metrics for content items (optionally with detail hydration).
 
         This is primarily used after importing from .car where engagement is zeroed.
-        Shows user-facing progress for a better experience.
+        Shows user-facing progress for a better experience. When collect_details=True,
+        additional API calls are executed to gather likes/reposts/quotes/replies data.
         """
         try:
             if not items:
@@ -881,6 +890,31 @@ class DataManager:
                     except AuthenticationError:
                         reauth_needed = True
 
+                if collect_details and posts_and_replies and not reauth_needed:
+                    total_details = len(posts_and_replies)
+                    task_details = progress.add_task(
+                        f"Collecting interaction details 0/{total_details}",
+                        total=total_details,
+                    )
+
+                    def make_cb_details(total: int):
+                        def _cb(completed: int):
+                            progress.update(
+                                task_details,
+                                completed=min(completed, total),
+                                description=f"Collecting interaction details {completed}/{total}",
+                            )
+
+                        return _cb
+
+                    try:
+                        self._hydrate_post_interaction_details(
+                            posts_and_replies,
+                            progress_callback=make_cb_details(total_details),
+                        )
+                    except AuthenticationError:
+                        reauth_needed = True
+
                 # Repost subject hydration (optional)
                 if reposts and not reauth_needed:
                     total_reposts = len(reposts)
@@ -937,7 +971,7 @@ class DataManager:
                 if self.auth.ensure_authentication():
                     # Retry once (no recursion loops)
                     try:
-                        self.hydrate_items(items)
+                        self.hydrate_items(items, collect_details=collect_details)
                     except Exception:
                         # Give up silently after one retry
                         pass
@@ -992,9 +1026,10 @@ class DataManager:
                         content_type="like",
                         text=None,
                         created_at=created_at,
-                        like_count=0,
-                        repost_count=0,
                         reply_count=0,
+                        repost_count=0,
+                        quote_count=0,
+                        like_count=0,
                         engagement_score=0,
                         raw_data={
                             "subject_uri": subject_uri,
@@ -1093,9 +1128,10 @@ class DataManager:
                         content_type="repost",
                         text=None,
                         created_at=created_at,
-                        like_count=0,
-                        repost_count=0,
                         reply_count=0,
+                        repost_count=0,
+                        quote_count=0,
+                        like_count=0,
                         engagement_score=0,
                         raw_data={
                             "subject_uri": subject_uri,
@@ -1146,6 +1182,8 @@ class DataManager:
                 return
                 
             console.print(f"[dim]Extracted {len(uris)} URIs for hydration[/dim]")
+            if uris:
+                console.print(f"[dim]Sample full URIs: {uris[:3]}[/dim]")
 
             batch_size = max(1, min(25, self.settings.hydrate_batch_size))
             uri_batches = [
@@ -1159,14 +1197,21 @@ class DataManager:
 
                 try:
                     # Ensure we have a client; require authentication to proceed
-                    client = self.auth.client
-                    if client is None:
+                    if not self.auth.is_authenticated():
                         raise AuthenticationError("Authentication required for hydration")
-                        
-                    console.print(f"[dim]Making API call for batch of {len(batch)} URIs: {[uri[:50] for uri in batch]}[/dim]")
+                    
+                    console.print(
+                        f"[dim]Making API call for batch of {len(batch)} URIs: {batch[:3]}... (showing first 3)[/dim]"
+                    )
 
-                    # Direct API call without automatic re-auth to avoid loops
-                    resp = client.get_posts(uris=batch)
+                    def _call():
+                        client = self.auth.client
+                        if client is None:
+                            raise AuthenticationError("Client not available for hydration")
+                        return client.get_posts(uris=batch)
+
+                    # Use call_with_reauth so expired sessions retry silently
+                    resp = self.auth.call_with_reauth(_call)
 
                     # Validate response structure
                     if not resp or not hasattr(resp, "posts"):
@@ -1198,19 +1243,23 @@ class DataManager:
                         likes = int(getattr(p, "like_count", 0) or 0)
                         reposts = int(getattr(p, "repost_count", 0) or 0)
                         replies = int(getattr(p, "reply_count", 0) or 0)
+                        quotes = int(getattr(p, "quote_count", 0) or 0)
                         
                         # Debug: Show available attributes if no engagement found
-                        if likes == 0 and reposts == 0 and replies == 0:
+                        if likes == 0 and reposts == 0 and replies == 0 and quotes == 0:
                             attrs = [attr for attr in dir(p) if not attr.startswith('_')]
                             console.print(f"[yellow]No engagement found for {uri[:50]}..., available attrs: {attrs}[/yellow]")
-                        
+
                         # Debug: Log engagement data extraction
-                        if likes > 0 or reposts > 0 or replies > 0:
-                            console.print(f"[dim]Found engagement for {uri[:50]}...: likes={likes}, reposts={reposts}, replies={replies}[/dim]")
-                        
+                        if likes > 0 or reposts > 0 or replies > 0 or quotes > 0:
+                            console.print(
+                                f"[dim]Found engagement for {uri[:50]}...: likes={likes}, reposts={reposts}, replies={replies}, quotes={quotes}[/dim]"
+                            )
+
                         it.like_count = likes
                         it.repost_count = reposts
                         it.reply_count = replies
+                        it.quote_count = quotes
                         it.engagement_score = calculate_engagement_score(likes, reposts, replies)
 
                     processed += len(batch)
@@ -1219,24 +1268,18 @@ class DataManager:
                             progress_callback(processed)
                         except Exception:
                             pass
+                except AuthenticationError:
+                    raise
                 except Exception as e:
-                    error_msg = str(e).lower()
-                    if any(s in error_msg for s in ["auth", "unauthorized", "token", "expired", "forbidden"]):
-                        # Signal to caller to handle re-auth outside of progress UI
-                        raise AuthenticationError("Authentication expired during hydration")
-                    else:
-                        # Log other types of hydration errors for debugging
-                        console.print(
-                            f"[yellow]Hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
-                        )
-                        # Still increment processed count for failed batch to continue progress tracking
-                        processed += len(batch)
-                        if callable(progress_callback):
-                            try:
-                                progress_callback(processed)
-                            except Exception:
-                                pass
-                    # Continue with remaining batches using existing data
+                    console.print(
+                        f"[yellow]Hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
+                    )
+                    processed += len(batch)
+                    if callable(progress_callback):
+                        try:
+                            progress_callback(processed)
+                        except Exception:
+                            pass
         except AuthenticationError:
             # Re-raise authentication errors to be handled by caller
             raise
@@ -1244,6 +1287,246 @@ class DataManager:
             # Log other unexpected errors but don't swallow them completely
             console.print(f"[red]Unexpected error during hydration: {str(e)[:100]}[/red]")
             raise
+
+    @staticmethod
+    def _extract_post_text(record: Any) -> Optional[str]:
+        """Best-effort extraction of text content from a post record."""
+        if record is None:
+            return None
+        if hasattr(record, "text"):
+            return getattr(record, "text", None)
+        if isinstance(record, dict):
+            return record.get("text")
+        return None
+
+    def _fetch_post_likes(self, uri: str, limit: int) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+
+        while True:
+            remaining = limit - len(results) if limit else None
+            page_limit = None
+            if remaining is not None:
+                if remaining <= 0:
+                    break
+                page_limit = min(100, remaining)
+
+            def _call():
+                client = self.auth.client
+                if client is None:
+                    raise AuthenticationError("Client not available for get_likes")
+                kwargs = {"uri": uri, "cursor": cursor}
+                if page_limit:
+                    kwargs["limit"] = page_limit
+                return client.get_likes(**kwargs)  # type: ignore[attr-defined]
+
+            resp = self.auth.call_with_reauth(_call)
+            likes = getattr(resp, "likes", None)
+            if not likes:
+                break
+
+            for entry in likes:
+                actor = getattr(entry, "actor", None)
+                results.append(
+                    {
+                        "handle": getattr(actor, "handle", None),
+                        "did": getattr(actor, "did", None),
+                        "display_name": getattr(actor, "display_name", None),
+                        "created_at": getattr(entry, "created_at", None),
+                    }
+                )
+                if limit and len(results) >= limit:
+                    break
+
+            cursor = getattr(resp, "cursor", None)
+            if not cursor or (limit and len(results) >= limit):
+                break
+
+        return results
+
+    def _fetch_post_reposted_by(self, uri: str, limit: int) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+
+        while True:
+            remaining = limit - len(results) if limit else None
+            page_limit = None
+            if remaining is not None:
+                if remaining <= 0:
+                    break
+                page_limit = min(100, remaining)
+
+            def _call():
+                client = self.auth.client
+                if client is None:
+                    raise AuthenticationError("Client not available for get_reposted_by")
+                kwargs = {"uri": uri, "cursor": cursor}
+                if page_limit:
+                    kwargs["limit"] = page_limit
+                return client.get_reposted_by(**kwargs)  # type: ignore[attr-defined]
+
+            resp = self.auth.call_with_reauth(_call)
+            reposted_by = getattr(resp, "reposted_by", None)
+            if not reposted_by:
+                break
+
+            for actor in reposted_by:
+                results.append(
+                    {
+                        "handle": getattr(actor, "handle", None),
+                        "did": getattr(actor, "did", None),
+                        "display_name": getattr(actor, "display_name", None),
+                        "avatar": getattr(actor, "avatar", None),
+                    }
+                )
+                if limit and len(results) >= limit:
+                    break
+
+            cursor = getattr(resp, "cursor", None)
+            if not cursor or (limit and len(results) >= limit):
+                break
+
+        return results
+
+    def _fetch_post_quotes(self, uri: str, limit: int) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+
+        while True:
+            remaining = limit - len(results) if limit else None
+            page_limit = None
+            if remaining is not None:
+                if remaining <= 0:
+                    break
+                page_limit = min(25, remaining)
+
+            def _call():
+                client = self.auth.client
+                if client is None:
+                    raise AuthenticationError("Client not available for get_quotes")
+                params: Dict[str, Any] = {"uri": uri, "cursor": cursor}
+                if page_limit:
+                    params["limit"] = page_limit
+                return client.app.bsky.feed.get_quotes(params)
+
+            resp = self.auth.call_with_reauth(_call)
+            posts = getattr(resp, "posts", None)
+            if not posts:
+                break
+
+            for post_view in posts:
+                author = getattr(post_view, "author", None)
+                results.append(
+                    {
+                        "uri": getattr(post_view, "uri", None),
+                        "cid": getattr(post_view, "cid", None),
+                        "handle": getattr(author, "handle", None),
+                        "did": getattr(author, "did", None),
+                        "display_name": getattr(author, "display_name", None),
+                        "text": self._extract_post_text(getattr(post_view, "record", None)),
+                        "indexed_at": getattr(post_view, "indexed_at", None),
+                    }
+                )
+                if limit and len(results) >= limit:
+                    break
+
+            cursor = getattr(resp, "cursor", None)
+            if not cursor or (limit and len(results) >= limit):
+                break
+
+        return results
+
+    def _fetch_post_replies(self, uri: str, limit: int) -> List[Dict[str, Any]]:
+        def _collect(node, container):
+            replies = getattr(node, "replies", None) or []
+            for reply in replies:
+                if limit and len(container) >= limit:
+                    return
+                if hasattr(reply, "post"):
+                    post_view = getattr(reply, "post", None)
+                    author = getattr(post_view, "author", None)
+                    container.append(
+                        {
+                            "uri": getattr(post_view, "uri", None),
+                            "cid": getattr(post_view, "cid", None),
+                            "handle": getattr(author, "handle", None),
+                            "did": getattr(author, "did", None),
+                            "display_name": getattr(author, "display_name", None),
+                            "text": self._extract_post_text(getattr(post_view, "record", None)),
+                            "indexed_at": getattr(post_view, "indexed_at", None),
+                        }
+                    )
+                    if limit and len(container) >= limit:
+                        return
+                    _collect(reply, container)
+
+        def _call():
+            client = self.auth.client
+            if client is None:
+                raise AuthenticationError("Client not available for get_post_thread")
+            return client.get_post_thread(uri=uri, depth=2)
+
+        resp = self.auth.call_with_reauth(_call)
+        root = getattr(resp, "thread", None)
+        collected: List[Dict[str, Any]] = []
+        if root and hasattr(root, "post"):
+            _collect(root, collected)
+        if limit:
+            return collected[:limit]
+        return collected
+
+    def _hydrate_post_interaction_details(
+        self,
+        items: List[ContentItem],
+        progress_callback=None,
+    ) -> None:
+        """Populate detailed interaction lists (likes, reposts, quotes, replies)."""
+
+        if not items:
+            return
+
+        if not self.auth.is_authenticated() or not self.auth.client:
+            raise AuthenticationError("Authentication required for interaction hydration")
+
+        detail_limit = max(self.settings.interaction_detail_limit, 0)
+
+        for idx, item in enumerate(items, start=1):
+            if not item.uri:
+                continue
+
+            try:
+                likes = self._fetch_post_likes(item.uri, detail_limit)
+                reposts = self._fetch_post_reposted_by(item.uri, detail_limit)
+                quotes = self._fetch_post_quotes(item.uri, detail_limit)
+                replies = self._fetch_post_replies(item.uri, detail_limit)
+            except AuthenticationError:
+                raise
+            except Exception as exc:
+                console.print(
+                    f"[yellow]Interaction enrichment failed for {item.uri[:50]}...: {str(exc)[:80]}[/yellow]"
+                )
+                continue
+
+            raw = item.raw_data or {}
+            raw.update(
+                {
+                    "likes": likes,
+                    "reposted_by": reposts,
+                    "quotes": quotes,
+                    "replies": replies,
+                }
+            )
+            item.raw_data = raw
+
+            # Update counts when detailed data is richer than existing values
+            item.reply_count = max(item.reply_count or 0, len(replies))
+            item.quote_count = max(item.quote_count or 0, len(quotes))
+
+            if callable(progress_callback):
+                try:
+                    progress_callback(idx)
+                except Exception:
+                    pass
 
     def _hydrate_repost_subject_engagement(
         self, items: List[ContentItem], progress_callback=None
@@ -1398,6 +1681,7 @@ class DataManager:
                             "likes": item.like_count,
                             "reposts": item.repost_count,
                             "replies": item.reply_count,
+                            "quotes": item.quote_count,
                             "score": item.engagement_score,
                         },
                         "raw_data": item.raw_data,

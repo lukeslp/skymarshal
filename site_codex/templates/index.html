@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skymarshal Codex Dashboard</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <h1>Skymarshal Codex Dashboard</h1>
+        <p class="subtitle">Authenticate with your Bluesky app password to generate fresh engagement insights.</p>
+      </header>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="messages">
+            {% for category, message in messages %}
+              <div class="message message-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+
+      <section class="card auth-card">
+        {% if session_available %}
+          <div class="session-actions">
+            <span class="session-label">Active Bluesky session detected.</span>
+            <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+              <button type="submit" class="button-secondary">Log out</button>
+            </form>
+          </div>
+        {% endif %}
+        <form method="post">
+          <div class="form-field">
+            <label for="handle">Bluesky Handle</label>
+            <div class="input-prefix">@</div>
+            <input id="handle" name="handle" type="text" placeholder="alice" value="{{ request.form.get('handle', '') }}" required>
+          </div>
+          <div class="form-field">
+            <label for="password">App Password</label>
+            <input id="password" name="password" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" required>
+          </div>
+          <button type="submit">Generate Report</button>
+        </form>
+      </section>
+
+      {% if result %}
+        {% set stats = result.statistics %}
+        <section class="card stats-card">
+          <h2>Account Overview for {{ result.handle }}</h2>
+          <div class="stats-grid">
+            <div class="stat">
+              <span class="label">Total Items</span>
+              <span class="value">{{ stats['total_items']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Posts</span>
+              <span class="value">{{ stats['posts']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Likes</span>
+              <span class="value">{{ stats['likes']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Reposts</span>
+              <span class="value">{{ stats['reposts']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Quotes</span>
+              <span class="value">{{ stats['quotes']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Replies</span>
+              <span class="value">{{ stats['replies']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Total Engagement</span>
+              <span class="value">{{ stats['total_engagement']|int }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Avg. Engagement / Post</span>
+              <span class="value">{{ stats['avg_engagement']|round(2) }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Engagement Rate</span>
+              <span class="value">{{ stats['engagement_rate']|round(1) }}%</span>
+            </div>
+          </div>
+          <div class="file-info">
+            <p>Latest CAR saved to <code>{{ result.car_path }}</code></p>
+            <p>Processed export stored at <code>{{ result.export_path }}</code></p>
+          </div>
+        </section>
+
+        {% if result.top_posts %}
+          <section class="card top-posts">
+            <h2>Top Posts</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Text</th>
+                  <th>Likes</th>
+                  <th>Reposts</th>
+                  <th>Replies</th>
+                  <th>Quotes</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for post in result.top_posts %}
+                  <tr>
+                    <td>{{ post['text'] or '(no text)' }}</td>
+                    <td>{{ post['likes'] }}</td>
+                    <td>{{ post['reposts'] }}</td>
+                    <td>{{ post['replies'] }}</td>
+                    <td>{{ post['quotes'] }}</td>
+                    <td>{{ post['engagement'] }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+        {% endif %}
+      {% endif %}
+    </main>
+  </body>
+</html>

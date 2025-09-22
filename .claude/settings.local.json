@@ -50,7 +50,9 @@
       "Bash(git commit:*)",
       "Bash(echo $SHELL)",
       "Bash(fish:*)",
-      "Read(//Users/lukesteuber/.config/fish/**)"
+      "Read(//Users/lukesteuber/.config/fish/**)",
+      "Bash(PYTHONPATH=/Volumes/Galactus/_DEV/skymarshal python3 -c \"import flask; print('Flask works')\")",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

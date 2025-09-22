@@ -306,6 +306,7 @@ def login():
         data = request.get_json()
         handle = data.get('handle')
         password = data.get('password')
+        force_login = data.get('force_login', False)  # New parameter for bypass
         
         if not handle or not password:
             return jsonify({'success': False, 'error': 'Handle and password are required'}), 400
@@ -337,25 +338,27 @@ def login():
                 return jsonify({'success': True, 'redirect': url_for('setup')})
             else:
                 # Check if it looks like they used their regular password
-                if is_likely_regular_password(password):
+                if is_likely_regular_password(password) and not force_login:
                     return jsonify({
                         'success': False, 
-                        'error': 'That appears to be your regular password. Please use an app password from Bluesky settings instead. If you know what you\'re doing, try again.',
-                        'suggestion': 'app_password'
+                        'error': 'That appears to be your regular password. Please use an app password from Bluesky settings instead.',
+                        'suggestion': 'app_password',
+                        'show_force_login': True
                     }), 401
                 else:
-                    return jsonify({'success': False, 'error': 'Invalid app password. Please check your credentials.'}), 401
+                    return jsonify({'success': False, 'error': 'Invalid credentials. Please check your handle and password.'}), 401
         except Exception as e:
             error_msg = str(e).lower()
             if 'invalid' in error_msg or 'unauthorized' in error_msg:
-                if is_likely_regular_password(password):
+                if is_likely_regular_password(password) and not force_login:
                     return jsonify({
                         'success': False, 
                         'error': 'Authentication failed. This looks like your regular password - please use an app password from Bluesky settings.',
-                        'suggestion': 'app_password'
+                        'suggestion': 'app_password',
+                        'show_force_login': True
                     }), 401
                 else:
-                    return jsonify({'success': False, 'error': 'Invalid app password. Please check your credentials.'}), 401
+                    return jsonify({'success': False, 'error': 'Invalid credentials. Please check your handle and password.'}), 401
             return jsonify({'success': False, 'error': str(e)}), 500
     
     return render_template('login.html')
@@ -870,6 +873,8 @@ def process_data():
     def generate():
         try:
             import time
+            # Get handle from session within the generate function
+            handle = session.get('user_handle')
             print(f"DEBUG: Starting process_data for handle: {handle}")
             print(f"DEBUG: Content types requested: {content_types}")
             print(f"DEBUG: Limits: {limits}")
@@ -936,86 +941,76 @@ def process_data():
                 # Load the processed data to get item count
                 items = data_manager.load_exported_data(json_path)
                 
-                # Hydrate engagement data following stats.py pattern (lines 106-111)
+                # Hydrate engagement data with improved error handling
                 if auth_manager and auth_manager.is_authenticated():
-                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Hydrating engagement data...', 'progress': 65})}\n\n"
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Updating engagement data (this may take a few minutes)...', 'progress': 65})}\n\n"
                     
                     try:
-                        # Follow the exact working pattern from stats.py
-                        yield f"data: {json.dumps({'status': 'processing', 'message': f'Updating engagement for {len(items)} items...', 'progress': 67})}\n\n"
+                        # Check if we have posts that need hydration
+                        posts_to_hydrate = [item for item in items if item.content_type in ['post', 'reply'] and item.like_count == 0]
                         
-                        # Use the exact working method from stats.py (lines 107-111)
-                        try:
-                            # Add comprehensive debugging before hydration
-                            print(f"DEBUG: HYDRATION START - About to hydrate {len(items)} items")
-                            print(f"DEBUG: Auth manager exists: {auth_manager is not None}")
-                            print(f"DEBUG: Auth manager authenticated: {auth_manager.is_authenticated() if auth_manager else False}")
-                            print(f"DEBUG: Auth manager has client: {hasattr(auth_manager, 'client') and auth_manager.client is not None if auth_manager else False}")
-                            print(f"DEBUG: Data manager has auth: {hasattr(data_manager, 'auth') and data_manager.auth is not None}")
-                            print(f"DEBUG: Data manager auth == auth_manager: {data_manager.auth is auth_manager if hasattr(data_manager, 'auth') else False}")
+                        if posts_to_hydrate:
+                            yield f"data: {json.dumps({'status': 'processing', 'message': f'Hydrating {len(posts_to_hydrate)} posts/replies...', 'progress': 67})}\n\n"
                             
-                            # Check sample items before hydration
-                            sample_items = items[:3] if len(items) >= 3 else items
-                            print("DEBUG: BEFORE HYDRATION - Sample items:")
-                            for i, item in enumerate(sample_items):
-                                print(f"  Item {i}: type={item.content_type}, likes={getattr(item, 'like_count', 'N/A')}, reposts={getattr(item, 'repost_count', 'N/A')}, replies={getattr(item, 'reply_count', 'N/A')}")
-                                print(f"  Item {i}: uri={getattr(item, 'uri', 'N/A')[:50]}...")
-                            
-                            # Follow the exact working pattern from stats.py
-                            data_manager.hydrate_items(items)
-                            
-                            # Check sample items after hydration
-                            print("DEBUG: AFTER HYDRATION - Sample items:")
-                            for i, item in enumerate(sample_items):
-                                print(f"  Item {i}: type={item.content_type}, likes={getattr(item, 'like_count', 'N/A')}, reposts={getattr(item, 'repost_count', 'N/A')}, replies={getattr(item, 'reply_count', 'N/A')}")
-                            
-                            print("DEBUG: ✅ Updated engagement data using working loners method")
-                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Successfully updated engagement data!', 'progress': 68})}\n\n"
-                        except Exception as e:
-                            print(f"DEBUG: ERROR: Could not update engagement data: {e}")
-                            print(f"DEBUG: Exception type: {type(e).__name__}")
-                            import traceback
-                            print(f"DEBUG: Full traceback: {traceback.format_exc()}")
-                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Using cached engagement data from CAR file', 'progress': 68})}\n\n"
-                        
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Engagement data updated successfully!', 'progress': 69})}\n\n"
-                        
-                        # Save the hydrated data back to JSON file
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Saving hydrated data...', 'progress': 70})}\n\n"
-                        
-                        # Export the hydrated items to ensure persistence
-                        export_data = []
-                        for item in items:
-                            export_data.append({
-                                'uri': item.uri,
-                                'cid': item.cid,
-                                'content_type': item.content_type,
-                                'text': item.text,
-                                'created_at': item.created_at,
-                                'like_count': item.like_count,
-                                'repost_count': item.repost_count,
-                                'reply_count': item.reply_count,
-                                'engagement_score': item.engagement_score,
-                                'raw_data': item.raw_data
-                            })
-                        
-                        # Overwrite the existing JSON with hydrated data
-                        import json as json_lib
-                        with open(json_path, 'w') as f:
-                            json_lib.dump(export_data, f, indent=2, default=str)
+                            # Use our new API-based hydration
+                            try:
+                                print(f"DEBUG: Starting API-based hydration for {len(posts_to_hydrate)} posts during processing")
+                                items = hydrate_engagement_with_api(auth_manager, items, max_items=500)
+                                yield f"data: {json.dumps({'status': 'processing', 'message': 'Successfully updated engagement data!', 'progress': 68})}\n\n"
+                                
+                                # Save updated data back to JSON in the correct format
+                                handle = session.get('user_handle', 'unknown')
+                                export_data = []
+                                for item in items:
+                                    post_dict = {
+                                        'uri': item.uri,
+                                        'cid': item.cid,
+                                        'type': item.content_type,  # Use 'type' not 'content_type'
+                                        'text': item.text,
+                                        'created_at': item.created_at,
+                                        'raw_data': item.raw_data
+                                    }
+                                    
+                                    # Add engagement data in the expected nested format for posts/replies
+                                    if item.content_type in ['post', 'reply']:
+                                        post_dict['engagement'] = {
+                                            'likes': item.like_count,
+                                            'reposts': item.repost_count,
+                                            'replies': item.reply_count,
+                                            'quotes': item.quote_count,
+                                            'score': item.engagement_score
+                                        }
+                                    
+                                    export_data.append(post_dict)
+
+                                # Save in the expected format with posts/likes/reposts sections
+                                from datetime import datetime
+                                save_data = {
+                                    'handle': handle,
+                                    'did': session.get('did', 'did:plc:unknown'),
+                                    'export_time': datetime.now().isoformat(),
+                                    'posts': [d for d in export_data if d.get('type') in ['post', 'reply']],
+                                    'likes': [d for d in export_data if d.get('type') == 'like'],
+                                    'reposts': [d for d in export_data if d.get('type') == 'repost']
+                                }
+                                
+                                import json as json_lib
+                                with open(json_path, 'w') as f:
+                                    json_lib.dump(save_data, f, indent=2, default=str)
+                                    
+                            except Exception as e:
+                                print(f"DEBUG: Hydration failed during processing: {e}")
+                                yield f"data: {json.dumps({'status': 'processing', 'message': 'Hydration failed - using data without engagement', 'progress': 68})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Data already contains engagement info', 'progress': 68})}\n\n"
                             
                     except Exception as e:
-                        # Log the full error for debugging but show user-friendly message
-                        print(f"ERROR: Hydration failed: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        
-                        # Don't fail the whole process if hydration fails
-                        yield f"data: {json.dumps({'status': 'processing', 'message': f'Warning: Could not update engagement data: {str(e)[:50]}...', 'progress': 69})}\n\n"
-                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Continuing with cached engagement data', 'progress': 70})}\n\n"
+                        print(f"DEBUG: Engagement hydration error: {e}")
+                        yield f"data: {json.dumps({'status': 'processing', 'message': 'Using data without fresh engagement updates', 'progress': 68})}\n\n"
                 else:
-                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Skipping engagement hydration (authentication required)', 'progress': 69})}\n\n"
-                    yield f"data: {json.dumps({'status': 'processing', 'message': 'Using cached engagement data from CAR file', 'progress': 70})}\n\n"
+                    yield f"data: {json.dumps({'status': 'processing', 'message': 'No authentication - using data without engagement', 'progress': 68})}\n\n"
+                
+                yield f"data: {json.dumps({'status': 'processing', 'message': 'Data processing complete!', 'progress': 70})}\n\n"
                 
                 yield f"data: {json.dumps({'status': 'processing', 'message': f'Loaded {len(items)} total items', 'progress': 70})}\n\n"
                 
@@ -1346,18 +1341,27 @@ def search():
     keyword = data.get('keyword')
     keywords = [keyword] if keyword else None
     
+    # SearchFilters doesn't have content_type anymore, we'll filter manually
     filters = SearchFilters(
         keywords=keywords,
-        content_type=content_type,
-        start_date=data.get('start_date'),
-        end_date=data.get('end_date'),
         min_engagement=data.get('min_engagement') or 0,
-        max_engagement=data.get('max_engagement') or 999999
+        max_engagement=data.get('max_engagement') or 999999,
+        start_date=data.get('start_date'),
+        end_date=data.get('end_date')
     )
     
     # Search
     search_manager = SearchManager(auth_manager=auth_manager or AuthManager(), settings=settings)
     results = search_manager.search_content_with_filters(items, filters)
+    
+    # Filter by content type manually since SearchFilters doesn't have it anymore
+    if content_type != ContentType.ALL:
+        if content_type == ContentType.POSTS:
+            results = [r for r in results if r.content_type in ['post', 'reply']]
+        elif content_type == ContentType.LIKES:
+            results = [r for r in results if r.content_type == 'like']
+        elif content_type == ContentType.REPOSTS:
+            results = [r for r in results if r.content_type == 'repost']
     
     # Convert results for JSON serialization
     serialized_results = []
@@ -1377,6 +1381,7 @@ def search():
             'likes': item.like_count,
             'reposts': item.repost_count,
             'replies': item.reply_count,
+            'quotes': item.quote_count,
             'engagement_score': item.engagement_score,
             'has_media': getattr(item, 'has_media', False)
         })
@@ -1723,6 +1728,175 @@ def download_backup():
     except Exception as e:
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
+def hydrate_engagement_with_api(auth_manager, items, max_items=500):
+    """
+    Hydrate engagement data using Bluesky API endpoints.
+    Uses efficient batch API calls following the pattern in data_manager.py
+    """
+    if not auth_manager or not auth_manager.is_authenticated():
+        print("DEBUG: No authenticated client for hydration")
+        return items
+    
+    client = auth_manager.client
+    posts_to_hydrate = [item for item in items if item.content_type in ['post', 'reply'] and item.uri][:max_items]
+    
+    if not posts_to_hydrate:
+        print("DEBUG: No posts to hydrate")
+        return items
+    
+    print(f"DEBUG: Hydrating {len(posts_to_hydrate)} posts with batch API calls")
+    
+    # Create URI lookup map
+    uri_to_item = {item.uri: item for item in posts_to_hydrate}
+    
+    # Process in batches of 25 (API limit)
+    batch_size = 25
+    total_hydrated = 0
+    
+    for i in range(0, len(posts_to_hydrate), batch_size):
+        batch_items = posts_to_hydrate[i:i+batch_size]
+        batch_uris = [item.uri for item in batch_items]
+        
+        try:
+            # Use get_posts() which returns posts with engagement counts
+            print(f"DEBUG: Fetching batch {i//batch_size + 1} ({len(batch_uris)} posts)")
+            response = client.get_posts(uris=batch_uris)
+            
+            if hasattr(response, 'posts'):
+                for post in response.posts:
+                    if hasattr(post, 'uri') and post.uri in uri_to_item:
+                        item = uri_to_item[post.uri]
+                        
+                        # Update engagement counts from API response
+                        if hasattr(post, 'like_count'):
+                            item.like_count = post.like_count or 0
+                        if hasattr(post, 'repost_count'):
+                            item.repost_count = post.repost_count or 0
+                        if hasattr(post, 'reply_count'):
+                            item.reply_count = post.reply_count or 0
+                        if hasattr(post, 'quote_count'):
+                            item.quote_count = post.quote_count or 0
+                        
+                        # Calculate engagement score using the ContentItem method
+                        item.update_engagement_score()
+                        total_hydrated += 1
+                        
+                        print(f"DEBUG: Hydrated {post.uri[:50]}... - L:{item.like_count} R:{item.repost_count} Rep:{item.reply_count} Q:{item.quote_count} Score:{item.engagement_score}")
+                        
+        except Exception as e:
+            print(f"DEBUG: Error hydrating batch starting at {i}: {e}")
+            continue
+        
+        # Small delay between batches to be respectful of API
+        import time
+        time.sleep(0.1)
+    
+    print(f"DEBUG: Hydration complete. Updated {total_hydrated} posts.")
+    return items
+
+@app.route('/refresh-engagement', methods=['POST'])
+@login_required
+def refresh_engagement():
+    """Refresh engagement data for existing JSON file"""
+    try:
+        json_path = get_json_path()
+        if not json_path or not Path(json_path).exists():
+            return jsonify({'success': False, 'error': 'No data file found'}), 404
+        
+        auth_manager = get_auth_manager()
+        if not auth_manager or not auth_manager.is_authenticated():
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        # Load existing data
+        from skymarshal.data_manager import DataManager
+        from skymarshal.settings import SettingsManager
+        
+        settings_file = Path.home() / ".car_inspector_settings.json"
+        settings_manager = SettingsManager(settings_file)
+        settings = settings_manager.settings
+        
+        skymarshal_dir = Path.home() / '.skymarshal'
+        backups_dir = skymarshal_dir / 'cars'
+        json_dir = skymarshal_dir / 'json'
+        
+        data_manager = DataManager(
+            auth_manager,
+            settings,
+            skymarshal_dir,
+            backups_dir,
+            json_dir
+        )
+        
+        items = data_manager.load_exported_data(Path(json_path))
+        
+        # Find items that need hydration (engagement is 0)
+        posts_to_hydrate = [item for item in items if item.content_type in ['post', 'reply'] and item.like_count == 0]
+        
+        if not posts_to_hydrate:
+            return jsonify({'success': True, 'message': 'All items already have engagement data', 'hydrated': 0})
+        
+        # Limit to first 500 items to avoid timeouts
+        posts_to_hydrate = posts_to_hydrate[:500]
+        
+        # Use our new API-based hydration
+        try:
+            print(f"DEBUG: Starting API-based hydration for {len(posts_to_hydrate)} items")
+            items = hydrate_engagement_with_api(auth_manager, items, max_items=500)
+            print(f"DEBUG: API hydration completed successfully")
+            
+            # Save updated data back to JSON in the correct format
+            handle = session.get('user_handle', 'unknown')
+            export_data = []
+            for item in items:
+                post_dict = {
+                    'uri': item.uri,
+                    'cid': item.cid,
+                    'type': item.content_type,  # Use 'type' not 'content_type'
+                    'text': item.text,
+                    'created_at': item.created_at,
+                    'raw_data': item.raw_data
+                }
+                
+                # Add engagement data in the expected nested format for posts/replies
+                if item.content_type in ['post', 'reply']:
+                    post_dict['engagement'] = {
+                        'likes': item.like_count,
+                        'reposts': item.repost_count, 
+                        'replies': item.reply_count,
+                        'quotes': item.quote_count,
+                        'score': item.engagement_score
+                    }
+                
+                export_data.append(post_dict)
+
+            # Save in the expected format with posts/likes/reposts sections
+            from datetime import datetime
+            save_data = {
+                'handle': handle,
+                'did': session.get('did', 'did:plc:unknown'),
+                'export_time': datetime.now().isoformat(),
+                'posts': [d for d in export_data if d.get('type') in ['post', 'reply']],
+                'likes': [d for d in export_data if d.get('type') == 'like'],
+                'reposts': [d for d in export_data if d.get('type') == 'repost']
+            }
+            
+            import json as json_lib
+            with open(json_path, 'w') as f:
+                json_lib.dump(save_data, f, indent=2, default=str)
+            
+            return jsonify({
+                'success': True, 
+                'message': f'Successfully updated engagement for {len(posts_to_hydrate)} items',
+                'hydrated': len(posts_to_hydrate)
+            })
+            
+        except Exception as e:
+            print(f"DEBUG: Hydration failed: {e}")
+            return jsonify({'success': False, 'error': f'Hydration failed: {str(e)}'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Refresh failed: {str(e)}'}), 500
+
 @app.route('/debug-session')
 @login_required
 def debug_session():
@@ -1774,7 +1948,8 @@ def debug_session():
                     'text': items[0].text[:100] if items[0].text else None,
                     'likes': items[0].like_count,
                     'reposts': items[0].repost_count,
-                    'replies': items[0].reply_count
+                    'replies': items[0].reply_count,
+                    'quotes': items[0].quote_count
                 }
         except Exception as e:
             debug_info['data_load_error'] = str(e)
@@ -1787,4 +1962,4 @@ def send_static(path):
     return send_from_directory('static', path)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
