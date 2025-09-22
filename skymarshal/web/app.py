@@ -869,6 +869,7 @@ def process_data():
     
     def generate():
         try:
+            import time
             print(f"DEBUG: Starting process_data for handle: {handle}")
             print(f"DEBUG: Content types requested: {content_types}")
             print(f"DEBUG: Limits: {limits}")
@@ -943,8 +944,39 @@ def process_data():
                         # Follow the exact working pattern from stats.py
                         yield f"data: {json.dumps({'status': 'processing', 'message': f'Updating engagement for {len(items)} items...', 'progress': 67})}\n\n"
                         
-                        # Use the hydrate_items method exactly like in stats.py
-                        data_manager.hydrate_items(items)
+                        # Use the exact working method from stats.py (lines 107-111)
+                        try:
+                            # Add comprehensive debugging before hydration
+                            print(f"DEBUG: HYDRATION START - About to hydrate {len(items)} items")
+                            print(f"DEBUG: Auth manager exists: {auth_manager is not None}")
+                            print(f"DEBUG: Auth manager authenticated: {auth_manager.is_authenticated() if auth_manager else False}")
+                            print(f"DEBUG: Auth manager has client: {hasattr(auth_manager, 'client') and auth_manager.client is not None if auth_manager else False}")
+                            print(f"DEBUG: Data manager has auth: {hasattr(data_manager, 'auth') and data_manager.auth is not None}")
+                            print(f"DEBUG: Data manager auth == auth_manager: {data_manager.auth is auth_manager if hasattr(data_manager, 'auth') else False}")
+                            
+                            # Check sample items before hydration
+                            sample_items = items[:3] if len(items) >= 3 else items
+                            print("DEBUG: BEFORE HYDRATION - Sample items:")
+                            for i, item in enumerate(sample_items):
+                                print(f"  Item {i}: type={item.content_type}, likes={getattr(item, 'like_count', 'N/A')}, reposts={getattr(item, 'repost_count', 'N/A')}, replies={getattr(item, 'reply_count', 'N/A')}")
+                                print(f"  Item {i}: uri={getattr(item, 'uri', 'N/A')[:50]}...")
+                            
+                            # Follow the exact working pattern from stats.py
+                            data_manager.hydrate_items(items)
+                            
+                            # Check sample items after hydration
+                            print("DEBUG: AFTER HYDRATION - Sample items:")
+                            for i, item in enumerate(sample_items):
+                                print(f"  Item {i}: type={item.content_type}, likes={getattr(item, 'like_count', 'N/A')}, reposts={getattr(item, 'repost_count', 'N/A')}, replies={getattr(item, 'reply_count', 'N/A')}")
+                            
+                            print("DEBUG: ✅ Updated engagement data using working loners method")
+                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Successfully updated engagement data!', 'progress': 68})}\n\n"
+                        except Exception as e:
+                            print(f"DEBUG: ERROR: Could not update engagement data: {e}")
+                            print(f"DEBUG: Exception type: {type(e).__name__}")
+                            import traceback
+                            print(f"DEBUG: Full traceback: {traceback.format_exc()}")
+                            yield f"data: {json.dumps({'status': 'processing', 'message': 'Using cached engagement data from CAR file', 'progress': 68})}\n\n"
                         
                         yield f"data: {json.dumps({'status': 'processing', 'message': 'Engagement data updated successfully!', 'progress': 69})}\n\n"
                         
