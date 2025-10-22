@@ -45,6 +45,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 
 from .auth import AuthManager
+from .engagement_cache import EngagementCache
 from .exceptions import (
     APIError,
     DataError,
@@ -79,6 +80,10 @@ class DataManager:
         self.skymarshal_dir = skymarshal_dir
         self.backups_dir = backups_dir
         self.json_dir = json_dir
+        
+        # Initialize engagement cache
+        cache_path = skymarshal_dir / "engagement_cache.db"
+        self.engagement_cache = EngagementCache(cache_path)
 
     def _resolve_handle_to_did(self, handle: str) -> Optional[str]:
         """Resolve a handle to a DID, with fallback methods."""
@@ -816,7 +821,7 @@ class DataManager:
         """Update like/repost/reply counts for loaded items when missing (read-only).
 
         This is primarily used after importing from .car where engagement is zeroed.
-        Shows user-facing progress for a better experience.
+        Uses SQLite cache to minimize API calls. Shows user-facing progress for a better experience.
         """
         try:
             if not items:
@@ -826,6 +831,30 @@ class DataManager:
             for item in items:
                 item.update_engagement_score()
 
+            # Check cache first if enabled
+            if self.settings.engagement_cache_enabled:
+                cached_items, uncached_items = self.engagement_cache.apply_cached_engagement(
+                    items
+                )
+                
+                if cached_items:
+                    console.print(
+                        f"[dim]✓ Loaded engagement from cache for {len(cached_items)} items[/dim]"
+                    )
+                
+                # If all items were cached, we're done
+                if not uncached_items:
+                    console.print("[dim]✓ All engagement data loaded from cache[/dim]")
+                    return
+                
+                # Only hydrate uncached items
+                items_to_hydrate = uncached_items
+                console.print(
+                    f"[dim]Fetching fresh engagement for {len(items_to_hydrate)} items...[/dim]"
+                )
+            else:
+                items_to_hydrate = items
+
             # Ensure authentication before starting interactive progress UI
             if not self.auth.is_authenticated():
                 console.print("[yellow]Re-authentication required for engagement hydration[/]")
@@ -834,10 +863,10 @@ class DataManager:
                     return
 
             posts_and_replies = [
-                it for it in items if it.content_type in ("post", "reply")
+                it for it in items_to_hydrate if it.content_type in ("post", "reply")
             ]
             reposts = (
-                [it for it in items if it.content_type == "repost"]
+                [it for it in items_to_hydrate if it.content_type == "repost"]
                 if self.settings.use_subject_engagement_for_reposts
                 else []
             )
@@ -911,6 +940,13 @@ class DataManager:
                         for i, item in enumerate(all_items):
                             item.update_engagement_score()
                             progress.update(task_scores, completed=i + 1)
+                        
+                        # Cache the newly fetched engagement data
+                        if self.settings.engagement_cache_enabled and all_items:
+                            try:
+                                self.engagement_cache.set_batch(all_items)
+                            except Exception as e:
+                                console.print(f"[yellow]Warning: Failed to cache engagement: {e}[/yellow]")
 
                 # If reauth is needed, fall through and handle outside of progress UI
                 if reauth_needed:
@@ -1139,7 +1175,7 @@ class DataManager:
             if not uris:
                 return
 
-            batch_size = max(1, min(25, self.settings.hydrate_batch_size))
+            batch_size = max(1, min(100, self.settings.hydrate_batch_size))
             uri_batches = [
                 uris[i : i + batch_size] for i in range(0, len(uris), batch_size)
             ]
@@ -1243,7 +1279,7 @@ class DataManager:
             if not uris:
                 return
 
-            batch_size = max(1, min(25, self.settings.hydrate_batch_size))
+            batch_size = max(1, min(100, self.settings.hydrate_batch_size))
             uri_batches = [
                 uris[i : i + batch_size] for i in range(0, len(uris), batch_size)
             ]
