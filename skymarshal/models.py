@@ -92,8 +92,13 @@ class UserSettings:
         default_factory=lambda: ["posts", "likes", "reposts"]
     )
     records_page_size: int = 100
-    hydrate_batch_size: int = 25
+    hydrate_batch_size: int = 100
     category_workers: int = 3
+    # Cache settings
+    engagement_cache_enabled: bool = True
+    engagement_cache_ttl_recent: int = 3600  # 1 hour for posts < 7 days old
+    engagement_cache_ttl_medium: int = 21600  # 6 hours for posts 7-30 days old
+    engagement_cache_ttl_old: int = 86400  # 24 hours for posts > 30 days old
     file_list_page_size: int = 10
     high_engagement_threshold: int = 20
     use_subject_engagement_for_reposts: bool = True

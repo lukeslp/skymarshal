@@ -55,6 +55,10 @@ class SettingsManager:
                 "high_engagement_threshold": self.settings.high_engagement_threshold,
                 "use_subject_engagement_for_reposts": self.settings.use_subject_engagement_for_reposts,
                 "fetch_order": self.settings.fetch_order,
+                "engagement_cache_enabled": self.settings.engagement_cache_enabled,
+                "engagement_cache_ttl_recent": self.settings.engagement_cache_ttl_recent,
+                "engagement_cache_ttl_medium": self.settings.engagement_cache_ttl_medium,
+                "engagement_cache_ttl_old": self.settings.engagement_cache_ttl_old,
             }
             with open(self.settings_file, "w") as f:
                 json.dump(data, f, indent=2)
@@ -118,6 +122,11 @@ class SettingsManager:
                     "fetch_order",
                     self.settings.fetch_order,
                 ),
+                (
+                    "Engagement cache enabled",
+                    "engagement_cache_enabled",
+                    "on" if self.settings.engagement_cache_enabled else "off",
+                ),
             ]
 
             for i, (label, _, v) in enumerate(keys, 1):
@@ -168,7 +177,7 @@ class SettingsManager:
         )
         console.print("• **Records Page Size**: Items per page in API requests (1-100)")
         console.print(
-            "• **Update Batch Size**: Records processed in each batch (1-25) when refreshing engagement info"
+            "• **Update Batch Size**: Records processed in each batch (1-100) when refreshing engagement info"
         )
         console.print(
             "• **Category Workers**: Parallel downloads for faster processing"
@@ -206,7 +215,7 @@ class SettingsManager:
             if key == "records_page_size":
                 val = max(1, min(100, val))
             if key == "hydrate_batch_size":
-                val = max(1, min(25, val))
+                val = max(1, min(100, val))
             setattr(self.settings, key, val)
         elif key == "default_categories":
             parts = [p.strip().lower() for p in new_val.split(",") if p.strip()]
@@ -233,5 +242,14 @@ class SettingsManager:
             if val not in ("newest", "oldest"):
                 raise ValueError("must be 'newest' or 'oldest'")
             self.settings.fetch_order = val
+        elif key == "engagement_cache_enabled":
+            val = new_val.strip().lower()
+            self.settings.engagement_cache_enabled = val in (
+                "on",
+                "true",
+                "yes",
+                "y",
+                "1",
+            )
         else:
             setattr(self.settings, key, new_val)
