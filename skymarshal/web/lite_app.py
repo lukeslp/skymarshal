@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import os
 import secrets
+from datetime import datetime
 from functools import wraps
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 from flask import (
     Flask,
@@ -14,6 +17,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     session,
     url_for,
 )
@@ -162,14 +166,23 @@ def lite_dashboard():
 
     # Try to load data if not already loaded
     try:
-        service.ensure_content_loaded(
+        items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
             limit=5000,  # Reasonable limit for search/delete workflow
         )
+
+        # Hydrate engagement data (likes, reposts, replies) from Bluesky API
+        # This is essential for accurate counts - without it, CAR files show zeros
+        try:
+            service.data_manager.hydrate_items(items)
+        except Exception as hydrate_error:
+            # Non-fatal: continue with cached/zero engagement data
+            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+
         summary = service.summarize()
     except RuntimeError as exc:
         # Failed to load data - show error message
-        summary = {"posts": 0, "likes": 0, "reposts": 0, "total": 0}
+        summary = {"posts": 0, "likes": 0, "reposts": 0, "replies": 0, "total": 0}
         error_msg = f"Failed to load data: {str(exc)}"
         return render_template("lite_dashboard.html", summary=summary, handle=handle, error=error_msg)
 
@@ -190,10 +203,18 @@ def lite_search():
 
     # Lazy-load data on first search (fast login, load only when needed)
     try:
-        service.ensure_content_loaded(
+        items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
             limit=5000,  # Reasonable limit for search/delete workflow
         )
+
+        # Hydrate engagement data for accurate counts
+        try:
+            service.data_manager.hydrate_items(items)
+        except Exception as hydrate_error:
+            # Non-fatal: continue with cached/zero engagement data
+            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+
     except RuntimeError as exc:
         return jsonify({"success": False, "error": f"Failed to load data: {str(exc)}"}), 400
 
@@ -253,16 +274,128 @@ def lite_refresh():
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
     try:
-        service.ensure_content_loaded(
+        items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
             force_refresh=True,
             limit=5000,  # Reasonable limit for search/delete workflow
         )
+
+        # Hydrate engagement data after refresh
+        try:
+            service.data_manager.hydrate_items(items)
+        except Exception as hydrate_error:
+            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+
     except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
     summary = service.summarize()
     return jsonify({"success": True, "summary": summary})
+
+
+@app.get("/lite/export/csv")
+def lite_export_csv():
+    """Export all loaded content as CSV file."""
+    try:
+        service = _require_service()
+    except PermissionError:
+        return redirect(url_for("lite_login"))
+
+    try:
+        items = service.ensure_content_loaded(
+            categories=["posts", "likes", "reposts"],
+            limit=5000,
+        )
+
+        # Hydrate engagement data for accurate CSV export
+        try:
+            service.data_manager.hydrate_items(items)
+        except Exception as hydrate_error:
+            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+
+    except RuntimeError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow([
+        "Content Type",
+        "Text",
+        "Created At",
+        "Likes",
+        "Reposts",
+        "Replies",
+        "Engagement Score",
+        "URI",
+    ])
+
+    # Write data rows
+    for item in items:
+        writer.writerow([
+            item.content_type,
+            (item.text or "").replace("\n", " ").strip(),
+            item.created_at or "",
+            item.like_count or 0,
+            item.repost_count or 0,
+            item.reply_count or 0,
+            f"{item.engagement_score:.2f}" if item.engagement_score else "0.00",
+            item.uri,
+        ])
+
+    # Prepare file for download
+    output.seek(0)
+    handle = session.get("lite_user_handle", "export")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"skymarshal_{handle}_{timestamp}.csv"
+
+    return send_file(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.get("/lite/export/car")
+def lite_export_car():
+    """Download the CAR backup file for the current user."""
+    try:
+        service = _require_service()
+    except PermissionError:
+        return redirect(url_for("lite_login"))
+
+    handle = session.get("lite_user_handle")
+    if not handle:
+        return jsonify({"success": False, "error": "No authenticated user"}), 400
+
+    # Try to create a fresh CAR backup
+    try:
+        backup_path = service.data_manager.create_timestamped_backup(handle)
+        if not backup_path:
+            return jsonify({
+                "success": False,
+                "error": "Failed to create CAR backup. Please try refreshing your data first."
+            }), 400
+
+        # Get the file for download
+        car_file = backup_path
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"skymarshal_{handle}_{timestamp}.car"
+
+        return send_file(
+            car_file,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=filename,
+        )
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to create CAR backup: {str(exc)}"
+        }), 500
 
 
 if __name__ == "__main__":
