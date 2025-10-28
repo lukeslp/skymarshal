@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skymarshal Lite - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
+</head>
+<body class="lite-body">
+    <main class="lite-main">
+        <section class="lite-card">
+            <h1 class="lite-title">Skymarshal Lite</h1>
+            <p class="lite-subtitle">Lightweight Bluesky content manager</p>
+
+            {% if error %}
+            <div class="lite-error">
+                <strong>Error:</strong> {{ error }}
+            </div>
+            {% endif %}
+
+            {% if warning %}
+            <div class="lite-warning">
+                <strong>⚠️ Warning:</strong> {{ warning }}
+            </div>
+            {% endif %}
+
+            <form method="post" class="lite-form">
+                <div>
+                    <label class="lite-label" for="handle">Bluesky Handle</label>
+                    <input class="lite-input" id="handle" name="handle" type="text"
+                           placeholder="@username or username.bsky.social" required autofocus>
+                </div>
+
+                <div>
+                    <label class="lite-label" for="password">Password</label>
+                    <input class="lite-input" id="password" name="password" type="password"
+                           placeholder="App password or regular password" required>
+                </div>
+
+                <button class="lite-button" type="submit" id="login-btn">
+                    <span class="btn-text">Sign In</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="loading-spinner">🔄</span>
+                        <span class="loading-text">Authenticating...</span>
+                    </span>
+                </button>
+            </form>
+
+            <div class="lite-footer">
+                <p>
+                    💡 <strong>Tip:</strong> Use an app password for better security.
+                    <br>
+                    🔒 Credentials are used only for this session and never stored.
+                </p>
+                <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener noreferrer" 
+                   class="app-password-link">
+                    🔑 Generate App Password
+                </a>
+            </div>
+        </section>
+    </main>
+    <script>
+        document.querySelector('.lite-form').addEventListener('submit', function() {
+            const btn = document.getElementById('login-btn');
+            const loadingText = btn.querySelector('.loading-text');
+            const spinner = btn.querySelector('.loading-spinner');
+            
+            btn.disabled = true;
+            btn.querySelector('.btn-text').style.display = 'none';
+            btn.querySelector('.btn-loading').style.display = 'inline';
+            
+            // Show progressive loading messages
+            const messages = [
+                'Authenticating...',
+                'Connecting to Bluesky...',
+                'Loading your data...',
+                'Hydrating content...',
+                'Almost ready...'
+            ];
+            
+            let messageIndex = 0;
+            const interval = setInterval(() => {
+                if (messageIndex < messages.length) {
+                    loadingText.textContent = messages[messageIndex];
+                    messageIndex++;
+                } else {
+                    // Reset to first message if it's taking too long
+                    messageIndex = 0;
+                    loadingText.textContent = messages[0];
+                }
+            }, 2000);
+            
+            // Clean up interval when page unloads or form is submitted again
+            window.addEventListener('beforeunload', () => clearInterval(interval));
+        });
+    </script>
+</body>
+</html>

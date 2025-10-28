@@ -13,11 +13,12 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 
 from .auth import AuthManager
+from .models import safe_progress
 from .models import (
     ContentItem,
     ContentType,
@@ -232,7 +233,7 @@ class SearchManager:
             positive_regexes, negative_regexes, required_regexes = self._compile_search_patterns(filters.keywords)
 
         if show_progress:
-            with Progress(
+            with safe_progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
                 transient=True,

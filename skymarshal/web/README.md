@@ -34,7 +34,20 @@ cd skymarshal/web
 python app.py
 ```
 
-The web interface will be available at: http://localhost:5000
+The web interface will be available at: http://localhost:5051
+
+### Lightweight Interface
+
+For a minimal workflow focused on login, search, and deletion you can start the
+lite app:
+
+```bash
+cd skymarshal/web
+python lite_app.py
+```
+
+This exposes a streamlined UI at http://localhost:5050 that mirrors the core
+CLI flows with quick filters and bulk delete actions.
 
 ## Usage Flow
 

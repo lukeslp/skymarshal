@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}Unified Dashboard - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Skymarshal Unified Dashboard</h1>
+            <p class="lead">Your comprehensive Bluesky management platform with analytics, cleanup, and social tools.</p>
+        </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title" id="total-posts">-</h4>
+                            <p class="card-text">Total Posts</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title" id="total-followers">-</h4>
+                            <p class="card-text">Followers</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-users fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title" id="total-following">-</h4>
+                            <p class="card-text">Following</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-user-friends fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title" id="account-health">-</h4>
+                            <p class="card-text">Account Health</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-heartbeat fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tool Categories -->
+    <div class="row">
+        <!-- Analytics Tools -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar"></i> Analytics Tools
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Comprehensive analytics for your content and social relationships.</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Follower Analysis</h6>
+                                    <p class="card-text small">Rank followers, detect bots, analyze quality</p>
+                                    <a href="/skymarshal/analytics" class="btn btn-primary btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Post Analysis</h6>
+                                    <p class="card-text small">Analyze post engagement and performance</p>
+                                    <a href="/skymarshal/analytics" class="btn btn-success btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Content Analysis</h6>
+                                    <p class="card-text small">AI-powered vibe checking and sentiment</p>
+                                    <a href="/skymarshal/analytics" class="btn btn-info btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Engagement Metrics</h6>
+                                    <p class="card-text small">Track likes, replies, and reposts</p>
+                                    <a href="/skymarshal/analytics" class="btn btn-warning btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/skymarshal/analytics" class="btn btn-primary w-100">
+                        <i class="fas fa-arrow-right"></i> Go to Analytics Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cleanup Tools -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-broom"></i> Cleanup Tools
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Clean up your account with intelligent management tools.</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Following Cleaner</h6>
+                                    <p class="card-text small">Remove bots and spam accounts</p>
+                                    <a href="/skymarshal/cleanup" class="btn btn-warning btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Post Importer</h6>
+                                    <p class="card-text small">Import and organize your posts</p>
+                                    <a href="/skymarshal/cleanup" class="btn btn-info btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Account Health</h6>
+                                    <p class="card-text small">Comprehensive health check</p>
+                                    <a href="/skymarshal/cleanup" class="btn btn-success btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Bulk Operations</h6>
+                                    <p class="card-text small">Mass unfollow and cleanup</p>
+                                    <a href="/skymarshal/cleanup" class="btn btn-danger btn-sm">Open</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/skymarshal/cleanup" class="btn btn-warning w-100">
+                        <i class="fas fa-arrow-right"></i> Go to Cleanup Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Row -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-primary w-100" onclick="quickFollowerAnalysis()">
+                                <i class="fas fa-users"></i><br>
+                                <small>Quick Follower Check</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-success w-100" onclick="quickPostAnalysis()">
+                                <i class="fas fa-chart-line"></i><br>
+                                <small>Quick Post Analysis</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-warning w-100" onclick="quickCleanup()">
+                                <i class="fas fa-broom"></i><br>
+                                <small>Quick Cleanup</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-info w-100" onclick="quickHealthCheck()">
+                                <i class="fas fa-heartbeat"></i><br>
+                                <small>Health Check</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history"></i> Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity">
+                        <p class="text-muted">No recent activity to display.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 id="loading-title">Processing...</h5>
+                    <p class="mb-0" id="loading-message">Please wait while we process your request...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+
+function loadDashboardData() {
+    // Load quick stats
+    fetch('/skymarshal/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('total-posts').textContent = data.stats.total_posts || '-';
+                document.getElementById('total-followers').textContent = data.stats.total_followers || '-';
+                document.getElementById('total-following').textContent = data.stats.total_following || '-';
+                document.getElementById('account-health').textContent = data.stats.health_score || '-';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading dashboard data:', error);
+        });
+    
+    // Load recent activity
+    loadRecentActivity();
+}
+
+function loadRecentActivity() {
+    fetch('/skymarshal/api/activity')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.activities.length > 0) {
+                const activityDiv = document.getElementById('recent-activity');
+                activityDiv.innerHTML = data.activities.map(activity => `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                            <i class="fas fa-${activity.icon} text-${activity.color} me-2"></i>
+                            <span>${activity.description}</span>
+                        </div>
+                        <small class="text-muted">${activity.timestamp}</small>
+                    </div>
+                `).join('');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading recent activity:', error);
+        });
+}
+
+// Quick action functions
+function quickFollowerAnalysis() {
+    showLoadingModal('Follower Analysis', 'Analyzing your followers...');
+    
+    fetch('/skymarshal/analytics/followers', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'quick_analyze',
+            max_followers: 50
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            showQuickResults('Follower Analysis', data.results);
+        } else {
+            showError(data.error || 'Follower analysis failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function quickPostAnalysis() {
+    showLoadingModal('Post Analysis', 'Analyzing your posts...');
+    
+    fetch('/skymarshal/analytics/posts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'quick_analyze',
+            max_posts: 50
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            showQuickResults('Post Analysis', data.results);
+        } else {
+            showError(data.error || 'Post analysis failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function quickCleanup() {
+    showLoadingModal('Cleanup Analysis', 'Analyzing your account for cleanup...');
+    
+    fetch('/skymarshal/cleanup/following', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'quick_analyze',
+            max_following: 100
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            showQuickResults('Cleanup Analysis', data.results);
+        } else {
+            showError(data.error || 'Cleanup analysis failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function quickHealthCheck() {
+    showLoadingModal('Health Check', 'Checking your account health...');
+    
+    fetch('/skymarshal/cleanup/health', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'quick_check'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            showQuickResults('Health Check', data.results);
+        } else {
+            showError(data.error || 'Health check failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function showQuickResults(title, results) {
+    let message = '';
+    
+    if (title === 'Follower Analysis') {
+        const highRisk = results.high_risk_count || 0;
+        const total = results.total_followers || 0;
+        message = `Analyzed ${total} followers. Found ${highRisk} high-risk accounts.`;
+    } else if (title === 'Post Analysis') {
+        const total = results.total_posts || 0;
+        const avgEngagement = results.analysis?.avg_engagement || 0;
+        message = `Analyzed ${total} posts. Average engagement: ${avgEngagement.toFixed(1)}.`;
+    } else if (title === 'Cleanup Analysis') {
+        const highRisk = results.high_risk_count || 0;
+        const total = results.total_following || 0;
+        message = `Analyzed ${total} following accounts. Found ${highRisk} high-risk accounts.`;
+    } else if (title === 'Health Check') {
+        const healthScore = results.health_score || 0;
+        message = `Account health score: ${healthScore}/100.`;
+    }
+    
+    alert(`${title} Complete!\n\n${message}`);
+}
+
+function showLoadingModal(title, message) {
+    document.getElementById('loading-title').textContent = title;
+    document.getElementById('loading-message').textContent = message;
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoadingModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+function showError(message) {
+    alert('Error: ' + message);
+}
+</script>
+{% endblock %}
