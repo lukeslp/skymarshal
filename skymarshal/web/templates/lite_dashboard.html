@@ -37,28 +37,41 @@
         <main style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
         <div style="display: flex; flex-direction: column; gap: 16px;">
         <section class="lite-card" style="padding: 16px;">
-            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Overview</h2>
-            <div class="lite-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px;">
+            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Your Content</h2>
+            <div class="lite-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
                 <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-posts" style="font-size: 18px; font-weight: 600;">{{ summary.posts }}</span>
+                    <span class="lite-summary-value" id="summary-posts" style="font-size: 24px; font-weight: 700;">{{ summary.posts }}</span>
                     <span class="lite-summary-label">Posts</span>
                 </div>
                 <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-replies" style="font-size: 18px; font-weight: 600;">{{ summary.replies }}</span>
+                    <span class="lite-summary-value" id="summary-replies" style="font-size: 24px; font-weight: 700;">{{ summary.replies }}</span>
                     <span class="lite-summary-label">Replies</span>
                 </div>
-                <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-likes" style="font-size: 18px; font-weight: 600;">{{ summary.likes }}</span>
-                    <span class="lite-summary-label">Likes</span>
-                </div>
-                <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-reposts" style="font-size: 18px; font-weight: 600;">{{ summary.reposts }}</span>
-                    <span class="lite-summary-label">Reposts</span>
-                </div>
             </div>
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); text-align: center;">
-                <span style="font-size: 12px; color: var(--text-muted);">{{ summary.total }} total records</span>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); text-align: center;">
+                <span style="font-size: 13px; color: var(--text-muted);">
+                    <strong id="summary-total">{{ summary.total }}</strong> items loaded
+                    <br>
+                    <span style="font-size: 11px; opacity: 0.8;">
+                        ({{ summary.likes }} likes, {{ summary.reposts }} reposts also available)
+                    </span>
+                </span>
             </div>
+        </section>
+
+        <section class="lite-card" style="padding: 16px;">
+            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Export Data</h2>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <a href="{{ url_for('lite_export_csv') }}" class="lite-button" style="text-align: center; text-decoration: none;">
+                    📊 Download CSV Export
+                </a>
+                <a href="{{ url_for('lite_export_car') }}" class="lite-button lite-secondary" style="text-align: center; text-decoration: none;">
+                    💾 Download CAR Backup
+                </a>
+            </div>
+            <p style="margin: 12px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                CSV includes all posts, likes, and reposts with engagement data. CAR is a full Bluesky account backup.
+            </p>
         </section>
 
         <section class="lite-card">
@@ -153,8 +166,7 @@
             // Update overview numbers
             if (data.summary) {
                 document.getElementById('summary-posts').textContent = data.summary.posts;
-                document.getElementById('summary-likes').textContent = data.summary.likes;
-                document.getElementById('summary-reposts').textContent = data.summary.reposts;
+                document.getElementById('summary-replies').textContent = data.summary.replies;
                 document.getElementById('summary-total').textContent = data.summary.total;
             }
             resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
@@ -254,8 +266,7 @@
             // Update overview numbers if summary is included
             if (data.summary) {
                 document.getElementById('summary-posts').textContent = data.summary.posts;
-                document.getElementById('summary-likes').textContent = data.summary.likes;
-                document.getElementById('summary-reposts').textContent = data.summary.reposts;
+                document.getElementById('summary-replies').textContent = data.summary.replies;
                 document.getElementById('summary-total').textContent = data.summary.total;
             }
 

@@ -28,21 +28,28 @@
                 <div>
                     <label class="lite-label" for="handle">Bluesky Handle</label>
                     <input class="lite-input" id="handle" name="handle" type="text"
-                           placeholder="@username or username.bsky.social" required autofocus>
+                           placeholder="@username or username.bsky.social" required autofocus
+                           style="width: 100%;">
                 </div>
 
                 <div>
                     <label class="lite-label" for="password">Password</label>
                     <input class="lite-input" id="password" name="password" type="password"
-                           placeholder="App password or regular password" required>
+                           placeholder="App password or regular password" required
+                           style="width: 100%;">
                 </div>
 
-                <button class="lite-button" type="submit" id="login-btn">
-                    <span class="btn-text">Sign In</span>
-                    <span class="btn-loading" style="display: none;">
-                        <span class="loading-spinner">🔄</span>
-                        <span class="loading-text">Authenticating...</span>
-                    </span>
+                <div id="login-progress" style="display: none; margin: 12px 0;">
+                    <div style="background: var(--bg-elevated); border-radius: 8px; height: 8px; overflow: hidden; border: 1px solid var(--border); box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);">
+                        <div id="progress-bar" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); height: 100%; width: 0%; transition: width 0.2s ease-out;"></div>
+                    </div>
+                    <p id="loading-status" style="margin: 10px 0 0; font-size: 13px; color: var(--primary-light); text-align: center; font-weight: 500;">
+                        <span id="status-text">Initializing...</span>
+                    </p>
+                </div>
+
+                <button class="lite-button" type="submit" id="login-btn" style="width: 100%;">
+                    Sign In
                 </button>
             </form>
 
@@ -60,38 +67,70 @@
         </section>
     </main>
     <script>
-        document.querySelector('.lite-form').addEventListener('submit', function() {
+        document.querySelector('.lite-form').addEventListener('submit', function(e) {
             const btn = document.getElementById('login-btn');
-            const loadingText = btn.querySelector('.loading-text');
-            const spinner = btn.querySelector('.loading-spinner');
-            
+            const progressContainer = document.getElementById('login-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+
+            // Disable button
             btn.disabled = true;
-            btn.querySelector('.btn-text').style.display = 'none';
-            btn.querySelector('.btn-loading').style.display = 'inline';
-            
-            // Show progressive loading messages
-            const messages = [
-                'Authenticating...',
-                'Connecting to Bluesky...',
-                'Loading your data...',
-                'Hydrating content...',
+            btn.style.opacity = '0.6';
+            btn.textContent = 'Signing In...';
+
+            // Show progress bar immediately
+            progressContainer.style.display = 'block';
+
+            // Progress stages with realistic timing for large accounts
+            const stages = [
+                { message: 'Connecting to Bluesky...', progress: 10, delay: 200 },
+                { message: 'Authenticating account...', progress: 20, delay: 1000 },
+                { message: 'Verifying credentials...', progress: 30, delay: 2000 },
+                { message: 'Creating session...', progress: 40, delay: 3000 },
+                { message: 'Loading account data...', progress: 50, delay: 5000 },
+                { message: 'Processing content...', progress: 60, delay: 8000 },
+                { message: 'Fetching engagement data...', progress: 70, delay: 10000 },
+                { message: 'Hydrating post metrics...', progress: 80, delay: 15000 },
+                { message: 'Finalizing workspace...', progress: 90, delay: 20000 }
+            ];
+
+            // Cycling messages for extended processing
+            const waitingMessages = [
+                'Still processing large account...',
+                'Loading thousands of posts...',
+                'Fetching engagement metrics...',
+                'Nearly complete...',
+                'Processing remaining data...',
+                'Just a bit longer...',
+                'Finalizing account data...',
                 'Almost ready...'
             ];
-            
-            let messageIndex = 0;
-            const interval = setInterval(() => {
-                if (messageIndex < messages.length) {
-                    loadingText.textContent = messages[messageIndex];
-                    messageIndex++;
+
+            let currentStage = 0;
+            let waitingIndex = 0;
+
+            function updateStage() {
+                if (currentStage < stages.length) {
+                    const stage = stages[currentStage];
+                    statusText.textContent = stage.message;
+                    progressBar.style.width = stage.progress + '%';
+                    currentStage++;
+
+                    // Use the delay specified for this stage
+                    setTimeout(updateStage, stage.delay);
                 } else {
-                    // Reset to first message if it's taking too long
-                    messageIndex = 0;
-                    loadingText.textContent = messages[0];
+                    // Cycle through waiting messages
+                    statusText.textContent = waitingMessages[waitingIndex];
+                    progressBar.style.width = '95%';
+                    waitingIndex = (waitingIndex + 1) % waitingMessages.length;
+
+                    // Continue cycling every 4 seconds
+                    setTimeout(updateStage, 4000);
                 }
-            }, 2000);
-            
-            // Clean up interval when page unloads or form is submitted again
-            window.addEventListener('beforeunload', () => clearInterval(interval));
+            }
+
+            // Start immediately with first stage
+            updateStage();
         });
     </script>
 </body>
