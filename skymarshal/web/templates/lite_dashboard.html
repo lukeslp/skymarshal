@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skymarshal Lite</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
+</head>
+<body style="background: var(--bg); margin: 0; padding: 24px;">
+    <div style="max-width: 1400px; margin: 0 auto;">
+        <header class="lite-header">
+            <div class="lite-header-info">
+                <h1>🚀 Skymarshal Lite</h1>
+                <p class="lite-tagline">Lightweight Bluesky content manager</p>
+            </div>
+            <div class="lite-header-actions">
+                <span class="lite-handle">@{{ handle }}</span>
+                <form method="post" action="{{ url_for('lite_refresh') }}" id="refresh-form" style="margin: 0;">
+                    <button type="submit" class="lite-secondary lite-small">🔄 Refresh</button>
+                </form>
+                <a href="{{ url_for('lite_logout') }}" class="lite-link">Logout →</a>
+            </div>
+        </header>
+
+        {% if session.password_warning %}
+        <div class="lite-warning" style="margin-bottom: 24px;">
+            {{ session.password_warning }}
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="lite-warning" style="margin-bottom: 24px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <main style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+        <section class="lite-card" style="padding: 16px;">
+            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Overview</h2>
+            <div class="lite-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px;">
+                <div class="lite-summary-item">
+                    <span class="lite-summary-value" id="summary-posts" style="font-size: 18px; font-weight: 600;">{{ summary.posts }}</span>
+                    <span class="lite-summary-label">Posts</span>
+                </div>
+                <div class="lite-summary-item">
+                    <span class="lite-summary-value" id="summary-replies" style="font-size: 18px; font-weight: 600;">{{ summary.replies }}</span>
+                    <span class="lite-summary-label">Replies</span>
+                </div>
+                <div class="lite-summary-item">
+                    <span class="lite-summary-value" id="summary-likes" style="font-size: 18px; font-weight: 600;">{{ summary.likes }}</span>
+                    <span class="lite-summary-label">Likes</span>
+                </div>
+                <div class="lite-summary-item">
+                    <span class="lite-summary-value" id="summary-reposts" style="font-size: 18px; font-weight: 600;">{{ summary.reposts }}</span>
+                    <span class="lite-summary-label">Reposts</span>
+                </div>
+            </div>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); text-align: center;">
+                <span style="font-size: 12px; color: var(--text-muted);">{{ summary.total }} total records</span>
+            </div>
+        </section>
+
+        <section class="lite-card">
+            <h2>Search Posts</h2>
+            <form id="search-form" class="lite-grid" role="search" aria-label="Content search form">
+                <label class="lite-field">
+                    <span>Keyword</span>
+                    <input class="lite-input" name="keyword" type="text" placeholder="Search text">
+                </label>
+                <label class="lite-field">
+                    <span>Start Date</span>
+                    <input class="lite-input" name="start_date" type="date">
+                </label>
+                <label class="lite-field">
+                    <span>End Date</span>
+                    <input class="lite-input" name="end_date" type="date">
+                </label>
+                <label class="lite-field">
+                    <span>Min Engagement</span>
+                    <input class="lite-input" name="min_engagement" type="number" min="0">
+                </label>
+                <label class="lite-field">
+                    <span>Max Engagement</span>
+                    <input class="lite-input" name="max_engagement" type="number" min="0">
+                </label>
+                <label class="lite-field">
+                    <span>Content Types</span>
+                    <select class="lite-input" name="content_types" multiple>
+                        <option value="post" selected>Posts</option>
+                        <option value="reply">Replies</option>
+                        <option value="repost">Reposts</option>
+                        <option value="like">Likes</option>
+                    </select>
+                </label>
+                <div class="lite-field full">
+                    <button type="submit" class="lite-button">Search</button>
+                </div>
+            </form>
+        </section>
+        </div>
+
+        <section class="lite-card" style="min-height: 600px;">
+            <div class="lite-results-header">
+                <h2>Results</h2>
+                <div class="lite-results-actions">
+                    <button id="select-all" class="lite-secondary" type="button">Select All</button>
+                    <button id="clear-all" class="lite-secondary" type="button">Clear</button>
+                    <button id="delete-selected" class="lite-danger" type="button" disabled>Delete Selected</button>
+                </div>
+            </div>
+            <p id="results-meta" class="lite-meta">Search to see results.</p>
+            <div class="lite-table-wrapper">
+                <table class="lite-table" role="table" aria-label="Search results">
+                    <thead>
+                        <tr role="row">
+                            <th scope="col" aria-label="Select"></th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Text</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Engagement</th>
+                            <th scope="col" aria-label="Actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body" role="rowgroup"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    const searchForm = document.getElementById('search-form');
+    const resultsBody = document.getElementById('results-body');
+    const resultsMeta = document.getElementById('results-meta');
+    const deleteSelected = document.getElementById('delete-selected');
+    const selectAll = document.getElementById('select-all');
+    const clearAll = document.getElementById('clear-all');
+    const refreshForm = document.getElementById('refresh-form');
+    const selected = new Set();
+
+    refreshForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        deleteSelected.disabled = true;
+        selected.clear();
+        resultsMeta.textContent = '⏳ Refreshing data from Bluesky...';
+        const response = await fetch('{{ url_for('lite_refresh') }}', { method: 'POST' });
+        if (!response.ok) {
+            resultsMeta.textContent = 'Refresh failed. Try again later.';
+            return;
+        }
+        const data = await response.json();
+        if (data.success) {
+            // Update overview numbers
+            if (data.summary) {
+                document.getElementById('summary-posts').textContent = data.summary.posts;
+                document.getElementById('summary-likes').textContent = data.summary.likes;
+                document.getElementById('summary-reposts').textContent = data.summary.reposts;
+                document.getElementById('summary-total').textContent = data.summary.total;
+            }
+            resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
+        } else {
+            resultsMeta.textContent = data.error || 'Refresh failed.';
+        }
+    });
+
+    function buildPayload(formData) {
+        const payload = Object.fromEntries(formData.entries());
+        const types = formData.getAll('content_types');
+        payload.content_types = types;
+        return payload;
+    }
+
+    function escapeHtml(value) {
+        if (typeof value !== 'string') {
+            return value === undefined || value === null ? '' : String(value);
+        }
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderResults(items, total) {
+        resultsBody.innerHTML = '';
+        selected.clear();
+        deleteSelected.disabled = true;
+        if (!items.length) {
+            resultsMeta.textContent = 'No results. Adjust filters and try again.';
+            return;
+        }
+        resultsMeta.textContent = `Showing ${items.length} of ${total}`;
+        items.forEach((item) => {
+            const row = document.createElement('tr');
+            row.dataset.uri = item.uri;
+            const textContent = item.text ? escapeHtml(item.text) : 'No text';
+            const contentType = escapeHtml(item.content_type);
+            const createdAt = item.created_at ? escapeHtml(item.created_at) : '';
+            const likes = escapeHtml(item.likes);
+            const reposts = escapeHtml(item.reposts);
+            const replies = escapeHtml(item.replies);
+            const score = escapeHtml(item.engagement_score);
+            const uriAttr = escapeHtml(item.uri);
+            row.innerHTML = `
+                <td><input type="checkbox" class="result-select"></td>
+                <td><span class="lite-chip">${contentType}</span></td>
+                <td class="lite-text">${textContent}</td>
+                <td>${createdAt}</td>
+                <td>
+                    <span class="lite-pill">❤️ ${likes}</span>
+                    <span class="lite-pill">🔄 ${reposts}</span>
+                    <span class="lite-pill">💬 ${replies}</span>
+                    <span class="lite-pill">⚡ ${score}</span>
+                </td>
+                <td>
+                    <button type="button" class="lite-danger lite-small" data-uri="${uriAttr}">Delete</button>
+                </td>
+            `;
+            resultsBody.appendChild(row);
+        });
+    }
+
+    searchForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        // Show loading state
+        const submitBtn = searchForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Loading...';
+        
+        resultsMeta.textContent = '⏳ Loading data from Bluesky... This may take a moment for large accounts.';
+        resultsBody.innerHTML = '';
+
+        try {
+            const formData = new FormData(searchForm);
+            const payload = buildPayload(formData);
+            const response = await fetch('{{ url_for('lite_search') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Search failed');
+            }
+
+            // Update overview numbers if summary is included
+            if (data.summary) {
+                document.getElementById('summary-posts').textContent = data.summary.posts;
+                document.getElementById('summary-likes').textContent = data.summary.likes;
+                document.getElementById('summary-reposts').textContent = data.summary.reposts;
+                document.getElementById('summary-total').textContent = data.summary.total;
+            }
+
+            renderResults(data.results, data.total);
+        } catch (error) {
+            console.error('Search error:', error);
+            resultsMeta.textContent = `❌ Error: ${error.message}`;
+            resultsBody.innerHTML = '';
+        } finally {
+            // Reset button state
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    });
+
+    resultsBody.addEventListener('change', (event) => {
+        if (!event.target.classList.contains('result-select')) {
+            return;
+        }
+        const row = event.target.closest('tr');
+        if (!row) {
+            return;
+        }
+        const uri = row.dataset.uri;
+        if (!uri) {
+            return;
+        }
+        if (event.target.checked) {
+            selected.add(uri);
+        } else {
+            selected.delete(uri);
+        }
+        deleteSelected.disabled = selected.size === 0;
+    });
+
+    resultsBody.addEventListener('click', async (event) => {
+        const button = event.target.closest('button');
+        if (!button || !button.dataset.uri) {
+            return;
+        }
+        const uri = button.dataset.uri;
+        
+        if (!confirm('Are you sure you want to delete this item?')) {
+            return;
+        }
+        
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = '⏳ Deleting...';
+        
+        try {
+            const response = await fetch('{{ url_for('lite_delete') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uris: [uri] })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            if (data.success && data.deleted) {
+                const row = button.closest('tr');
+                if (row) {
+                    row.remove();
+                }
+                selected.delete(uri);
+                resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully`;
+            } else {
+                throw new Error(data.error || 'Delete failed');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            resultsMeta.textContent = `❌ Delete failed: ${error.message}`;
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+        
+        deleteSelected.disabled = selected.size === 0;
+    });
+
+    deleteSelected.addEventListener('click', async () => {
+        if (!selected.size) {
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to delete ${selected.size} selected item(s)?`)) {
+            return;
+        }
+        
+        const originalText = deleteSelected.textContent;
+        deleteSelected.disabled = true;
+        deleteSelected.textContent = `⏳ Deleting ${selected.size} items...`;
+        
+        try {
+            const response = await fetch('{{ url_for('lite_delete') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uris: Array.from(selected) })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            if (data.success) {
+                Array.from(selected).forEach((uri) => {
+                    const row = resultsBody.querySelector(`tr[data-uri="${uri}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                });
+                selected.clear();
+                resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully. ${data.failed || 0} failed.`;
+            } else {
+                throw new Error(data.error || 'Bulk delete failed');
+            }
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+            resultsMeta.textContent = `❌ Bulk delete failed: ${error.message}`;
+        } finally {
+            deleteSelected.disabled = true;
+            deleteSelected.textContent = originalText;
+        }
+    });
+
+    selectAll.addEventListener('click', () => {
+        resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
+            checkbox.checked = true;
+            const row = checkbox.closest('tr');
+            if (row && row.dataset.uri) {
+                selected.add(row.dataset.uri);
+            }
+        });
+        deleteSelected.disabled = selected.size === 0;
+    });
+
+    clearAll.addEventListener('click', () => {
+        resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
+            checkbox.checked = false;
+        });
+        selected.clear();
+        deleteSelected.disabled = true;
+    });
+    </script>
+</body>
+</html>

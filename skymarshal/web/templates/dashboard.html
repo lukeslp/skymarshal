@@ -3,10 +3,15 @@
 {% block title %}Dashboard - Skymarshal{% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
+<div class="dashboard-container" id="main-content">
     <!-- Overview Section -->
     <section class="overview-section">
-        <h2>Content Overview</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Content Overview</h2>
+            <a href="{{ url_for('nuke') }}" class="btn btn-danger-outline" style="background: transparent; border: 2px solid #dc2626; color: #dc2626; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; transition: all 0.3s;" onmouseover="this.style.background='#dc2626'; this.style.color='white';" onmouseout="this.style.background='transparent'; this.style.color='#dc2626';">
+                ⚠️ Nuclear Delete
+            </a>
+        </div>
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon">📝</div>
@@ -155,29 +160,33 @@
     <section class="search-section">
         <h2>Search & Filter Content</h2>
         <div class="search-container">
-            <form id="search-form" class="search-form">
+            <form id="search-form" class="search-form" role="search" aria-label="Content search form">
                 <div class="search-row">
                     <div class="form-group">
                         <label for="search-keyword">Keyword Search</label>
-                        <input type="text" id="search-keyword" placeholder="Search text content...">
+                        <input type="text" id="search-keyword" placeholder="Search text content..." 
+                               aria-describedby="search-help" autocomplete="off">
+                        <div id="search-help" class="sr-only">Enter keywords to search through your Bluesky content</div>
                     </div>
                     
                     <div class="form-group">
-                        <label>Content Types</label>
-                        <div class="checkbox-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="content-type" value="post" checked>
-                                <span>Posts</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="content-type" value="like">
-                                <span>Likes</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="content-type" value="repost">
-                                <span>Reposts</span>
-                            </label>
-                        </div>
+                        <fieldset>
+                            <legend>Content Types</legend>
+                            <div class="checkbox-group" role="group" aria-labelledby="content-types-legend">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="content-type" value="post" checked aria-describedby="post-help">
+                                    <span>Posts</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="content-type" value="like" aria-describedby="like-help">
+                                    <span>Likes</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="content-type" value="repost" aria-describedby="repost-help">
+                                    <span>Reposts</span>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
                 </div>
                 
@@ -243,20 +252,20 @@
         <div class="results-info" id="results-info"></div>
         
         <div class="results-table-container">
-            <table class="results-table" id="results-table">
+            <table class="results-table" id="results-table" role="table" aria-label="Search results">
                 <thead>
-                    <tr>
-                        <th class="checkbox-column">
-                            <input type="checkbox" id="select-all-checkbox">
+                    <tr role="row">
+                        <th class="checkbox-column" scope="col" aria-label="Select all">
+                            <input type="checkbox" id="select-all-checkbox" aria-label="Select all results">
                         </th>
-                        <th>Type</th>
-                        <th>Content</th>
-                        <th>Created</th>
-                        <th>Engagement</th>
-                        <th>Actions</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Content</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Engagement</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="results-tbody">
+                <tbody id="results-tbody" role="rowgroup">
                     <!-- Results will be populated here -->
                 </tbody>
             </table>
@@ -314,7 +323,7 @@ searchForm.addEventListener('submit', async (e) => {
     };
     
     try {
-        const response = await fetch('/search', {
+        const response = await fetch('{{ url_for("search") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -468,7 +477,7 @@ document.getElementById('confirm-delete-btn').addEventListener('click', async ()
     btn.textContent = 'Deleting...';
     
     try {
-        const response = await fetch('/delete', {
+        const response = await fetch('{{ url_for("delete") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -512,7 +521,7 @@ async function handleSingleDelete(e) {
         e.target.textContent = 'Deleting...';
         
         try {
-            const response = await fetch('/delete', {
+            const response = await fetch('{{ url_for("delete") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

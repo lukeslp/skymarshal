@@ -8,6 +8,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
@@ -20,7 +21,7 @@
                 {% if session.user_handle %}
                 <div class="nav-user">
                     <div class="user-info">
-                        <img id="user-avatar" class="user-avatar" src="/static/images/default-avatar.svg" alt="Avatar">
+                        <img id="user-avatar" class="user-avatar" src="{{ url_for('static', filename='images/default-avatar.svg') }}" alt="Avatar">
                         <div class="user-details">
                             <span class="user-display-name" id="user-display-name">{{ session.user_handle }}</span>
                             <a href="https://bsky.app/profile/{{ session.user_handle }}" target="_blank" class="user-handle">@{{ session.user_handle }}</a>
@@ -50,7 +51,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         console.log('Loading user profile...');
         try {
-            const response = await fetch('/user-profile');
+            const response = await fetch('{{ url_for("user_profile") }}');
             const data = await response.json();
             
             console.log('Profile response:', data);
@@ -61,11 +62,11 @@
                 
                 // Update avatar
                 const avatarImg = document.getElementById('user-avatar');
-                if (profile.avatar && profile.avatar !== '/static/images/default-avatar.svg') {
+                if (profile.avatar && profile.avatar !== '{{ url_for("static", filename="images/default-avatar.svg") }}') {
                     console.log('Loading user avatar:', profile.avatar);
                     avatarImg.onerror = () => {
                         console.warn('Failed to load user avatar, using default');
-                        avatarImg.src = '/static/images/default-avatar.svg';
+                        avatarImg.src = '{{ url_for("static", filename="images/default-avatar.svg") }}';
                     };
                     avatarImg.onload = () => {
                         console.log('User avatar loaded successfully');

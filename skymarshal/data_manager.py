@@ -41,10 +41,11 @@ except ImportError:
             cbor_decode = None
 from contextlib import contextmanager
 
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 
 from .auth import AuthManager
+from .models import safe_progress
 from .engagement_cache import EngagementCache
 from .exceptions import (
     APIError,
@@ -107,7 +108,7 @@ class DataManager:
     @contextmanager
     def _progress_context(self, description: str = "Processing"):
         """Create a standardized progress context manager."""
-        with Progress(
+        with safe_progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             transient=True,
@@ -131,13 +132,20 @@ class DataManager:
                 return None
 
             cats = categories or {"posts", "likes", "reposts"}
+            ordered_cats = [
+                cat for cat in ("posts", "likes", "reposts") if cat in cats
+            ]
+            if not ordered_cats:
+                return None
+
             results = {}
 
             console.print()
             with self._progress_context() as progress:
-                tasks = {}
-                for cat in cats:
-                    tasks[cat] = progress.add_task(f"Fetching {cat} (0)", total=limit)
+                tasks = {
+                    cat: progress.add_task(f"Fetching {cat} (0)", total=limit)
+                    for cat in ordered_cats
+                }
 
                 def make_cb(cat):
                     def _cb(count):
@@ -149,25 +157,41 @@ class DataManager:
 
                     return _cb
 
-                with ThreadPoolExecutor(
-                    max_workers=(min(self.settings.category_workers, len(cats)) or 1)
-                ) as pool:
-                    futs = {}
-                    if "posts" in cats:
-                        futs["posts"] = pool.submit(
-                            self._fetch_posts_records, did, limit, make_cb("posts")
-                        )
-                    if "likes" in cats:
-                        futs["likes"] = pool.submit(
-                            self._fetch_likes_records, did, limit, make_cb("likes")
-                        )
-                    if "reposts" in cats:
-                        futs["reposts"] = pool.submit(
-                            self._fetch_reposts_records, did, limit, make_cb("reposts")
-                        )
+                fetch_map = {
+                    "posts": self._fetch_posts_records,
+                    "likes": self._fetch_likes_records,
+                    "reposts": self._fetch_reposts_records,
+                }
 
-                    for k, f in futs.items():
-                        results[k] = f.result()
+                def run_fetch(cat: str):
+                    fetch_fn = fetch_map[cat]
+                    return fetch_fn(did, limit, make_cb(cat))
+
+                def collect(parallel: bool):
+                    local_results = {}
+                    if parallel and len(ordered_cats) > 1:
+                        worker_count = min(self.settings.category_workers, len(ordered_cats)) or 1
+                        with ThreadPoolExecutor(max_workers=worker_count) as pool:
+                            futs = {
+                                cat: pool.submit(run_fetch, cat) for cat in ordered_cats
+                            }
+                            for cat in ordered_cats:
+                                local_results[cat] = futs[cat].result()
+                    else:
+                        for cat in ordered_cats:
+                            local_results[cat] = run_fetch(cat)
+                    return local_results
+
+                allow_parallel = (
+                    self.settings.category_workers > 1 and len(ordered_cats) > 1
+                )
+                try:
+                    results = collect(parallel=allow_parallel)
+                except Exception as parallel_error:
+                    console.print(
+                        f"[yellow]Parallel export failed: {parallel_error}. Retrying sequentially...[/yellow]"
+                    )
+                    results = collect(parallel=False)
 
             posts = results.get("posts", [])
             likes = results.get("likes", [])
@@ -576,38 +600,42 @@ class DataManager:
 
         # Normalize historical export formats
         if isinstance(raw_data, list):
-            data = {"posts": raw_data}
+            # Flat array format - process all items directly
+            all_items = raw_data
         elif isinstance(raw_data, dict):
-            # Older exports sometimes nest under "data"
+            # Structured format with separate sections
             if "posts" not in raw_data and isinstance(raw_data.get("data"), dict):
                 data = raw_data["data"]
             else:
                 data = raw_data
-        else:
-            data = {}
 
-        def _coerce_list(value: Any) -> List[Dict[str, Any]]:
-            if value is None:
+            def _coerce_list(value: Any) -> List[Dict[str, Any]]:
+                if value is None:
+                    return []
+                if isinstance(value, list):
+                    return value
+                if isinstance(value, dict):
+                    return list(value.values())
                 return []
-            if isinstance(value, list):
-                return value
-            if isinstance(value, dict):
-                return list(value.values())
-            return []
 
-        posts_section = _coerce_list(
-            data.get("posts")
-            or data.get("processed_posts")
-            or data.get("primary_items")
-        )
-        likes_section = _coerce_list(data.get("likes") or data.get("processed_likes"))
-        reposts_section = _coerce_list(
-            data.get("reposts") or data.get("processed_reposts")
-        )
+            posts_section = _coerce_list(
+                data.get("posts")
+                or data.get("processed_posts")
+                or data.get("primary_items")
+            )
+            likes_section = _coerce_list(data.get("likes") or data.get("processed_likes"))
+            reposts_section = _coerce_list(
+                data.get("reposts") or data.get("processed_reposts")
+            )
+            
+            # Combine all sections
+            all_items = posts_section + likes_section + reposts_section
+        else:
+            all_items = []
 
         content_items: List[ContentItem] = []
 
-        for post_data in posts_section:
+        for post_data in all_items:
             if not isinstance(post_data, dict):
                 continue
 
@@ -615,7 +643,7 @@ class DataManager:
             content_item = ContentItem(
                 uri=post_data.get("uri"),
                 cid=post_data.get("cid"),
-                content_type=post_data.get("type", "post"),
+                content_type=post_data.get("content_type", "post"),
                 text=post_data.get("text"),
                 created_at=post_data.get("created_at"),
                 like_count=int((engagement or {}).get("likes", 0) or 0),
@@ -628,52 +656,54 @@ class DataManager:
             content_item.update_engagement_score()
             content_items.append(content_item)
 
-        for like in likes_section:
-            if not isinstance(like, dict):
-                continue
+        # Note: likes are now processed in the main loop above
+        # for like in likes_section:
+        #     if not isinstance(like, dict):
+        #         continue
+        #
+        #     like_item = ContentItem(
+        #         uri=like.get("uri"),
+        #         cid=like.get("cid"),
+        #         content_type="like",
+        #         text=None,
+        #         created_at=like.get("created_at"),
+        #         like_count=0,
+        #         repost_count=0,
+        #         reply_count=0,
+        #         engagement_score=0,
+        #         raw_data={
+        #             "subject_uri": like.get("subject_uri"),
+        #             "subject_cid": like.get("subject_cid"),
+        #         },
+        #     )
+        #     # Update engagement score (though it will be 0 for likes)
+        #     like_item.update_engagement_score()
+        #     content_items.append(like_item)
 
-            like_item = ContentItem(
-                uri=like.get("uri"),
-                cid=like.get("cid"),
-                content_type="like",
-                text=None,
-                created_at=like.get("created_at"),
-                like_count=0,
-                repost_count=0,
-                reply_count=0,
-                engagement_score=0,
-                raw_data={
-                    "subject_uri": like.get("subject_uri"),
-                    "subject_cid": like.get("subject_cid"),
-                },
-            )
-            # Update engagement score (though it will be 0 for likes)
-            like_item.update_engagement_score()
-            content_items.append(like_item)
-
-        for rp in reposts_section:
-            if not isinstance(rp, dict):
-                continue
-
-            repost_item = ContentItem(
-                uri=rp.get("uri"),
-                cid=rp.get("cid"),
-                content_type="repost",
-                text=None,
-                created_at=rp.get("created_at"),
-                like_count=0,
-                repost_count=0,
-                reply_count=0,
-                engagement_score=0,
-                raw_data={
-                    "subject_uri": rp.get("subject_uri"),
-                    "subject_cid": rp.get("subject_cid"),
-                    "self_repost": rp.get("self_repost", False),
-                },
-            )
-            # Update engagement score (though it will be 0 for reposts)
-            repost_item.update_engagement_score()
-            content_items.append(repost_item)
+        # Note: reposts are now processed in the main loop above
+        # for rp in reposts_section:
+        #     if not isinstance(rp, dict):
+        #         continue
+        #
+        #     repost_item = ContentItem(
+        #         uri=rp.get("uri"),
+        #         cid=rp.get("cid"),
+        #         content_type="repost",
+        #         text=None,
+        #         created_at=rp.get("created_at"),
+        #         like_count=0,
+        #         repost_count=0,
+        #         reply_count=0,
+        #         engagement_score=0,
+        #         raw_data={
+        #             "subject_uri": rp.get("subject_uri"),
+        #             "subject_cid": rp.get("subject_cid"),
+        #             "self_repost": rp.get("self_repost", False),
+        #         },
+        #     )
+        #     # Update engagement score (though it will be 0 for reposts)
+        #     repost_item.update_engagement_score()
+        #     content_items.append(repost_item)
 
         return content_items
 
@@ -872,7 +902,7 @@ class DataManager:
             )
 
             # Display a compact, transient progress UI for hydration steps
-            with Progress(
+            with safe_progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
                 transient=True,
@@ -1522,7 +1552,7 @@ class DataManager:
             return {}
 
         # Show progress while decoding blocks
-        with Progress(
+        with safe_progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             transient=True,
@@ -1636,7 +1666,7 @@ class DataManager:
 
         # Show progress while extracting records
         total_decoded = len(decoded)
-        with Progress(
+        with safe_progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             transient=True,

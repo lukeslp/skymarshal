@@ -15,10 +15,36 @@ from enum import Enum
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
+import sys
+from contextlib import contextmanager
+from typing import Iterator
 from rich.console import Console
+from rich.progress import Progress
 
 # Shared console instance for all Skymarshal modules
-console = Console()
+# Disable rich UI features when not in a terminal (e.g., web context)
+console = Console(force_terminal=sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False,
+                  quiet=not (sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False))
+
+
+@contextmanager
+def safe_progress(*args, **kwargs) -> Iterator[Progress]:
+    """Context manager for Progress that works in both terminal and web contexts.
+
+    In web/non-terminal contexts, returns a Progress instance that won't crash,
+    but also won't display anything.
+    """
+    is_terminal = sys.stdout.isatty() if hasattr(sys.stdout, 'isatty') else False
+
+    if not is_terminal:
+        # Create a Progress instance but don't start it - just yield it
+        # Methods on it will be no-ops but won't crash
+        progress = Progress(*args, **kwargs, disable=True)
+        yield progress
+    else:
+        # Normal terminal context - use Progress as usual
+        with Progress(*args, **kwargs) as progress:
+            yield progress
 
 
 # Performance utilities for large dataset processing

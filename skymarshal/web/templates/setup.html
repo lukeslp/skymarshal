@@ -243,7 +243,7 @@ class FirehoseStream {
         }, 300);
         
         try {
-            this.eventSource = new EventSource('/firehose');
+            this.eventSource = new EventSource('{{ url_for("firehose") }}');
             
             this.eventSource.onmessage = (event) => {
                 try {
@@ -447,8 +447,8 @@ document.getElementById('download-btn').addEventListener('click', async () => {
     // Don't start firehose during import - it's too fast
     // firehoseStream = new FirehoseStream();
     // firehoseStream.start();
-    
-    const eventSource = new EventSource('/download-car');
+
+    const eventSource = new EventSource('{{ url_for("download_car") }}');
     
     eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -612,7 +612,7 @@ document.getElementById('process-btn').addEventListener('click', async () => {
     }, 1000);
     
     try {
-        const response = await fetch('/process-data', {
+        const response = await fetch('{{ url_for("process_data") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

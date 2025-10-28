@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Cleanup Dashboard - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Cleanup Dashboard</h1>
+            <p class="lead">Clean up your Bluesky account with intelligent following management and post organization.</p>
+        </div>
+    </div>
+
+    <!-- Cleanup Tools Grid -->
+    <div class="row">
+        <!-- Following Cleaner Card -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-times"></i> Following Cleaner
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Analyze and clean up your following list by identifying bot/spam accounts.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Bot detection algorithms</li>
+                        <li><i class="fas fa-check text-success"></i> Quality assessment</li>
+                        <li><i class="fas fa-check text-success"></i> Interactive unfollowing</li>
+                        <li><i class="fas fa-check text-success"></i> Safety measures</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-warning w-100" onclick="startFollowingCleanup()">
+                        <i class="fas fa-play"></i> Start Cleanup
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Post Importer Card -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-download"></i> Post Importer
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Import and organize your posts with deduplication and batch processing.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Post import from API</li>
+                        <li><i class="fas fa-check text-success"></i> Deduplication by URI</li>
+                        <li><i class="fas fa-check text-success"></i> Batch processing</li>
+                        <li><i class="fas fa-check text-success"></i> Progress tracking</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-info w-100" onclick="startPostImport()">
+                        <i class="fas fa-play"></i> Start Import
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Health Card -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-heartbeat"></i> Account Health
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Get a comprehensive health check of your Bluesky account.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Following quality analysis</li>
+                        <li><i class="fas fa-check text-success"></i> Post engagement metrics</li>
+                        <li><i class="fas fa-check text-success"></i> Account recommendations</li>
+                        <li><i class="fas fa-check text-success"></i> Health score</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-success w-100" onclick="startHealthCheck()">
+                        <i class="fas fa-play"></i> Check Health
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleanup Results Section -->
+    <div class="row mt-4" id="results-section" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Cleanup Results</h5>
+                </div>
+                <div class="card-body">
+                    <div id="cleanup-results">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5>Cleanup in Progress</h5>
+                    <p class="mb-0">Please wait while we analyze your account...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmation-message">Are you sure you want to proceed?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-action">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Cleanup functions
+function startFollowingCleanup() {
+    showLoadingModal();
+    
+    fetch('/skymarshal/cleanup/following', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'analyze',
+            max_following: 200
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            displayFollowingCleanupResults(data.results);
+        } else {
+            showError(data.error || 'Following cleanup analysis failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function startPostImport() {
+    showLoadingModal();
+    
+    fetch('/skymarshal/cleanup/posts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'import',
+            max_posts: 100
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            displayPostImportResults(data.results);
+        } else {
+            showError(data.error || 'Post import failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function startHealthCheck() {
+    showLoadingModal();
+    
+    fetch('/skymarshal/cleanup/health', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'check'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingModal();
+        if (data.success) {
+            displayHealthCheckResults(data.results);
+        } else {
+            showError(data.error || 'Health check failed');
+        }
+    })
+    .catch(error => {
+        hideLoadingModal();
+        showError('Network error: ' + error.message);
+    });
+}
+
+function displayFollowingCleanupResults(results) {
+    const resultsDiv = document.getElementById('cleanup-results');
+    const highRiskCount = results.high_risk_count || 0;
+    const lowQualityCount = results.low_quality_count || 0;
+    
+    resultsDiv.innerHTML = `
+        <h6>Following Cleanup Analysis</h6>
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.total_following}</h5>
+                        <p class="card-text">Total Following</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${highRiskCount}</h5>
+                        <p class="card-text">High Risk Accounts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${lowQualityCount}</h5>
+                        <p class="card-text">Low Quality Accounts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.total_following - highRiskCount - lowQualityCount}</h5>
+                        <p class="card-text">Healthy Accounts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        ${highRiskCount > 0 ? `
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle"></i> High Risk Accounts Found</h6>
+                <p>We found ${highRiskCount} accounts that may be bots or spam. Consider reviewing and unfollowing them.</p>
+                <button class="btn btn-warning" onclick="startInteractiveUnfollow()">
+                    <i class="fas fa-user-times"></i> Review High Risk Accounts
+                </button>
+            </div>
+        ` : ''}
+        
+        <div class="mt-3">
+            <h6>Problematic Accounts (Top 20)</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Handle</th>
+                            <th>Display Name</th>
+                            <th>Followers</th>
+                            <th>Following</th>
+                            <th>Bot Score</th>
+                            <th>Quality</th>
+                            <th>Issues</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${results.analyzed_following.slice(0, 20).map(account => `
+                            <tr class="${account.bot_score > 0.7 ? 'table-danger' : account.quality_score < 0.3 ? 'table-warning' : ''}">
+                                <td>@${account.handle}</td>
+                                <td>${account.displayName || 'N/A'}</td>
+                                <td>${account.followersCount.toLocaleString()}</td>
+                                <td>${account.followsCount.toLocaleString()}</td>
+                                <td><span class="badge ${account.bot_score > 0.7 ? 'bg-danger' : account.bot_score > 0.4 ? 'bg-warning' : 'bg-success'}">${account.bot_score.toFixed(2)}</span></td>
+                                <td>${account.quality_score.toFixed(2)}</td>
+                                <td>${account.issues.slice(0, 2).join(', ')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('results-section').style.display = 'block';
+}
+
+function displayPostImportResults(results) {
+    const resultsDiv = document.getElementById('cleanup-results');
+    resultsDiv.innerHTML = `
+        <h6>Post Import Results</h6>
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.posts_imported}</h5>
+                        <p class="card-text">New Posts Imported</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.posts_skipped}</h5>
+                        <p class="card-text">Posts Skipped (Already Exists)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.posts_processed}</h5>
+                        <p class="card-text">Total Processed</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.total_posts_available}</h5>
+                        <p class="card-text">Total Available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        ${results.statistics ? `
+            <div class="mt-3">
+                <h6>Import Statistics</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Total Posts in Database:</strong> ${results.statistics.total_posts.toLocaleString()}</p>
+                        <p><strong>First Import:</strong> ${results.statistics.first_import || 'N/A'}</p>
+                        <p><strong>Last Import:</strong> ${results.statistics.last_import || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Likes:</strong> ${results.statistics.total_likes.toLocaleString()}</p>
+                        <p><strong>Total Replies:</strong> ${results.statistics.total_replies.toLocaleString()}</p>
+                        <p><strong>Total Reposts:</strong> ${results.statistics.total_reposts.toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+        ` : ''}
+    `;
+    
+    document.getElementById('results-section').style.display = 'block';
+}
+
+function displayHealthCheckResults(results) {
+    const resultsDiv = document.getElementById('cleanup-results');
+    const healthScore = results.health_score || 0;
+    const healthColor = healthScore > 80 ? 'success' : healthScore > 60 ? 'warning' : 'danger';
+    
+    resultsDiv.innerHTML = `
+        <h6>Account Health Check</h6>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="card bg-${healthColor} text-white">
+                    <div class="card-body text-center">
+                        <h2 class="card-title">${healthScore}</h2>
+                        <p class="card-text">Health Score</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.following_quality || 'N/A'}</h5>
+                        <p class="card-text">Following Quality</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.engagement_rate || 'N/A'}</h5>
+                        <p class="card-text">Engagement Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <h6>Recommendations</h6>
+            <ul class="list-group">
+                ${results.recommendations ? results.recommendations.map(rec => `
+                    <li class="list-group-item">
+                        <i class="fas fa-arrow-right text-primary"></i> ${rec}
+                    </li>
+                `).join('') : '<li class="list-group-item">No specific recommendations at this time.</li>'}
+            </ul>
+        </div>
+    `;
+    
+    document.getElementById('results-section').style.display = 'block';
+}
+
+function startInteractiveUnfollow() {
+    if (confirm('This will start an interactive unfollowing process. Are you sure you want to continue?')) {
+        showLoadingModal();
+        
+        fetch('/skymarshal/cleanup/following', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'unfollow',
+                interactive: true
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoadingModal();
+            if (data.success) {
+                displayUnfollowResults(data.results);
+            } else {
+                showError(data.error || 'Interactive unfollowing failed');
+            }
+        })
+        .catch(error => {
+            hideLoadingModal();
+            showError('Network error: ' + error.message);
+        });
+    }
+}
+
+function displayUnfollowResults(results) {
+    const resultsDiv = document.getElementById('cleanup-results');
+    resultsDiv.innerHTML = `
+        <h6>Unfollowing Results</h6>
+        <div class="alert alert-success">
+            <h6><i class="fas fa-check-circle"></i> Unfollowing Complete!</h6>
+            <p>Successfully unfollowed ${results.unfollowed} accounts, skipped ${results.skipped} accounts, with ${results.errors} errors.</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.unfollowed}</h5>
+                        <p class="card-text">Unfollowed</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.skipped}</h5>
+                        <p class="card-text">Skipped</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">${results.errors}</h5>
+                        <p class="card-text">Errors</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('results-section').style.display = 'block';
+}
+
+function showLoadingModal() {
+    const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    modal.show();
+}
+
+function hideLoadingModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+function showError(message) {
+    alert('Error: ' + message);
+}
+</script>
+{% endblock %}

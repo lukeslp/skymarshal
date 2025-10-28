@@ -13,11 +13,13 @@ from datetime import datetime
 from typing import Optional, Dict, List, Any
 from functools import wraps
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, stream_with_context, send_from_directory, current_app
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, stream_with_context, send_from_directory
 import secrets
 import threading
 import queue
 import time
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 # Add parent directory to path to import skymarshal modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -27,26 +29,16 @@ from skymarshal.search import SearchManager
 from skymarshal.deletion import DeletionManager
 from skymarshal.models import ContentType, SearchFilters, DeleteMode, UserSettings, console, calculate_engagement_score
 from skymarshal.settings import SettingsManager
-from skymarshal.analytics import FollowerAnalyzer, PostAnalyzer, ContentAnalyzer
-from skymarshal.cleanup import FollowingCleaner, PostImporter
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 
 # Configure for reverse proxy with subpath
-class PrefixMiddleware:
-    def __init__(self, app, prefix=''):
-        self.app = app
-        self.prefix = prefix
+# Set APPLICATION_ROOT to handle the /skymarshal prefix
+app.config['APPLICATION_ROOT'] = '/skymarshal'
 
-    def __call__(self, environ, start_response):
-        if self.prefix:
-            environ['SCRIPT_NAME'] = self.prefix
-            if environ['PATH_INFO'].startswith(self.prefix):
-                environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
-        return self.app(environ, start_response)
-
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/skymarshal')
+# Use ProxyFix for proper header handling behind Caddy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Use simple server-side sessions without Flask-Session
 app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
@@ -346,28 +338,18 @@ def login():
         normalized_handle = auth_manager.normalize_handle(handle)
         
         try:
-            # Check if password looks like regular password before attempting auth
-            used_regular_password = is_likely_regular_password(password)
-
             if auth_manager.authenticate_client(normalized_handle, password):
                 session_id = secrets.token_hex(16)
                 session['user_handle'] = normalized_handle
                 session['session_id'] = session_id
-                session['used_regular_password'] = used_regular_password
                 auth_storage[session_id] = auth_manager
-
-                # Return success with warning if regular password was used
-                response = {'success': True, 'redirect': url_for('setup')}
-                if used_regular_password:
-                    response['warning'] = '⚠️ Warning: You appear to be using your regular Bluesky password. For security, we recommend using an app password from Settings > Privacy & Security > App Passwords.'
-
-                return jsonify(response)
+                return jsonify({'success': True, 'redirect': url_for('setup')})
             else:
-                # Authentication failed
-                if used_regular_password:
+                # Check if it looks like they used their regular password
+                if is_likely_regular_password(password):
                     return jsonify({
-                        'success': False,
-                        'error': 'Authentication failed. You appear to be using your regular password. Please use an app password from Bluesky settings for better security.',
+                        'success': False, 
+                        'error': 'That appears to be your regular password. Please use an app password from Bluesky settings instead. If you know what you\'re doing, try again.',
                         'suggestion': 'app_password'
                     }), 401
                 else:
@@ -377,8 +359,8 @@ def login():
             if 'invalid' in error_msg or 'unauthorized' in error_msg:
                 if is_likely_regular_password(password):
                     return jsonify({
-                        'success': False,
-                        'error': 'Authentication failed. You appear to be using your regular password. Please use an app password from Bluesky settings for better security.',
+                        'success': False, 
+                        'error': 'Authentication failed. This looks like your regular password - please use an app password from Bluesky settings.',
                         'suggestion': 'app_password'
                     }), 401
                 else:
@@ -402,80 +384,98 @@ def user_profile():
     auth_manager = get_auth_manager()
     if not auth_manager or not auth_manager.client:
         return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-
-    handle = session.get('user_handle')
-    if not handle:
-        return jsonify({'success': False, 'error': 'Missing session handle'}), 401
-
-    if not auth_manager.is_authenticated():
-        return jsonify({'success': False, 'error': 'Session expired'}), 401
-
-    profile_data, method_used = None, None
-
-    # Method 1: the modern app.bsky.actor.getProfile endpoint
+    
     try:
-        response = auth_manager.client.app.bsky.actor.get_profile({'actor': handle})
-        if hasattr(response, 'value'):
-            profile_data = response.value
-            method_used = 'app.bsky.actor.get_profile'
-    except Exception as exc:
-        current_app.logger.debug("get_profile RPC failed: %s", exc)
-
-    # Method 2: legacy convenience helper
-    if profile_data is None:
+        handle = session['user_handle']
+        
+        # Check if client is authenticated
+        if not auth_manager.is_authenticated():
+            return jsonify({'success': False, 'error': 'Session expired'}), 401
+            
+        print(f"DEBUG: Fetching profile for handle: {handle}")
+        
+        # Try multiple methods to get profile data
+        profile_data = None
+        method_used = None
+        
+        # Method 1: Try the app.bsky.actor.getProfile method
         try:
-            profile_data = auth_manager.client.get_profile(handle)
-            method_used = 'client.get_profile'
-        except Exception as exc:
-            current_app.logger.warning("Legacy profile fetch failed: %s", exc)
-
-    if profile_data is None:
-        return _user_profile_fallback(handle, 'Profile lookup failed')
-
-    def _extract(attr_name: str, *aliases):
-        for name in (attr_name, *aliases):
-            value = getattr(profile_data, name, None)
-            if value is not None:
-                return value
-        return None
-
-    payload = {
-        'handle': _extract('handle') or handle,
-        'displayName': _extract('display_name', 'displayName') or '',
-        'description': _extract('description') or '',
-        'avatar': _extract('avatar') or '/static/images/default-avatar.svg',
-        'banner': _extract('banner') or '',
-        'followersCount': _extract('followers_count', 'followersCount') or 0,
-        'followsCount': _extract('follows_count', 'followsCount') or 0,
-        'postsCount': _extract('posts_count', 'postsCount') or 0,
-    }
-
-    created_at = _extract('created_at', 'createdAt')
-    if created_at and hasattr(created_at, 'isoformat'):
-        payload['createdAt'] = created_at.isoformat()
-    else:
-        payload['createdAt'] = created_at
-
-    return jsonify({'success': True, 'method_used': method_used, 'profile': payload})
-
-
-def _user_profile_fallback(handle: str, error: str):
-    current_app.logger.warning("Profile fallback for %s: %s", handle, error)
-    return jsonify({
-        'success': True,
-        'profile': {
-            'handle': handle,
-            'displayName': '',
-            'description': '',
-            'avatar': '/static/images/default-avatar.svg',
-            'banner': '',
-            'followersCount': 0,
-            'followsCount': 0,
-            'postsCount': 0,
-            'createdAt': None,
-        },
-        'error': error,
-    })
+            print("DEBUG: Trying app.bsky.actor.get_profile method...")
+            response = auth_manager.client.app.bsky.actor.get_profile({'actor': handle})
+            if hasattr(response, 'value'):
+                profile_data = response.value
+                method_used = 'app.bsky.actor.get_profile'
+                print(f"DEBUG: Method 1 succeeded with data type: {type(profile_data)}")
+        except Exception as e:
+            print(f"DEBUG: Method 1 failed: {e}")
+        
+        # Method 2: Try the legacy get_profile method
+        if not profile_data:
+            try:
+                print("DEBUG: Trying legacy get_profile method...")
+                profile_data = auth_manager.client.get_profile(handle)
+                method_used = 'get_profile'
+                print(f"DEBUG: Method 2 succeeded with data type: {type(profile_data)}")
+            except Exception as e:
+                print(f"DEBUG: Method 2 failed: {e}")
+        
+        if not profile_data:
+            raise Exception("All profile fetch methods failed")
+        
+        # Extract data with flexible attribute access
+        def get_attr(obj, *names):
+            for name in names:
+                value = getattr(obj, name, None)
+                if value is not None:
+                    return value
+            return None
+        
+        handle_val = get_attr(profile_data, 'handle') or handle
+        display_name_val = get_attr(profile_data, 'display_name', 'displayName') or ''
+        description_val = get_attr(profile_data, 'description') or ''
+        avatar_val = get_attr(profile_data, 'avatar') or '/static/images/default-avatar.svg'
+        banner_val = get_attr(profile_data, 'banner') or ''
+        followers_val = get_attr(profile_data, 'followers_count', 'followersCount') or 0
+        follows_val = get_attr(profile_data, 'follows_count', 'followsCount') or 0
+        posts_val = get_attr(profile_data, 'posts_count', 'postsCount') or 0
+        created_val = get_attr(profile_data, 'created_at', 'createdAt')
+        
+        print(f"DEBUG: Extracted data - handle: {handle_val}, displayName: '{display_name_val}', avatar: {avatar_val}")
+        print(f"DEBUG: Method used: {method_used}")
+        
+        return jsonify({
+            'success': True,
+            'method_used': method_used,
+            'profile': {
+                'handle': handle_val,
+                'displayName': display_name_val,
+                'description': description_val,
+                'avatar': avatar_val,
+                'banner': banner_val,
+                'followersCount': followers_val,
+                'followsCount': follows_val,
+                'postsCount': posts_val,
+                'createdAt': created_val.isoformat() if created_val and hasattr(created_val, 'isoformat') else None
+            }
+        })
+    except Exception as e:
+        print(f"ERROR: Failed to get profile for {session.get('user_handle', 'unknown')}: {e}")
+        # Return fallback data if profile fetch fails
+        return jsonify({
+            'success': True,
+            'profile': {
+                'handle': session.get('user_handle', 'unknown'),
+                'displayName': '',
+                'description': '',
+                'avatar': '/static/images/default-avatar.svg',
+                'banner': '',
+                'followersCount': 0,
+                'followsCount': 0,
+                'postsCount': 0,
+                'createdAt': None
+            },
+            'error': f'Profile fetch failed: {str(e)}'
+        })
 
 @app.route('/bluesky-facts')
 @login_required
@@ -1700,144 +1700,6 @@ def download_backup():
     except Exception as e:
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
-@app.route('/nuke')
-@login_required
-def nuke():
-    """Nuclear delete page - delete ALL content with multiple confirmations"""
-    handle = session['user_handle']
-    json_path = get_json_path()
-    
-    if not json_path:
-        return redirect(url_for('setup'))
-    
-    # Load data to get stats
-    try:
-        # Set up required directories
-        skymarshal_dir = Path.home() / '.skymarshal'
-        backups_dir = skymarshal_dir / 'cars'
-        json_dir = skymarshal_dir / 'json'
-        
-        # Create default settings
-        settings_file = Path.home() / ".car_inspector_settings.json"
-        settings_manager = SettingsManager(settings_file)
-        settings = settings_manager.settings
-        
-        # Follow the working pattern from loners scripts
-        from skymarshal.ui import UIManager
-        ui_manager = UIManager(settings)
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            auth_manager = AuthManager(ui_manager)
-        
-        data_manager = DataManager(
-            auth_manager or AuthManager(),
-            settings,
-            skymarshal_dir,
-            backups_dir,
-            json_dir
-        )
-        
-        items = data_manager.load_exported_data(Path(json_path))
-        
-        # Calculate statistics
-        total_items = len(items)
-        posts = [item for item in items if item.content_type == 'post']
-        replies = [item for item in items if item.content_type == 'reply']
-        repost_items = [item for item in items if item.content_type == 'repost']
-        like_items = [item for item in items if item.content_type == 'like']
-        
-        stats = {
-            'total_posts': len(posts),
-            'total_replies': len(replies),
-            'total_likes': len(like_items),
-            'total_reposts': len(repost_items),
-            'total_items': total_items
-        }
-        
-        return render_template('nuke.html', 
-                             handle=handle,
-                             stats=stats)
-    except Exception as e:
-        print(f"Error loading data for nuclear delete: {e}")
-        return redirect(url_for('dashboard'))
-
-@app.route('/nuke', methods=['POST'])
-@login_required
-def nuke_execute():
-    """Execute nuclear delete with confirmations"""
-    data = request.get_json()
-    confirmation_phrase = data.get('confirmation_phrase', '')
-    final_confirmation = data.get('final_confirmation', False)
-    
-    handle = session['user_handle']
-    expected_phrase = f"DELETE ALL {handle}"
-    
-    # Validate confirmations
-    if confirmation_phrase != expected_phrase:
-        return jsonify({'success': False, 'error': 'Confirmation phrase does not match'}), 400
-    
-    if not final_confirmation:
-        return jsonify({'success': False, 'error': 'Final confirmation checkbox must be checked'}), 400
-    
-    # Get all content to delete
-    json_path = get_json_path()
-    if not json_path:
-        return jsonify({'success': False, 'error': 'No data loaded'}), 400
-    
-    try:
-        # Set up required directories
-        skymarshal_dir = Path.home() / '.skymarshal'
-        backups_dir = skymarshal_dir / 'cars'
-        json_dir = skymarshal_dir / 'json'
-        
-        # Create default settings
-        settings_file = Path.home() / ".car_inspector_settings.json"
-        settings_manager = SettingsManager(settings_file)
-        settings = settings_manager.settings
-        
-        # Follow the working pattern from loners scripts
-        from skymarshal.ui import UIManager
-        ui_manager = UIManager(settings)
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            auth_manager = AuthManager(ui_manager)
-        
-        data_manager = DataManager(
-            auth_manager or AuthManager(),
-            settings,
-            skymarshal_dir,
-            backups_dir,
-            json_dir
-        )
-        
-        all_items = data_manager.load_exported_data(Path(json_path))
-        
-        if not all_items:
-            return jsonify({'success': False, 'error': 'No content found to delete'}), 400
-        
-        # Delete all items using the deletion manager
-        deletion_manager = DeletionManager(auth_manager=auth_manager, settings=settings)
-        
-        deleted_count, failed_count = deletion_manager.delete_items_batch(
-            all_items, 
-            DeleteMode.ALL_AT_ONCE
-        )
-        
-        # Clear session data after successful deletion
-        session.clear()
-        
-        return jsonify({
-            'success': True,
-            'deleted': deleted_count,
-            'failed': failed_count,
-            'total': len(all_items)
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @app.route('/debug-session')
 @login_required
 def debug_session():
@@ -1896,338 +1758,6 @@ def debug_session():
             debug_info['file_exists'] = Path(json_path).exists() if json_path else False
     
     return jsonify(debug_info)
-
-# Analytics Routes
-@app.route('/analytics')
-@login_required
-def analytics_dashboard():
-    """Analytics dashboard page"""
-    return render_template('analytics_dashboard.html')
-
-@app.route('/analytics/followers', methods=['POST'])
-@login_required
-def analytics_followers():
-    """Follower analysis endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'analyze')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        follower_analyzer = FollowerAnalyzer(auth_manager)
-        
-        if action == 'analyze':
-            max_followers = data.get('max_followers', 100)
-            results = asyncio.run(follower_analyzer.run_complete_analysis(
-                target_username=session.get('user_handle'),
-                max_followers=max_followers
-            ))
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/analytics/posts', methods=['POST'])
-@login_required
-def analytics_posts():
-    """Post analysis endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'analyze')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        post_analyzer = PostAnalyzer(auth_manager)
-        
-        if action == 'analyze':
-            max_posts = data.get('max_posts', 100)
-            results = asyncio.run(post_analyzer.run_complete_analysis(
-                author_handle=session.get('user_handle'),
-                max_posts=max_posts
-            ))
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/analytics/content', methods=['POST'])
-@login_required
-def analytics_content():
-    """Content analysis endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'analyze')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        content_analyzer = ContentAnalyzer(auth_manager)
-        
-        if action == 'analyze':
-            # Get recent posts for analysis
-            from skymarshal.data_manager import DataManager
-            from skymarshal.settings import SettingsManager
-            
-            settings_file = Path.home() / ".car_inspector_settings.json"
-            settings_manager = SettingsManager(settings_file)
-            settings = settings_manager.settings
-            
-            skymarshal_dir = Path.home() / '.skymarshal'
-            backups_dir = skymarshal_dir / 'cars'
-            json_dir = skymarshal_dir / 'json'
-            
-            data_manager = DataManager(auth_manager, settings, skymarshal_dir, backups_dir, json_dir)
-            json_path = get_json_path()
-            
-            if not json_path:
-                return jsonify({'success': False, 'error': 'No data available for analysis'}), 400
-            
-            posts = data_manager.load_exported_data(Path(json_path))
-            post_data = [{'text': post.text, 'created_at': post.created_at} for post in posts if post.text]
-            
-            analysis_types = data.get('analysis_types', ['vibe', 'summary', 'sentiment', 'categorize'])
-            results = asyncio.run(content_analyzer.run_complete_analysis(post_data, analysis_types))
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# Cleanup Routes
-@app.route('/cleanup')
-@login_required
-def cleanup_dashboard():
-    """Cleanup dashboard page"""
-    return render_template('cleanup_dashboard.html')
-
-@app.route('/cleanup/following', methods=['POST'])
-@login_required
-def cleanup_following():
-    """Following cleanup endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'analyze')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        following_cleaner = FollowingCleaner(auth_manager)
-        
-        if action == 'analyze':
-            max_following = data.get('max_following', 200)
-            results = asyncio.run(following_cleaner.run_complete_analysis(max_following=max_following))
-            return jsonify({'success': True, 'results': results})
-        elif action == 'unfollow':
-            interactive = data.get('interactive', False)
-            results = asyncio.run(following_cleaner.run_complete_analysis(interactive=interactive))
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/cleanup/posts', methods=['POST'])
-@login_required
-def cleanup_posts():
-    """Post import endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'import')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        post_importer = PostImporter(auth_manager)
-        
-        if action == 'import':
-            max_posts = data.get('max_posts', 100)
-            results = asyncio.run(post_importer.run_complete_import(
-                author_handle=session.get('user_handle'),
-                max_posts=max_posts
-            ))
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/cleanup/health', methods=['POST'])
-@login_required
-def cleanup_health():
-    """Account health check endpoint"""
-    try:
-        data = request.get_json()
-        action = data.get('action', 'check')
-        
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        if action == 'check' or action == 'quick_check':
-            # Run comprehensive health check
-            following_cleaner = FollowingCleaner(auth_manager)
-            post_analyzer = PostAnalyzer(auth_manager)
-            
-            # Get following analysis
-            following_results = asyncio.run(following_cleaner.run_complete_analysis(max_following=100))
-            
-            # Get post analysis
-            post_results = asyncio.run(post_analyzer.run_complete_analysis(
-                author_handle=session.get('user_handle'),
-                max_posts=50
-            ))
-            
-            # Calculate health score
-            health_score = 100
-            recommendations = []
-            
-            if following_results.get('high_risk_count', 0) > 0:
-                health_score -= following_results['high_risk_count'] * 2
-                recommendations.append(f"Consider unfollowing {following_results['high_risk_count']} high-risk accounts")
-            
-            if following_results.get('low_quality_count', 0) > 0:
-                health_score -= following_results['low_quality_count']
-                recommendations.append(f"Review {following_results['low_quality_count']} low-quality accounts")
-            
-            if post_results.get('analysis', {}).get('avg_engagement', 0) < 5:
-                health_score -= 10
-                recommendations.append("Consider improving post engagement")
-            
-            health_score = max(0, min(100, health_score))
-            
-            results = {
-                'health_score': health_score,
-                'following_quality': 'Good' if following_results.get('high_risk_count', 0) < 5 else 'Needs Attention',
-                'engagement_rate': f"{post_results.get('analysis', {}).get('avg_engagement', 0):.1f}",
-                'recommendations': recommendations,
-                'following_analysis': following_results,
-                'post_analysis': post_results
-            }
-            
-            return jsonify({'success': True, 'results': results})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid action'}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# Unified Dashboard Route
-@app.route('/unified')
-@login_required
-def unified_dashboard():
-    """Unified dashboard page"""
-    return render_template('unified_dashboard.html')
-
-# API Routes for unified dashboard
-@app.route('/api/stats')
-@login_required
-def api_stats():
-    """Get account statistics for unified dashboard"""
-    try:
-        auth_manager = get_auth_manager()
-        if not auth_manager:
-            return jsonify({'success': False, 'error': 'Not authenticated'}), 401
-        
-        # Get basic stats from session or calculate
-        json_path = get_json_path()
-        if json_path:
-            from skymarshal.data_manager import DataManager
-            from skymarshal.settings import SettingsManager
-            
-            settings_file = Path.home() / ".car_inspector_settings.json"
-            settings_manager = SettingsManager(settings_file)
-            settings = settings_manager.settings
-            
-            skymarshal_dir = Path.home() / '.skymarshal'
-            backups_dir = skymarshal_dir / 'cars'
-            json_dir = skymarshal_dir / 'json'
-            
-            data_manager = DataManager(auth_manager, settings, skymarshal_dir, backups_dir, json_dir)
-            items = data_manager.load_exported_data(Path(json_path))
-            
-            # Calculate basic stats
-            total_posts = len([item for item in items if item.content_type == ContentType.POST])
-            total_likes = sum(item.like_count for item in items)
-            total_reposts = sum(item.repost_count for item in items)
-            total_replies = sum(item.reply_count for item in items)
-            
-            # Simple health score calculation
-            health_score = 85  # Default score
-            if total_posts > 0:
-                avg_engagement = (total_likes + total_reposts + total_replies) / total_posts
-                if avg_engagement > 10:
-                    health_score = 95
-                elif avg_engagement > 5:
-                    health_score = 85
-                else:
-                    health_score = 75
-            
-            stats = {
-                'total_posts': total_posts,
-                'total_followers': session.get('total_followers', 0),
-                'total_following': session.get('total_following', 0),
-                'health_score': health_score,
-                'total_engagement': total_likes + total_reposts + total_replies
-            }
-        else:
-            stats = {
-                'total_posts': 0,
-                'total_followers': 0,
-                'total_following': 0,
-                'health_score': 0,
-                'total_engagement': 0
-            }
-        
-        return jsonify({'success': True, 'stats': stats})
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/activity')
-@login_required
-def api_activity():
-    """Get recent activity for unified dashboard"""
-    try:
-        # Mock recent activity data
-        activities = [
-            {
-                'icon': 'chart-line',
-                'color': 'primary',
-                'description': 'Follower analysis completed',
-                'timestamp': '2 hours ago'
-            },
-            {
-                'icon': 'broom',
-                'color': 'warning',
-                'description': 'Following cleanup completed',
-                'timestamp': '1 day ago'
-            },
-            {
-                'icon': 'download',
-                'color': 'info',
-                'description': 'Posts imported successfully',
-                'timestamp': '2 days ago'
-            }
-        ]
-        
-        return jsonify({'success': True, 'activities': activities})
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/static/<path:path>')
 def send_static(path):
