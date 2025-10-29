@@ -36,28 +36,6 @@
 
         <main style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
         <div style="display: flex; flex-direction: column; gap: 16px;">
-        <section class="lite-card" style="padding: 16px;">
-            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Your Content</h2>
-            <div class="lite-summary" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
-                <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-posts" style="font-size: 24px; font-weight: 700;">{{ summary.posts }}</span>
-                    <span class="lite-summary-label">Posts</span>
-                </div>
-                <div class="lite-summary-item">
-                    <span class="lite-summary-value" id="summary-replies" style="font-size: 24px; font-weight: 700;">{{ summary.replies }}</span>
-                    <span class="lite-summary-label">Replies</span>
-                </div>
-            </div>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); text-align: center;">
-                <span style="font-size: 13px; color: var(--text-muted);">
-                    <strong id="summary-total">{{ summary.total }}</strong> items loaded
-                    <br>
-                    <span style="font-size: 11px; opacity: 0.8;">
-                        ({{ summary.likes }} likes, {{ summary.reposts }} reposts also available)
-                    </span>
-                </span>
-            </div>
-        </section>
 
         <section class="lite-card" style="padding: 16px;">
             <h2 style="margin: 0 0 12px 0; font-size: 16px;">Export Data</h2>
@@ -132,7 +110,7 @@
                     <button id="delete-selected" class="lite-danger" type="button" disabled>Delete Selected</button>
                 </div>
             </div>
-            <p id="results-meta" class="lite-meta">Search to see results.</p>
+            <p id="results-meta" class="lite-meta">Loading your recent posts...</p>
             <div class="lite-table-wrapper">
                 <table class="lite-table" role="table" aria-label="Search results">
                     <thead>
@@ -152,12 +130,12 @@
     </main>
 
     <!-- Analytics Modal -->
-    <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
-        <div style="max-width: 1200px; margin: 40px auto; padding: 24px;">
-            <div class="lite-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                    <h1 style="margin: 0; font-size: 24px;">📈 Analytics & Insights</h1>
-                    <button id="close-analytics-btn" class="lite-secondary lite-small">Close</button>
+    <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; overflow-y: auto; padding: 16px;">
+        <div style="max-width: 900px; margin: 0 auto; width: 100%;">
+            <div class="lite-card" style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                    <h1 style="margin: 0; font-size: 20px; flex: 1;">📈 Analytics & Insights</h1>
+                    <button id="close-analytics-btn" class="lite-secondary lite-small">✕ Close</button>
                 </div>
 
                 <div id="analytics-loading" style="text-align: center; padding: 40px;">
@@ -166,55 +144,48 @@
 
                 <div id="analytics-content" style="display: none;">
                     <!-- Sentiment Analysis -->
-                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
-                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">😊 Sentiment Analysis</h2>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <section class="lite-card" style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">😊 Sentiment Analysis</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                             <div style="text-align: center;">
-                                <div id="sentiment-score" style="font-size: 32px; font-weight: 700; color: var(--primary-light);">0.0</div>
-                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Average Score</div>
+                                <div id="sentiment-score" style="font-size: 28px; font-weight: 700; color: var(--primary-light);">0.0</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Avg Score</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-positive" style="font-size: 32px; font-weight: 700; color: #10b981;">0%</div>
-                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Positive</div>
+                                <div id="sentiment-positive" style="font-size: 28px; font-weight: 700; color: #10b981;">0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Positive</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-neutral" style="font-size: 32px; font-weight: 700; color: var(--text-muted);">0%</div>
-                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Neutral</div>
+                                <div id="sentiment-neutral" style="font-size: 28px; font-weight: 700; color: var(--text-muted);">0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Neutral</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-negative" style="font-size: 32px; font-weight: 700; color: #ef4444;">0%</div>
-                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Negative</div>
+                                <div id="sentiment-negative" style="font-size: 28px; font-weight: 700; color: #ef4444;">0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Negative</div>
                             </div>
                         </div>
                     </section>
 
                     <!-- Time Patterns -->
-                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
-                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">⏰ Time Patterns</h2>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <section class="lite-card" style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">⏰ Time Patterns</h2>
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
                             <div>
-                                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted);">Best Time to Post</h3>
-                                <div id="best-hour" style="font-size: 24px; font-weight: 600; color: var(--primary-light);">--</div>
-                                <div id="best-day" style="font-size: 18px; color: var(--text);">--</div>
+                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Best Time to Post</h3>
+                                <div id="best-hour" style="font-size: 20px; font-weight: 600; color: var(--primary-light);">--</div>
+                                <div id="best-day" style="font-size: 16px; color: var(--text);">--</div>
                             </div>
                             <div>
-                                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted);">Posting Activity</h3>
-                                <div id="time-stats" style="font-size: 14px; color: var(--text);"></div>
+                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Posting Activity</h3>
+                                <div id="time-stats" style="font-size: 13px; color: var(--text); line-height: 1.6;"></div>
                             </div>
-                        </div>
-                    </section>
-
-                    <!-- Engagement Correlation -->
-                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
-                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">🔥 High-Engagement Topics</h2>
-                        <div id="engagement-words" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
                         </div>
                     </section>
 
                     <!-- Word Frequency -->
-                    <section class="lite-card" style="background: var(--bg-elevated);">
-                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">📝 Most Used Words</h2>
-                        <div id="word-frequency" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
+                    <section class="lite-card" style="background: var(--bg-elevated); padding: 16px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">📝 Most Used Words</h2>
+                        <div id="word-frequency" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;">
                         </div>
                     </section>
                 </div>
@@ -560,19 +531,6 @@
             Most active day: ${time.best_day || 'N/A'}
         `;
 
-        // Engagement Correlation
-        const engagementWords = document.getElementById('engagement-words');
-        engagementWords.innerHTML = '';
-        analytics.engagement_correlation.high_engagement_words.slice(0, 15).forEach(word => {
-            const chip = document.createElement('div');
-            chip.style.cssText = 'background: rgba(59, 130, 246, 0.2); padding: 8px 12px; border-radius: 8px; text-align: center;';
-            chip.innerHTML = `
-                <div style="font-weight: 600; color: var(--primary-light);">${escapeHtml(word.word)}</div>
-                <div style="font-size: 12px; color: var(--text-muted);">${word.avg_engagement} avg engagement</div>
-            `;
-            engagementWords.appendChild(chip);
-        });
-
         // Word Frequency
         const wordFrequency = document.getElementById('word-frequency');
         wordFrequency.innerHTML = '';
@@ -586,6 +544,34 @@
             wordFrequency.appendChild(chip);
         });
     }
+
+    // Auto-load recent posts on page load
+    window.addEventListener('DOMContentLoaded', () => {
+        // Automatically trigger search with default filters (posts + replies, no other filters)
+        const formData = new FormData(searchForm);
+        const payload = buildPayload(formData);
+
+        // Ensure posts and replies are selected
+        payload.content_types = ['post', 'reply'];
+        payload.limit = 100; // Load first 100 items
+
+        fetch('{{ url_for('lite_search') }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderResults(data.results, data.total);
+            } else {
+                resultsMeta.textContent = `Error loading posts: ${data.error || 'Unknown error'}`;
+            }
+        })
+        .catch(error => {
+            resultsMeta.textContent = `Failed to load posts: ${error.message}`;
+        });
+    });
     </script>
 </body>
 </html>
