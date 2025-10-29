@@ -15,10 +15,10 @@
             </div>
             <div class="lite-header-actions">
                 <span class="lite-handle">@{{ handle }}</span>
-                <form method="post" action="{{ url_for('lite_refresh') }}" id="refresh-form" style="margin: 0;">
+                <form method="post" action="{{ url_for('refresh') }}" id="refresh-form" style="margin: 0;">
                     <button type="submit" class="lite-secondary lite-small">🔄 Refresh</button>
                 </form>
-                <a href="{{ url_for('lite_logout') }}" class="lite-link">Logout →</a>
+                <a href="{{ url_for('logout') }}" class="lite-link">Logout →</a>
             </div>
         </header>
 
@@ -40,10 +40,10 @@
         <section class="lite-card" style="padding: 16px;">
             <h2 style="margin: 0 0 12px 0; font-size: 16px;">Export Data</h2>
             <div style="display: flex; flex-direction: column; gap: 8px;">
-                <a href="{{ url_for('lite_export_csv') }}" class="lite-button" style="text-align: center; text-decoration: none;">
+                <a href="{{ url_for('export_csv') }}" class="lite-button" style="text-align: center; text-decoration: none;">
                     📊 Download CSV Export
                 </a>
-                <a href="{{ url_for('lite_export_car') }}" class="lite-button lite-secondary" style="text-align: center; text-decoration: none;">
+                <a href="{{ url_for('export_car') }}" class="lite-button lite-secondary" style="text-align: center; text-decoration: none;">
                     💾 Download CAR Backup
                 </a>
             </div>
@@ -208,7 +208,7 @@
         deleteSelected.disabled = true;
         selected.clear();
         resultsMeta.textContent = '⏳ Refreshing data from Bluesky...';
-        const response = await fetch('{{ url_for('lite_refresh') }}', { method: 'POST' });
+        const response = await fetch('{{ url_for('refresh') }}', { method: 'POST' });
         if (!response.ok) {
             resultsMeta.textContent = 'Refresh failed. Try again later.';
             return;
@@ -294,7 +294,7 @@
         try {
             const formData = new FormData(searchForm);
             const payload = buildPayload(formData);
-            const response = await fetch('{{ url_for('lite_search') }}', {
+            const response = await fetch('{{ url_for('search') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -357,7 +357,7 @@
         button.textContent = '⏳ Deleting...';
         
         try {
-            const response = await fetch('{{ url_for('lite_delete') }}', {
+            const response = await fetch('{{ url_for('delete') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uris: [uri] })
@@ -402,7 +402,7 @@
         deleteSelected.textContent = `⏳ Deleting ${selected.size} items...`;
         
         try {
-            const response = await fetch('{{ url_for('lite_delete') }}', {
+            const response = await fetch('{{ url_for('delete') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uris: Array.from(selected) })
@@ -466,7 +466,7 @@
         analyticsContent.style.display = 'none';
 
         try {
-            const response = await fetch('{{ url_for('lite_analytics') }}');
+            const response = await fetch('{{ url_for('analytics') }}');
             const data = await response.json();
 
             if (data.success) {
@@ -542,7 +542,7 @@
         payload.content_types = ['post', 'reply'];
         payload.limit = 100; // Load first 100 items
 
-        fetch('{{ url_for('lite_search') }}', {
+        fetch('{{ url_for('search') }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
