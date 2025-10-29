@@ -24,6 +24,7 @@ from flask import (
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skymarshal.services import ContentService, SearchRequest
+from skymarshal.services.analytics import ContentAnalytics
 
 
 app = Flask(__name__)
@@ -396,6 +397,35 @@ def lite_export_car():
             "success": False,
             "error": f"Failed to create CAR backup: {str(exc)}"
         }), 500
+
+
+@app.get("/lite/analytics")
+def lite_analytics():
+    """Get analytics and insights for the current user's content."""
+    try:
+        service = _require_service()
+    except PermissionError:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    try:
+        items = service.ensure_content_loaded(
+            categories=["posts", "likes", "reposts"],
+            limit=5000,
+        )
+
+        # Hydrate engagement data for accurate analytics
+        try:
+            service.data_manager.hydrate_items(items)
+        except Exception as hydrate_error:
+            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+
+        # Generate comprehensive analytics
+        insights = ContentAnalytics.generate_insights(items)
+
+        return jsonify({"success": True, "analytics": insights})
+
+    except RuntimeError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
 
 
 if __name__ == "__main__":

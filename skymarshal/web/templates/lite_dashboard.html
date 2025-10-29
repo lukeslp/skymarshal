@@ -74,6 +74,16 @@
             </p>
         </section>
 
+        <section class="lite-card" style="padding: 16px;">
+            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Analytics</h2>
+            <button id="load-analytics-btn" class="lite-button" style="width: 100%; text-align: center;">
+                📈 View Analytics & Insights
+            </button>
+            <p style="margin: 12px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                Sentiment analysis, time patterns, engagement trends, and word frequency
+            </p>
+        </section>
+
         <section class="lite-card">
             <h2>Search Posts</h2>
             <form id="search-form" class="lite-grid" role="search" aria-label="Content search form">
@@ -140,6 +150,77 @@
             </div>
         </section>
     </main>
+
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+        <div style="max-width: 1200px; margin: 40px auto; padding: 24px;">
+            <div class="lite-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h1 style="margin: 0; font-size: 24px;">📈 Analytics & Insights</h1>
+                    <button id="close-analytics-btn" class="lite-secondary lite-small">Close</button>
+                </div>
+
+                <div id="analytics-loading" style="text-align: center; padding: 40px;">
+                    <p style="font-size: 16px; color: var(--text-muted);">Loading analytics...</p>
+                </div>
+
+                <div id="analytics-content" style="display: none;">
+                    <!-- Sentiment Analysis -->
+                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">😊 Sentiment Analysis</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div style="text-align: center;">
+                                <div id="sentiment-score" style="font-size: 32px; font-weight: 700; color: var(--primary-light);">0.0</div>
+                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Average Score</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div id="sentiment-positive" style="font-size: 32px; font-weight: 700; color: #10b981;">0%</div>
+                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Positive</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div id="sentiment-neutral" style="font-size: 32px; font-weight: 700; color: var(--text-muted);">0%</div>
+                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Neutral</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div id="sentiment-negative" style="font-size: 32px; font-weight: 700; color: #ef4444;">0%</div>
+                                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Negative</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Time Patterns -->
+                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">⏰ Time Patterns</h2>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div>
+                                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted);">Best Time to Post</h3>
+                                <div id="best-hour" style="font-size: 24px; font-weight: 600; color: var(--primary-light);">--</div>
+                                <div id="best-day" style="font-size: 18px; color: var(--text);">--</div>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-muted);">Posting Activity</h3>
+                                <div id="time-stats" style="font-size: 14px; color: var(--text);"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Engagement Correlation -->
+                    <section class="lite-card" style="margin-bottom: 24px; background: var(--bg-elevated);">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">🔥 High-Engagement Topics</h2>
+                        <div id="engagement-words" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+                        </div>
+                    </section>
+
+                    <!-- Word Frequency -->
+                    <section class="lite-card" style="background: var(--bg-elevated);">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; color: var(--primary-light);">📝 Most Used Words</h2>
+                        <div id="word-frequency" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
     const searchForm = document.getElementById('search-form');
@@ -413,6 +494,98 @@
         selected.clear();
         deleteSelected.disabled = true;
     });
+
+    // Analytics modal functionality
+    const analyticsModal = document.getElementById('analytics-modal');
+    const loadAnalyticsBtn = document.getElementById('load-analytics-btn');
+    const closeAnalyticsBtn = document.getElementById('close-analytics-btn');
+    const analyticsLoading = document.getElementById('analytics-loading');
+    const analyticsContent = document.getElementById('analytics-content');
+
+    loadAnalyticsBtn.addEventListener('click', async () => {
+        analyticsModal.style.display = 'block';
+        analyticsLoading.style.display = 'block';
+        analyticsContent.style.display = 'none';
+
+        try {
+            const response = await fetch('{{ url_for('lite_analytics') }}');
+            const data = await response.json();
+
+            if (data.success) {
+                displayAnalytics(data.analytics);
+                analyticsLoading.style.display = 'none';
+                analyticsContent.style.display = 'block';
+            } else {
+                analyticsLoading.innerHTML = `<p style="color: var(--danger);">Failed to load analytics: ${data.error}</p>`;
+            }
+        } catch (error) {
+            analyticsLoading.innerHTML = `<p style="color: var(--danger);">Error loading analytics: ${error.message}</p>`;
+        }
+    });
+
+    closeAnalyticsBtn.addEventListener('click', () => {
+        analyticsModal.style.display = 'none';
+    });
+
+    // Close modal on background click
+    analyticsModal.addEventListener('click', (e) => {
+        if (e.target === analyticsModal) {
+            analyticsModal.style.display = 'none';
+        }
+    });
+
+    function displayAnalytics(analytics) {
+        // Sentiment Analysis
+        const sentiment = analytics.sentiment;
+        document.getElementById('sentiment-score').textContent = sentiment.average_score.toFixed(2);
+        document.getElementById('sentiment-positive').textContent = sentiment.percentage_positive.toFixed(1) + '%';
+        document.getElementById('sentiment-neutral').textContent = sentiment.percentage_neutral.toFixed(1) + '%';
+        document.getElementById('sentiment-negative').textContent = sentiment.percentage_negative.toFixed(1) + '%';
+
+        // Time Patterns
+        const time = analytics.time_patterns;
+        if (time.best_hour !== null) {
+            const hour = time.best_hour;
+            const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            document.getElementById('best-hour').textContent = `${hour12}:00 ${ampm}`;
+        }
+        document.getElementById('best-day').textContent = time.best_day || 'N/A';
+
+        // Time stats
+        const totalPosts = Object.values(time.by_day_of_week).reduce((a, b) => a + b, 0);
+        document.getElementById('time-stats').innerHTML = `
+            Total posts analyzed: ${totalPosts}<br>
+            Most active hour: ${time.best_hour !== null ? time.best_hour + ':00' : 'N/A'}<br>
+            Most active day: ${time.best_day || 'N/A'}
+        `;
+
+        // Engagement Correlation
+        const engagementWords = document.getElementById('engagement-words');
+        engagementWords.innerHTML = '';
+        analytics.engagement_correlation.high_engagement_words.slice(0, 15).forEach(word => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background: rgba(59, 130, 246, 0.2); padding: 8px 12px; border-radius: 8px; text-align: center;';
+            chip.innerHTML = `
+                <div style="font-weight: 600; color: var(--primary-light);">${escapeHtml(word.word)}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">${word.avg_engagement} avg engagement</div>
+            `;
+            engagementWords.appendChild(chip);
+        });
+
+        // Word Frequency
+        const wordFrequency = document.getElementById('word-frequency');
+        wordFrequency.innerHTML = '';
+        analytics.word_frequency.top_words.slice(0, 20).forEach(word => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background: var(--bg-card); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid var(--border);';
+            chip.innerHTML = `
+                <div style="font-weight: 600; color: var(--text);">${escapeHtml(word.word)}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">${word.count} times</div>
+            `;
+            wordFrequency.appendChild(chip);
+        });
+    }
     </script>
 </body>
 </html>
