@@ -215,12 +215,6 @@
         }
         const data = await response.json();
         if (data.success) {
-            // Update overview numbers
-            if (data.summary) {
-                document.getElementById('summary-posts').textContent = data.summary.posts;
-                document.getElementById('summary-replies').textContent = data.summary.replies;
-                document.getElementById('summary-total').textContent = data.summary.total;
-            }
             resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
         } else {
             resultsMeta.textContent = data.error || 'Refresh failed.';
@@ -313,13 +307,6 @@
             const data = await response.json();
             if (!data.success) {
                 throw new Error(data.error || 'Search failed');
-            }
-
-            // Update overview numbers if summary is included
-            if (data.summary) {
-                document.getElementById('summary-posts').textContent = data.summary.posts;
-                document.getElementById('summary-replies').textContent = data.summary.replies;
-                document.getElementById('summary-total').textContent = data.summary.total;
             }
 
             renderResults(data.results, data.total);

@@ -374,7 +374,15 @@ def lite_export_car():
 
     # Try to create a fresh CAR backup
     try:
-        backup_path = service.data_manager.create_timestamped_backup(handle)
+        # Suppress Rich console output to avoid "only one live display" error in web context
+        import io
+        import sys
+        from contextlib import redirect_stdout, redirect_stderr
+
+        # Redirect stdout/stderr to suppress Rich console displays
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            backup_path = service.data_manager.create_timestamped_backup(handle)
+
         if not backup_path:
             return jsonify({
                 "success": False,
@@ -393,6 +401,7 @@ def lite_export_car():
             download_name=filename,
         )
     except Exception as exc:
+        current_app.logger.error(f"CAR backup error: {exc}")
         return jsonify({
             "success": False,
             "error": f"Failed to create CAR backup: {str(exc)}"
