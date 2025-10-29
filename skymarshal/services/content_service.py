@@ -250,6 +250,13 @@ class ContentService:
                 if item.content_type.lower() in desired_types
             ]
 
+        # Filter out items with no text AND no engagement (likely deleted/invalid posts)
+        filtered = [
+            item
+            for item in filtered
+            if item.text or (item.like_count or 0) > 0 or (item.repost_count or 0) > 0 or (item.reply_count or 0) > 0
+        ]
+
         total = len(filtered)
 
         limit_value = request.limit if request.limit > 0 else len(filtered)
