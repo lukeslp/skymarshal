@@ -54,9 +54,9 @@ class PrefixMiddleware:
                 environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
         return self.app(environ, start_response)
 
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/litemarshal')
+app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/skymarshal')
 
-app.config['SESSION_COOKIE_PATH'] = '/litemarshal'
+app.config['SESSION_COOKIE_PATH'] = '/skymarshal'
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -66,14 +66,14 @@ _prefer_car_for_lite = _env_flag("SKYMARSHAL_LITE_USE_CAR")
 
 
 @app.route("/")
-def lite_index():
-    if session.get("lite_session_id") in _services:
-        return redirect(url_for("lite_dashboard"))
-    return redirect(url_for("lite_login"))
+def index():
+    if session.get("session_id") in _services:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
 
 
 def _require_service() -> ContentService:
-    session_id = session.get("lite_session_id")
+    session_id = session.get("session_id")
     if not session_id:
         raise PermissionError("Authentication required")
     service = _services.get(session_id)
@@ -88,7 +88,7 @@ def _login_required(view: Callable):
         try:
             _require_service()
         except PermissionError:
-            return redirect(url_for("lite_login"))
+            return redirect(url_for("login"))
         return view(*args, **kwargs)
 
     return wrapper
@@ -106,8 +106,8 @@ def _is_likely_regular_password(pwd: str) -> bool:
     return False
 
 
-@app.route("/lite/login", methods=["GET", "POST"])
-def lite_login():
+@app.route("/login", methods=["GET", "POST"])
+def login():
     if request.method == "POST":
         handle = request.form.get("handle", "").strip()
         password = request.form.get("password", "")
@@ -136,8 +136,8 @@ def lite_login():
         # The data will be loaded when the user first searches
 
         session_id = secrets.token_hex(16)
-        session["lite_session_id"] = session_id
-        session["lite_user_handle"] = service.auth.current_handle
+        session["session_id"] = session_id
+        session["user_handle"] = service.auth.current_handle
         session["used_regular_password"] = used_regular_password
         _services[session_id] = service
 
@@ -145,25 +145,25 @@ def lite_login():
         if used_regular_password:
             session["password_warning"] = "⚠️ Warning: You appear to be using your regular Bluesky password. For security, we recommend using an app password from Settings > Privacy & Security > App Passwords."
 
-        return redirect(url_for("lite_dashboard"))
+        return redirect(url_for("dashboard"))
 
     return render_template("lite_login.html")
 
 
-@app.route("/lite/logout")
-def lite_logout():
-    session_id = session.get("lite_session_id")
+@app.route("/logout")
+def logout():
+    session_id = session.get("session_id")
     if session_id and session_id in _services:
         del _services[session_id]
     session.clear()
-    return redirect(url_for("lite_login"))
+    return redirect(url_for("login"))
 
 
-@app.route("/lite")
+@app.route("/dashboard")
 @_login_required
-def lite_dashboard():
+def dashboard():
     service = _require_service()
-    handle = session.get("lite_user_handle")
+    handle = session.get("user_handle")
 
     # Try to load data if not already loaded
     try:
@@ -190,13 +190,13 @@ def lite_dashboard():
     return render_template("lite_dashboard.html", summary=summary, handle=handle)
 
 
-@app.get("/lite/health")
-def lite_health():
+@app.get("/health")
+def health():
     return jsonify({"status": "ok"})
 
 
-@app.post("/lite/search")
-def lite_search():
+@app.post("/search")
+def search():
     try:
         service = _require_service()
     except PermissionError:
@@ -251,8 +251,8 @@ def lite_search():
     return jsonify({"success": True, "results": results, "total": total, "summary": summary})
 
 
-@app.post("/lite/delete")
-def lite_delete():
+@app.post("/delete")
+def delete():
     try:
         service = _require_service()
     except PermissionError:
@@ -267,8 +267,8 @@ def lite_delete():
     return jsonify({"success": True, "deleted": deleted, "errors": errors, "failed": len(errors)})
 
 
-@app.post("/lite/refresh")
-def lite_refresh():
+@app.post("/refresh")
+def refresh():
     try:
         service = _require_service()
     except PermissionError:
@@ -294,13 +294,13 @@ def lite_refresh():
     return jsonify({"success": True, "summary": summary})
 
 
-@app.get("/lite/export/csv")
-def lite_export_csv():
+@app.get("/export/csv")
+def export_csv():
     """Export all loaded content as CSV file."""
     try:
         service = _require_service()
     except PermissionError:
-        return redirect(url_for("lite_login"))
+        return redirect(url_for("login"))
 
     try:
         items = service.ensure_content_loaded(
@@ -348,7 +348,7 @@ def lite_export_csv():
 
     # Prepare file for download
     output.seek(0)
-    handle = session.get("lite_user_handle", "export")
+    handle = session.get("user_handle", "export")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"skymarshal_{handle}_{timestamp}.csv"
 
@@ -360,15 +360,15 @@ def lite_export_csv():
     )
 
 
-@app.get("/lite/export/car")
-def lite_export_car():
+@app.get("/export/car")
+def export_car():
     """Download the CAR backup file for the current user."""
     try:
         service = _require_service()
     except PermissionError:
-        return redirect(url_for("lite_login"))
+        return redirect(url_for("login"))
 
-    handle = session.get("lite_user_handle")
+    handle = session.get("user_handle")
     if not handle:
         return jsonify({"success": False, "error": "No authenticated user"}), 400
 
@@ -408,8 +408,8 @@ def lite_export_car():
         }), 500
 
 
-@app.get("/lite/analytics")
-def lite_analytics():
+@app.get("/analytics")
+def analytics():
     """Get analytics and insights for the current user's content."""
     try:
         service = _require_service()
@@ -438,4 +438,4 @@ def lite_analytics():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5050)
+    app.run(debug=True, host="127.0.0.1", port=5051)

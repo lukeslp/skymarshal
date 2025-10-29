@@ -22,13 +22,13 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 if __name__ == '__main__':
-    port = 5050  # Dedicated port for lite UI
+    port = 5051  # Skymarshal web interface port
     # Only honor Lite-specific toggles to avoid inheriting global Flask debug env
     debug_mode = _env_flag('SKYMARSHAL_LITE_DEBUG')
     use_reloader = debug_mode and _env_flag('SKYMARSHAL_LITE_RELOAD')
 
-    print("🚀 Starting Skymarshal Lite Interface...")
-    print(f"📍 Lite interface will be available at: http://localhost:{port}")
+    print("🚀 Starting Skymarshal Web Interface...")
+    print(f"📍 Interface will be available at: http://localhost:{port}")
     print(f"🔧 Debug mode: {'enabled' if debug_mode else 'disabled'}")
     print(f"♻️  Auto-reloader: {'enabled' if use_reloader else 'disabled'}")
     print("🔒 Login with your Bluesky credentials to get started")
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     try:
         app.run(debug=debug_mode, host='0.0.0.0', port=port, use_reloader=use_reloader)
     except KeyboardInterrupt:
-        print("\n\n👋 Shutting down Skymarshal Lite Interface...")
+        print("\n\n👋 Shutting down Skymarshal Web Interface...")
     except Exception as e:
-        print(f"\n❌ Error starting lite interface: {e}")
+        print(f"\n❌ Error starting interface: {e}")
         print("💡 Make sure all dependencies are installed and try again")
