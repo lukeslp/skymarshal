@@ -2,21 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Skymarshal Lite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Skymarshal</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="https://dr.eamer.dev/assets/images/favicon.ico">
+
+    <!-- Open Graph / Social Share -->
+    <meta property="og:title" content="Skymarshal - Bluesky Content Manager">
+    <meta property="og:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.">
+    <meta property="og:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
+    <meta property="og:url" content="https://dr.eamer.dev/skymarshal/">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Skymarshal - Bluesky Content Manager">
+    <meta name="twitter:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually.">
+    <meta name="twitter:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
 </head>
 <body style="background: var(--bg); margin: 0; padding: 24px;">
     <div style="max-width: 1400px; margin: 0 auto;">
         <header class="lite-header">
             <div class="lite-header-info">
-                <h1>🚀 Skymarshal Lite</h1>
-                <p class="lite-tagline">Lightweight Bluesky content manager</p>
+                <h1>🚀 Skymarshal</h1>
+                <p class="lite-tagline">Bluesky content manager</p>
             </div>
             <div class="lite-header-actions">
                 <span class="lite-handle">@{{ handle }}</span>
+                <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
+                    <span id="theme-icon">🌙</span>
+                    <span id="theme-text">Light</span>
+                </button>
                 <form method="post" action="{{ url_for('refresh') }}" id="refresh-form" style="margin: 0;">
-                    <button type="submit" class="lite-secondary lite-small">🔄 Refresh</button>
+                    <button type="submit" class="lite-secondary lite-small" aria-label="Refresh content from Bluesky">🔄 Refresh</button>
                 </form>
                 <a href="{{ url_for('logout') }}" class="lite-link">Logout →</a>
             </div>
@@ -34,100 +56,194 @@
         </div>
         {% endif %}
 
-        <main style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
-        <div style="display: flex; flex-direction: column; gap: 16px;">
+        <main style="display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;">
+            <!-- Sidebar with compact tools -->
+            <aside style="display: flex; flex-direction: column; gap: 16px;">
+                <section class="lite-card" style="padding: 16px;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">EXPORT DATA</h2>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <a href="{{ url_for('export_csv') }}" class="lite-button lite-small" style="text-align: center; text-decoration: none;">
+                            📊 CSV Export
+                        </a>
+                        <a href="{{ url_for('export_car') }}" class="lite-button lite-secondary lite-small" style="text-align: center; text-decoration: none;">
+                            💾 CAR Backup
+                        </a>
+                    </div>
+                    <p style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                        Export all content with engagement data or create a full Bluesky backup.
+                    </p>
+                </section>
 
-        <section class="lite-card" style="padding: 16px;">
-            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Export Data</h2>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <a href="{{ url_for('export_csv') }}" class="lite-button" style="text-align: center; text-decoration: none;">
-                    📊 Download CSV Export
-                </a>
-                <a href="{{ url_for('export_car') }}" class="lite-button lite-secondary" style="text-align: center; text-decoration: none;">
-                    💾 Download CAR Backup
-                </a>
-            </div>
-            <p style="margin: 12px 0 0 0; font-size: 12px; color: var(--text-muted);">
-                CSV includes all posts, likes, and reposts with engagement data. CAR is a full Bluesky account backup.
-            </p>
-        </section>
+                <section class="lite-card" style="padding: 16px;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">LOAD MORE</h2>
+                    <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--text);">
+                        <strong><span id="loaded-count">{{ loaded_count or 0 }}</span> items loaded</strong><br>
+                        <span style="font-size: 11px; color: var(--text-muted);">(posts, likes, reposts combined)</span>
+                    </p>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="number" id="load-limit" class="lite-input" placeholder="Number" min="1" step="500" value="1000" style="flex: 1; font-size: 13px; padding: 8px;">
+                        <button id="load-custom-btn" class="lite-button lite-small" style="flex-shrink: 0;">Load</button>
+                    </div>
+                    <button id="load-all-btn" class="lite-button lite-secondary lite-small" style="width: 100%;">
+                        ⚠️ Load All Content
+                    </button>
+                    <p id="load-status" style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                        Initially loaded 500 recent items. Load more to search older content.
+                    </p>
+                    <div id="load-warning" style="display: none; margin-top: 12px; padding: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 6px; font-size: 11px; color: var(--danger); line-height: 1.4;">
+                        <strong>Large accounts:</strong> Loading all content may take several minutes. Leave the tab open and be patient.
+                    </div>
+                </section>
 
-        <section class="lite-card" style="padding: 16px;">
-            <h2 style="margin: 0 0 12px 0; font-size: 16px;">Analytics</h2>
-            <button id="load-analytics-btn" class="lite-button" style="width: 100%; text-align: center;">
-                📈 View Analytics & Insights
-            </button>
-            <p style="margin: 12px 0 0 0; font-size: 12px; color: var(--text-muted);">
-                Sentiment analysis, time patterns, engagement trends, and word frequency
-            </p>
-        </section>
+                <section class="lite-card" style="padding: 16px;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">ANALYTICS</h2>
+                    <button id="load-analytics-btn" class="lite-button lite-small" style="width: 100%; text-align: center;">
+                        📈 View Insights
+                    </button>
+                    <p style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                        Sentiment analysis, time patterns, and word frequency.
+                    </p>
+                </section>
+            </aside>
 
-        <section class="lite-card">
-            <h2>Search Posts</h2>
-            <form id="search-form" class="lite-grid" role="search" aria-label="Content search form">
-                <label class="lite-field">
-                    <span>Keyword</span>
-                    <input class="lite-input" name="keyword" type="text" placeholder="Search text">
-                </label>
-                <label class="lite-field">
-                    <span>Start Date</span>
-                    <input class="lite-input" name="start_date" type="date">
-                </label>
-                <label class="lite-field">
-                    <span>End Date</span>
-                    <input class="lite-input" name="end_date" type="date">
-                </label>
-                <label class="lite-field">
-                    <span>Min Engagement</span>
-                    <input class="lite-input" name="min_engagement" type="number" min="0">
-                </label>
-                <label class="lite-field">
-                    <span>Max Engagement</span>
-                    <input class="lite-input" name="max_engagement" type="number" min="0">
-                </label>
-                <label class="lite-field">
-                    <span>Content Types</span>
-                    <select class="lite-input" name="content_types" multiple>
-                        <option value="post" selected>Posts</option>
-                        <option value="reply" selected>Replies</option>
-                        <option value="repost">Reposts</option>
-                        <option value="like">Likes</option>
-                    </select>
-                </label>
-                <div class="lite-field full">
-                    <button type="submit" class="lite-button">Search</button>
+            <!-- Main content area with search + results -->
+            <section class="lite-card" style="min-height: 600px;">
+                <h2 style="margin: 0 0 20px 0; font-size: 20px;">Search & Manage Content</h2>
+
+                <!-- Search form at the top -->
+                <form id="search-form" role="search" aria-label="Content search form" style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid var(--border);">
+                    <!-- Highlighted keyword search -->
+                    <div style="background: rgba(59, 130, 246, 0.1); border: 2px solid var(--primary); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                        <label class="lite-field" style="margin-bottom: 0;">
+                            <span style="color: var(--primary-light); font-size: 14px;">🔍 Keyword Search</span>
+                            <input class="lite-input" name="keyword" type="text" placeholder="Search text in posts, replies, likes..." style="border-color: var(--primary); background: var(--bg-card);">
+                        </label>
+                    </div>
+
+                    <!-- Toggle for advanced filters -->
+                    <button type="button" id="toggle-filters-btn" class="lite-button lite-secondary lite-small" style="width: 100%; margin-bottom: 16px;" aria-expanded="false" aria-controls="advanced-filters">
+                        ⚙️ Show Advanced Filters
+                    </button>
+
+                    <!-- Advanced filters (collapsible) -->
+                    <div id="advanced-filters" style="display: none;">
+                    <!-- Other filters in grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <label class="lite-field">
+                            <span>Start Date</span>
+                            <input class="lite-input" name="start_date" type="date">
+                        </label>
+                        <label class="lite-field">
+                            <span>End Date</span>
+                            <input class="lite-input" name="end_date" type="date">
+                        </label>
+                    </div>
+
+                    <!-- Engagement filters - Likes -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <label class="lite-field">
+                            <span>Min Likes</span>
+                            <input class="lite-input" name="min_likes" type="number" min="0" placeholder="0">
+                        </label>
+                        <label class="lite-field">
+                            <span>Max Likes</span>
+                            <input class="lite-input" name="max_likes" type="number" min="0" placeholder="∞">
+                        </label>
+                    </div>
+
+                    <!-- Engagement filters - Reposts -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <label class="lite-field">
+                            <span>Min Reposts</span>
+                            <input class="lite-input" name="min_reposts" type="number" min="0" placeholder="0">
+                        </label>
+                        <label class="lite-field">
+                            <span>Max Reposts</span>
+                            <input class="lite-input" name="max_reposts" type="number" min="0" placeholder="∞">
+                        </label>
+                    </div>
+
+                    <!-- Engagement filters - Replies -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <label class="lite-field">
+                            <span>Min Replies</span>
+                            <input class="lite-input" name="min_replies" type="number" min="0" placeholder="0">
+                        </label>
+                        <label class="lite-field">
+                            <span>Max Replies</span>
+                            <input class="lite-input" name="max_replies" type="number" min="0" placeholder="∞">
+                        </label>
+                    </div>
+
+                    <!-- Content types as checkboxes -->
+                    <div class="lite-field" style="margin-bottom: 20px;">
+                        <span>Content Types</span>
+                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                <input type="checkbox" name="content_types" value="post" checked style="cursor: pointer; width: 18px; height: 18px;">
+                                <span style="font-size: 14px; font-weight: 500;">Posts</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                <input type="checkbox" name="content_types" value="reply" checked style="cursor: pointer; width: 18px; height: 18px;">
+                                <span style="font-size: 14px; font-weight: 500;">Replies</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                <input type="checkbox" name="content_types" value="repost" style="cursor: pointer; width: 18px; height: 18px;">
+                                <span style="font-size: 14px; font-weight: 500;">Reposts</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                <input type="checkbox" name="content_types" value="like" style="cursor: pointer; width: 18px; height: 18px;">
+                                <span style="font-size: 14px; font-weight: 500;">Likes</span>
+                            </label>
+                        </div>
+                    </div>
+                    </div><!-- End advanced-filters -->
+
+                    <button type="submit" class="lite-button" style="width: 100%;">🔍 Search</button>
+                </form>
+
+                <!-- Results section directly below search -->
+                <div class="lite-results-header">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Results</h3>
+                    <div class="lite-results-actions">
+                        <button id="select-all" class="lite-secondary lite-small" type="button" aria-label="Select all results">Select All</button>
+                        <button id="clear-all" class="lite-secondary lite-small" type="button" aria-label="Clear all selections">Clear</button>
+                        <button id="delete-selected"
+                                class="lite-danger lite-small"
+                                type="button"
+                                disabled
+                                aria-disabled="true"
+                                aria-label="Delete selected items (0 selected)">Delete Selected</button>
+                    </div>
                 </div>
-            </form>
-        </section>
-        </div>
+                <p id="results-meta"
+                   class="lite-meta"
+                   role="status"
+                   aria-live="polite"
+                   aria-atomic="true"
+                   style="margin: 12px 0 16px 0;">Loading your recent posts...</p>
 
-        <section class="lite-card" style="min-height: 600px;">
-            <div class="lite-results-header">
-                <h2>Results</h2>
-                <div class="lite-results-actions">
-                    <button id="select-all" class="lite-secondary" type="button">Select All</button>
-                    <button id="clear-all" class="lite-secondary" type="button">Clear</button>
-                    <button id="delete-selected" class="lite-danger" type="button" disabled>Delete Selected</button>
+                <!-- Screen reader announcements -->
+                <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    <span id="screen-reader-announcements"></span>
                 </div>
-            </div>
-            <p id="results-meta" class="lite-meta">Loading your recent posts...</p>
-            <div class="lite-table-wrapper">
-                <table class="lite-table" role="table" aria-label="Search results">
-                    <thead>
-                        <tr role="row">
-                            <th scope="col" aria-label="Select"></th>
-                            <th scope="col">Type</th>
-                            <th scope="col">Text</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Engagement</th>
-                            <th scope="col" aria-label="Actions"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="results-body" role="rowgroup"></tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+                <div class="lite-table-wrapper">
+                    <table class="lite-table" role="table" aria-label="Search results">
+                        <thead>
+                            <tr role="row">
+                                <th scope="col" aria-label="Select"></th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Text</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Engagement</th>
+                                <th scope="col" aria-label="Actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body" role="rowgroup"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
 
     <!-- Analytics Modal -->
     <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; overflow-y: auto; padding: 16px;">
@@ -216,6 +332,13 @@
         const data = await response.json();
         if (data.success) {
             resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
+            // Update loaded count if available
+            if (data.loaded_count !== undefined) {
+                const loadedCountSpan = document.getElementById('loaded-count');
+                if (loadedCountSpan) {
+                    loadedCountSpan.textContent = data.loaded_count;
+                }
+            }
         } else {
             resultsMeta.textContent = data.error || 'Refresh failed.';
         }
@@ -559,6 +682,131 @@
             resultsMeta.textContent = `Failed to load posts: ${error.message}`;
         });
     });
+
+    // Advanced Filters Toggle
+    const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
+    const advancedFilters = document.getElementById('advanced-filters');
+
+    toggleFiltersBtn.addEventListener('click', () => {
+        const isHidden = advancedFilters.style.display === 'none';
+        advancedFilters.style.display = isHidden ? 'block' : 'none';
+        toggleFiltersBtn.textContent = isHidden ? '⚙️ Hide Advanced Filters' : '⚙️ Show Advanced Filters';
+        toggleFiltersBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+    });
+
+    // Load More functionality
+    const loadCustomBtn = document.getElementById('load-custom-btn');
+    const loadAllBtn = document.getElementById('load-all-btn');
+    const loadLimitInput = document.getElementById('load-limit');
+    const loadStatus = document.getElementById('load-status');
+    const loadWarning = document.getElementById('load-warning');
+    const loadedCountSpan = document.getElementById('loaded-count');
+
+    async function loadMoreContent(limit) {
+        // Show warning for large loads
+        if (limit === 'all' || parseInt(limit) > 5000) {
+            loadWarning.style.display = 'block';
+        }
+
+        // Disable buttons during load
+        loadCustomBtn.disabled = true;
+        loadAllBtn.disabled = true;
+        loadCustomBtn.textContent = 'Loading...';
+        loadAllBtn.textContent = 'Loading...';
+        loadStatus.textContent = 'Loading content... This may take a while for large accounts.';
+        loadStatus.style.color = 'var(--primary)';
+
+        try {
+            const response = await fetch('{{ url_for('load_more') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: limit })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                loadedCountSpan.textContent = data.loaded_count;
+                loadStatus.textContent = `✅ ${data.message}`;
+                loadStatus.style.color = 'var(--success, #10b981)';
+
+                // Update summary if available
+                if (data.summary) {
+                    updateSummary(data.summary);
+                }
+
+                // Announce to screen readers
+                const announcement = document.getElementById('screen-reader-announcements');
+                if (announcement) {
+                    announcement.textContent = data.message;
+                }
+            } else {
+                loadStatus.textContent = `❌ Error: ${data.error}`;
+                loadStatus.style.color = 'var(--danger)';
+            }
+        } catch (error) {
+            loadStatus.textContent = `❌ Failed to load: ${error.message}`;
+            loadStatus.style.color = 'var(--danger)';
+        } finally {
+            // Re-enable buttons
+            loadCustomBtn.disabled = false;
+            loadAllBtn.disabled = false;
+            loadCustomBtn.textContent = 'Load';
+            loadAllBtn.textContent = '⚠️ Load All Content';
+        }
+    }
+
+    loadCustomBtn.addEventListener('click', () => {
+        const limit = loadLimitInput.value || '1000';
+        loadMoreContent(limit);
+    });
+
+    loadAllBtn.addEventListener('click', () => {
+        if (confirm('⚠️ Load ALL content? For large accounts (10k+ posts), this may take several minutes. Continue?')) {
+            loadMoreContent('all');
+        }
+    });
+
+    // Helper to update summary display
+    function updateSummary(summary) {
+        // Update summary cards if they exist in your UI
+        // This is optional - implement if you have summary display
+    }
+
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+
+    // Load saved theme or default to dark
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeButton(savedTheme);
+
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeButton(newTheme);
+
+        // Announce theme change to screen readers
+        const announcement = document.getElementById('screen-reader-announcements');
+        announcement.textContent = `Theme changed to ${newTheme} mode`;
+    });
+
+    function updateThemeButton(theme) {
+        if (theme === 'dark') {
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'Light';
+            themeToggle.setAttribute('aria-label', 'Switch to light mode');
+        } else {
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'Dark';
+            themeToggle.setAttribute('aria-label', 'Switch to dark mode');
+        }
+    }
     </script>
 </body>
 </html>

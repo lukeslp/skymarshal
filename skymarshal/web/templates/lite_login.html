@@ -2,15 +2,39 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Skymarshal Lite - Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Skymarshal - Login</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="https://dr.eamer.dev/assets/images/favicon.ico">
+
+    <!-- Open Graph / Social Share -->
+    <meta property="og:title" content="Skymarshal - Bluesky Content Manager">
+    <meta property="og:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.">
+    <meta property="og:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
+    <meta property="og:url" content="https://dr.eamer.dev/skymarshal/">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Skymarshal - Bluesky Content Manager">
+    <meta name="twitter:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually.">
+    <meta name="twitter:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
 </head>
 <body class="lite-body">
     <main class="lite-main">
         <section class="lite-card">
-            <h1 class="lite-title">Skymarshal Lite</h1>
-            <p class="lite-subtitle">Lightweight Bluesky content manager</p>
+            <div style="position: absolute; top: 16px; right: 16px;">
+                <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light/dark mode">
+                    <span id="theme-icon">🌙</span>
+                    <span id="theme-text">Light</span>
+                </button>
+            </div>
+            <h1 class="lite-title">Skymarshal</h1>
+            <p class="lite-subtitle">Bluesky content manager</p>
 
             {% if error %}
             <div class="lite-error">
@@ -54,17 +78,47 @@
             </form>
 
             <div class="lite-footer">
-                <p>
-                    💡 <strong>Tip:</strong> Use an app password for better security.
-                    <br>
-                    🔒 Credentials are used only for this session and never stored.
-                </p>
-                <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener noreferrer" 
-                   class="app-password-link">
-                    🔑 Generate App Password
+                <div id="rotating-tip" style="padding: 12px 0; margin-bottom: 16px; min-height: 50px; display: flex; align-items: center;">
+                    <p id="tip-text" style="margin: 0; font-size: 15px; line-height: 1.5; width: 100%; color: var(--text-muted); text-align: center; transition: opacity 0.4s ease;">
+                        Use an app password for better security.
+                    </p>
+                </div>
+                <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener noreferrer"
+                   class="app-password-link" style="font-size: 14px;">
+                    Generate App Password
                 </a>
             </div>
         </section>
+
+        <!-- Info boxes below the sign-in container -->
+        <div style="max-width: 520px; width: 100%; margin-top: 24px; display: flex; flex-direction: column; gap: 14px;">
+            <!-- What this tool does -->
+            <div class="info-box-primary">
+                <h2 style="margin: 0 0 8px 0; font-size: 13px; color: var(--primary-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">What Skymarshal Does</h2>
+                <p style="margin: 0; font-size: 13px; line-height: 1.6; color: var(--text);">
+                    Search, filter, and manage your Bluesky posts, replies, likes, and reposts.
+                    Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.
+                    View analytics: sentiment analysis, time patterns, engagement trends, word frequency.
+                </p>
+            </div>
+
+            <!-- Critical deletion warning -->
+            <div class="info-box-danger">
+                <h2 style="margin: 0 0 8px 0; font-size: 13px; color: var(--danger); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Critical Warning</h2>
+                <p class="danger-text" style="margin: 0; font-size: 13px; line-height: 1.6; font-weight: 600;">
+                    I CANNOT RETRIEVE ANYTHING THAT YOU DELETE. Deletions are permanent and cannot be undone.
+                    Always review carefully before deleting.
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer link -->
+        <p style="text-align: center; margin-top: 32px; margin-bottom: 16px; font-size: 11px; opacity: 0.6;">
+            <a href="https://lukesteuber.com" target="_blank" rel="noopener noreferrer"
+               style="color: var(--text-muted); text-decoration: none;">
+                lukesteuber.com
+            </a>
+        </p>
     </main>
     <script>
         document.querySelector('.lite-form').addEventListener('submit', function(e) {
@@ -132,6 +186,64 @@
             // Start immediately with first stage
             updateStage();
         });
+
+        // Rotating tips
+        const tips = [
+            'Use an app password for better security.',
+            'Deletions are permanent. Review carefully before deleting.',
+            'Search and delete your 500 most recent posts instantly.'
+        ];
+
+        let currentTipIndex = 0;
+        const tipText = document.getElementById('tip-text');
+
+        function rotateTip() {
+            currentTipIndex = (currentTipIndex + 1) % tips.length;
+
+            // Fade out
+            tipText.style.opacity = '0';
+
+            setTimeout(() => {
+                tipText.textContent = tips[currentTipIndex];
+
+                // Fade in
+                tipText.style.opacity = '1';
+            }, 400);
+        }
+
+        // Rotate tips every 6 seconds
+        setInterval(rotateTip, 6000);
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const themeText = document.getElementById('theme-text');
+
+        // Load saved theme or default to dark
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButton(savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
+        });
+
+        function updateThemeButton(theme) {
+            if (theme === 'dark') {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Light';
+                themeToggle.setAttribute('aria-label', 'Switch to light mode');
+            } else {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Dark';
+                themeToggle.setAttribute('aria-label', 'Switch to dark mode');
+            }
+        }
     </script>
 </body>
 </html>

@@ -57,8 +57,12 @@ class SearchRequest:
     content_types: Optional[Sequence[str]] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    min_engagement: Optional[int] = None
-    max_engagement: Optional[int] = None
+    min_likes: Optional[int] = None
+    max_likes: Optional[int] = None
+    min_reposts: Optional[int] = None
+    max_reposts: Optional[int] = None
+    min_replies: Optional[int] = None
+    max_replies: Optional[int] = None
     limit: int = 250
 
 
@@ -271,10 +275,21 @@ class ContentService:
         if request.keyword:
             filters.keywords = [request.keyword]
 
-        if request.min_engagement is not None:
-            filters.min_engagement = max(0, request.min_engagement)
-        if request.max_engagement is not None:
-            filters.max_engagement = max(filters.min_engagement, request.max_engagement)
+        # Individual engagement filters
+        if request.min_likes is not None:
+            filters.min_likes = max(0, request.min_likes)
+        if request.max_likes is not None:
+            filters.max_likes = max(0, request.max_likes)
+
+        if request.min_reposts is not None:
+            filters.min_reposts = max(0, request.min_reposts)
+        if request.max_reposts is not None:
+            filters.max_reposts = max(0, request.max_reposts)
+
+        if request.min_replies is not None:
+            filters.min_replies = max(0, request.min_replies)
+        if request.max_replies is not None:
+            filters.max_replies = max(0, request.max_replies)
 
         filters.start_date = request.start_date
         filters.end_date = request.end_date

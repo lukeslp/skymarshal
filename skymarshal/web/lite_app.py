@@ -1,4 +1,4 @@
-"""Lightweight Flask interface for essential Skymarshal workflows."""
+"""Flask interface for Skymarshal - Bluesky content management."""
 
 from __future__ import annotations
 
@@ -115,7 +115,7 @@ def login():
         if not handle or not password:
             return render_template(
                 "lite_login.html",
-                error="Handle and app password are required.",
+                error="I need both your handle and password.",
             )
 
         # Check if using regular password
@@ -123,9 +123,9 @@ def login():
 
         service = ContentService(prefer_car_backup=_prefer_car_for_lite)
         if not service.login(handle, password):
-            error_msg = "Authentication failed. Confirm the app password."
+            error_msg = "Authentication failed. Double-check your app password."
             if used_regular_password:
-                error_msg = "Authentication failed. You appear to be using your regular password. Please use an app password from Bluesky settings for better security."
+                error_msg = "Hey, looks like you're using your regular password. It's better to use an app password for security - I've got a link below to make one."
             return render_template(
                 "lite_login.html",
                 error=error_msg,
@@ -143,7 +143,7 @@ def login():
 
         # Store warning message if regular password was used
         if used_regular_password:
-            session["password_warning"] = "⚠️ Warning: You appear to be using your regular Bluesky password. For security, we recommend using an app password from Settings > Privacy & Security > App Passwords."
+            session["password_warning"] = "⚠️ Hey, you're using your regular password. It's a bit safer to use an app password - you can make one in Settings > Privacy & Security > App Passwords."
 
         return redirect(url_for("dashboard"))
 
@@ -165,29 +165,22 @@ def dashboard():
     service = _require_service()
     handle = session.get("user_handle")
 
-    # Try to load data if not already loaded
+    # Load 500 most recent posts on login (fast, gives immediate access)
+    # User can explicitly load more if needed
     try:
         items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
-            limit=5000,  # Reasonable limit for search/delete workflow
+            limit=500,  # Load 500 most recent items initially
         )
-
-        # Hydrate engagement data (likes, reposts, replies) from Bluesky API
-        # This is essential for accurate counts - without it, CAR files show zeros
-        try:
-            service.data_manager.hydrate_items(items)
-        except Exception as hydrate_error:
-            # Non-fatal: continue with cached/zero engagement data
-            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
-
         summary = service.summarize()
+        loaded_count = len(items) if items else 0
     except RuntimeError as exc:
-        # Failed to load data - show error message
         summary = {"posts": 0, "likes": 0, "reposts": 0, "replies": 0, "total": 0}
+        loaded_count = 0
         error_msg = f"Failed to load data: {str(exc)}"
-        return render_template("lite_dashboard.html", summary=summary, handle=handle, error=error_msg)
+        return render_template("lite_dashboard.html", summary=summary, handle=handle, error=error_msg, loaded_count=loaded_count)
 
-    return render_template("lite_dashboard.html", summary=summary, handle=handle)
+    return render_template("lite_dashboard.html", summary=summary, handle=handle, loaded_count=loaded_count)
 
 
 @app.get("/health")
@@ -206,16 +199,8 @@ def search():
     try:
         items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
-            limit=5000,  # Reasonable limit for search/delete workflow
+            limit=999999,  # Load all content - effectively unlimited
         )
-
-        # Hydrate engagement data for accurate counts
-        try:
-            service.data_manager.hydrate_items(items)
-        except Exception as hydrate_error:
-            # Non-fatal: continue with cached/zero engagement data
-            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
-
     except RuntimeError as exc:
         return jsonify({"success": False, "error": f"Failed to load data: {str(exc)}"}), 400
 
@@ -235,13 +220,46 @@ def search():
         content_types=payload.get("content_types"),
         start_date=(payload.get("start_date") or None),
         end_date=(payload.get("end_date") or None),
-        min_engagement=_get_int("min_engagement"),
-        max_engagement=_get_int("max_engagement"),
+        min_likes=_get_int("min_likes"),
+        max_likes=_get_int("max_likes"),
+        min_reposts=_get_int("min_reposts"),
+        max_reposts=_get_int("max_reposts"),
+        min_replies=_get_int("min_replies"),
+        max_replies=_get_int("max_replies"),
         limit=_get_int("limit") or 250,
     )
 
     try:
         results, total = service.search(request_obj)
+
+        # Hydrate ONLY the search results (not all 50k items)
+        # This dramatically improves performance for large accounts
+        if results:
+            # Convert search results back to ContentItem objects for hydration
+            from skymarshal.models import ContentItem
+            result_items = []
+            for r in results:
+                # Search results are dicts, need to find matching items
+                matching = [item for item in items if item.uri == r.get('uri')]
+                if matching:
+                    result_items.append(matching[0])
+
+            # Hydrate only these result items
+            if result_items:
+                try:
+                    service.data_manager.hydrate_items(result_items)
+                    # Update results with hydrated data
+                    for i, r in enumerate(results):
+                        matching = [item for item in result_items if item.uri == r.get('uri')]
+                        if matching:
+                            item = matching[0]
+                            results[i]['like_count'] = item.like_count or 0
+                            results[i]['repost_count'] = item.repost_count or 0
+                            results[i]['reply_count'] = item.reply_count or 0
+                            results[i]['engagement_score'] = item.engagement_score or 0
+                except Exception as hydrate_error:
+                    current_app.logger.warning(f"Could not hydrate search results: {hydrate_error}")
+
     except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
@@ -267,8 +285,57 @@ def delete():
     return jsonify({"success": True, "deleted": deleted, "errors": errors, "failed": len(errors)})
 
 
+@app.post("/load-more")
+def load_more():
+    """Load additional content beyond the initial 500 items.
+
+    Accepts JSON payload with 'limit' field (number of items to load, or 'all' for everything).
+    """
+    try:
+        service = _require_service()
+    except PermissionError:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    limit_str = payload.get("limit", "500")
+
+    # Parse limit: "all" means unlimited, otherwise parse as integer
+    if limit_str == "all":
+        limit = 999999
+    else:
+        try:
+            limit = int(limit_str)
+            if limit < 1:
+                return jsonify({"success": False, "error": "Limit must be positive"}), 400
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Invalid limit value"}), 400
+
+    try:
+        items = service.ensure_content_loaded(
+            categories=["posts", "likes", "reposts"],
+            force_refresh=True,
+            limit=limit,
+        )
+        # Note: Not hydrating all items for performance
+        # Engagement data will be hydrated on-demand during search
+
+        summary = service.summarize()
+        loaded_count = len(items) if items else 0
+
+        return jsonify({
+            "success": True,
+            "summary": summary,
+            "loaded_count": loaded_count,
+            "message": f"Loaded {loaded_count} items"
+        })
+
+    except RuntimeError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
 @app.post("/refresh")
 def refresh():
+    """Re-fetch the current limit of content (defaults to what's already loaded)."""
     try:
         service = _require_service()
     except PermissionError:
@@ -278,25 +345,24 @@ def refresh():
         items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
             force_refresh=True,
-            limit=5000,  # Reasonable limit for search/delete workflow
+            limit=500,  # Refresh the initial 500 items
         )
-
-        # Hydrate engagement data after refresh
-        try:
-            service.data_manager.hydrate_items(items)
-        except Exception as hydrate_error:
-            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+        summary = service.summarize()
+        loaded_count = len(items) if items else 0
 
     except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
-    summary = service.summarize()
-    return jsonify({"success": True, "summary": summary})
+    return jsonify({"success": True, "summary": summary, "loaded_count": loaded_count})
 
 
 @app.get("/export/csv")
 def export_csv():
-    """Export all loaded content as CSV file."""
+    """Export all loaded content as CSV file.
+
+    Note: Engagement data (likes, reposts, replies) reflects cached/last-fetched values.
+    For large accounts (50k+ posts), hydrating all engagement data would take too long.
+    """
     try:
         service = _require_service()
     except PermissionError:
@@ -305,14 +371,10 @@ def export_csv():
     try:
         items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
-            limit=5000,
+            limit=999999,  # Export all content
         )
-
-        # Hydrate engagement data for accurate CSV export
-        try:
-            service.data_manager.hydrate_items(items)
-        except Exception as hydrate_error:
-            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+        # Note: Not hydrating all items for performance
+        # Use cached engagement data from last hydration (during search)
 
     except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -410,7 +472,11 @@ def export_car():
 
 @app.get("/analytics")
 def analytics():
-    """Get analytics and insights for the current user's content."""
+    """Get analytics and insights for the current user's content.
+
+    Note: Uses cached engagement data for performance.
+    For large accounts (50k+ posts), hydrating all items would take too long.
+    """
     try:
         service = _require_service()
     except PermissionError:
@@ -419,14 +485,10 @@ def analytics():
     try:
         items = service.ensure_content_loaded(
             categories=["posts", "likes", "reposts"],
-            limit=5000,
+            limit=999999,  # Analyze all content
         )
-
-        # Hydrate engagement data for accurate analytics
-        try:
-            service.data_manager.hydrate_items(items)
-        except Exception as hydrate_error:
-            current_app.logger.warning(f"Could not hydrate engagement: {hydrate_error}")
+        # Note: Not hydrating all items for performance
+        # Analytics will use cached engagement data
 
         # Generate comprehensive analytics
         insights = ContentAnalytics.generate_insights(items)
