@@ -187,8 +187,20 @@ class SearchManager:
         # Determine whether to show progress based on dataset size
         show_progress = len(filtered_items) >= 1000
 
+        from datetime import timezone
+
         sd = parse_datetime(getattr(filters, "start_date", None))
         ed = parse_datetime(getattr(filters, "end_date", None))
+
+        # Make filter dates timezone-aware to match content item dates
+        # HTML date inputs provide naive dates (YYYY-MM-DD), but content dates are UTC
+        if sd and sd.tzinfo is None:
+            sd = sd.replace(tzinfo=timezone.utc)
+        if ed and ed.tzinfo is None:
+            # For end date, set to end of day (23:59:59.999999)
+            from datetime import time
+            ed = ed.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+
         use_subject = self.settings.use_subject_engagement_for_reposts
 
         def counts_for(it: ContentItem):

@@ -22,7 +22,7 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 if __name__ == '__main__':
-    port = 5051  # Skymarshal web interface port
+    port = 5050  # Litemarshal web interface port (lite version)
     # Only honor Lite-specific toggles to avoid inheriting global Flask debug env
     debug_mode = _env_flag('SKYMARSHAL_LITE_DEBUG')
     use_reloader = debug_mode and _env_flag('SKYMARSHAL_LITE_RELOAD')
