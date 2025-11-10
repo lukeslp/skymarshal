@@ -50,7 +50,16 @@
       "Bash(git commit:*)",
       "Bash(echo $SHELL)",
       "Bash(fish:*)",
-      "Read(//Users/lukesteuber/.config/fish/**)"
+      "Read(//Users/lukesteuber/.config/fish/**)",
+      "Bash(sudo systemctl:*)",
+      "Bash(sudo cat:*)",
+      "Bash(systemctl:*)",
+      "Bash(lsof:*)",
+      "Bash(fuser:*)",
+      "Bash(python3:*)",
+      "Bash(kill:*)",
+      "Bash(sudo -S systemctl status:*)",
+      "Bash(sudo -S cat:*)"
     ],
     "deny": [],
     "ask": []
