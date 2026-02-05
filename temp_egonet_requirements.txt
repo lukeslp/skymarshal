@@ -1,0 +1,6 @@
+flask
+requests
+python-dotenv
+atproto
+networkx
+gunicorn

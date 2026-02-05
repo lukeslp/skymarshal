@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Follower Analysis - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2>Follower Analysis</h2>
+        <p>Analyze your followers by influence, quality, and bot indicators.</p>
+    </div>
+
+    <div class="action-bar">
+        <button id="analyzeBtn" class="btn btn-primary">📊 Analyze Followers</button>
+    </div>
+
+    <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+        <div class="spinner"></div>
+        <p>Analyzing your followers...</p>
+    </div>
+
+    <div id="resultsContainer" style="display: none;">
+        <div class="stats-summary">
+            <div class="stat-card">
+                <span class="stat-label">Total Followers</span>
+                <span class="stat-value" id="totalFollowers">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Cached Profiles</span>
+                <span class="stat-value" id="cachedProfiles">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Top Follower</span>
+                <span class="stat-value" id="topFollowerCount">0</span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="ranked">Top Followers</button>
+            <button class="tab-btn" data-tab="bots">Potential Bots</button>
+            <button class="tab-btn" data-tab="quality">Quality Followers</button>
+        </div>
+
+        <div class="tab-content active" id="ranked-tab">
+            <h3>Top Followers by Influence</h3>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Handle</th>
+                            <th>Display Name</th>
+                            <th>Followers</th>
+                            <th>Following</th>
+                            <th>Posts</th>
+                            <th>Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankedTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-content" id="bots-tab">
+            <h3>Potential Bot Followers</h3>
+            <p class="tab-description">Accounts with low follower-to-following ratios</p>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Handle</th>
+                            <th>Bot Score</th>
+                            <th>Followers</th>
+                            <th>Following</th>
+                            <th>Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="botsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-content" id="quality-tab">
+            <h3>Quality Followers</h3>
+            <p class="tab-description">Selective, active followers with good engagement</p>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Handle</th>
+                            <th>Quality Score</th>
+                            <th>Followers</th>
+                            <th>Posts</th>
+                            <th>Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qualityTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 30px;
+    }
+
+    .page-header h2 {
+        color: #1d4ed8;
+        margin-bottom: 10px;
+    }
+
+    .action-bar {
+        margin-bottom: 20px;
+    }
+
+    .loading-indicator {
+        text-align: center;
+        padding: 40px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #1d4ed8;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .stat-label {
+        display: block;
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+
+    .stat-value {
+        display: block;
+        font-size: 32px;
+        font-weight: bold;
+        color: #1d4ed8;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 12px 20px;
+        cursor: pointer;
+        font-weight: 500;
+        color: #6b7280;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .tab-btn:hover {
+        color: #1d4ed8;
+    }
+
+    .tab-btn.active {
+        color: #1d4ed8;
+        border-bottom-color: #1d4ed8;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .tab-description {
+        color: #6b7280;
+        margin-bottom: 15px;
+    }
+
+    .table-container {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table th {
+        background: #f9fafb;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .data-table tr:hover {
+        background: #f9fafb;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        background: #1d4ed8;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1e40af;
+    }
+
+    .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .badge-danger {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .badge-success {
+        background: #d1fae5;
+        color: #059669;
+    }
+</style>
+
+<script>
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        loadingIndicator.style.display = 'block';
+        resultsContainer.style.display = 'none';
+        analyzeBtn.disabled = true;
+
+        try {
+            const response = await fetch('{{ url_for("api_followers_analyze") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit: null })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayResults(data);
+                resultsContainer.style.display = 'block';
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Failed to analyze: ' + error.message);
+        } finally {
+            loadingIndicator.style.display = 'none';
+            analyzeBtn.disabled = false;
+        }
+    });
+
+    function displayResults(data) {
+        // Update stats
+        document.getElementById('totalFollowers').textContent = data.total_followers;
+        document.getElementById('cachedProfiles').textContent = data.cache_stats.total_profiles || 0;
+
+        // Top follower count
+        if (data.ranked_followers && data.ranked_followers.length > 0) {
+            document.getElementById('topFollowerCount').textContent = data.ranked_followers[0].followersCount.toLocaleString();
+        }
+
+        // Populate ranked followers table
+        const rankedTbody = document.getElementById('rankedTableBody');
+        rankedTbody.innerHTML = '';
+        data.ranked_followers.forEach((follower, index) => {
+            const ratio = follower.followsCount > 0 ? (follower.followersCount / follower.followsCount).toFixed(2) : 'N/A';
+            const row = `
+            <tr>
+                <td>${index + 1}</td>
+                <td><a href="https://bsky.app/profile/${follower.handle}" target="_blank">@${follower.handle}</a></td>
+                <td>${follower.displayName || '-'}</td>
+                <td>${follower.followersCount.toLocaleString()}</td>
+                <td>${follower.followsCount.toLocaleString()}</td>
+                <td>${follower.postsCount.toLocaleString()}</td>
+                <td>${ratio}</td>
+            </tr>
+        `;
+            rankedTbody.innerHTML += row;
+        });
+
+        // Populate bots table
+        const botsTbody = document.getElementById('botsTableBody');
+        botsTbody.innerHTML = '';
+        data.bot_analysis.forEach(follower => {
+            const ratio = follower.bot_ratio ? follower.bot_ratio.toFixed(2) : 'N/A';
+            const badgeClass = follower.bot_score > 0.7 ? 'badge-danger' : 'badge-warning';
+            const row = `
+            <tr>
+                <td><a href="https://bsky.app/profile/${follower.handle}" target="_blank">@${follower.handle}</a></td>
+                <td><span class="badge ${badgeClass}">${follower.bot_score.toFixed(2)}</span></td>
+                <td>${follower.followersCount.toLocaleString()}</td>
+                <td>${follower.followsCount.toLocaleString()}</td>
+                <td>${ratio}</td>
+            </tr>
+        `;
+            botsTbody.innerHTML += row;
+        });
+
+        // Populate quality table
+        const qualityTbody = document.getElementById('qualityTableBody');
+        qualityTbody.innerHTML = '';
+        data.quality_analysis.forEach(follower => {
+            const ratio = follower.quality_ratio ? follower.quality_ratio.toFixed(2) : 'N/A';
+            const row = `
+            <tr>
+                <td><a href="https://bsky.app/profile/${follower.handle}" target="_blank">@${follower.handle}</a></td>
+                <td><span class="badge badge-success">${follower.quality_score.toFixed(2)}</span></td>
+                <td>${follower.followersCount.toLocaleString()}</td>
+                <td>${follower.postsCount.toLocaleString()}</td>
+                <td>${ratio}</td>
+            </tr>
+        `;
+            qualityTbody.innerHTML += row;
+        });
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tab}-tab`).classList.add('active');
+        });
+    });
+</script>
+{% endblock %}

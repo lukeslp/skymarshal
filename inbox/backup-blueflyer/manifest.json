@@ -1,0 +1,51 @@
+{
+    "name": "blueFlyer • Accessible Media Poster",
+    "short_name": "blueFlyer",
+    "description": "Create accessible posts for Bluesky Social with automatic alt text generation for images and GIFs.",
+    "start_url": "/bsky",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone"],
+    "background_color": "#ffffff",
+    "theme_color": "#0085ff",
+    "orientation": "any",
+    "categories": ["social", "productivity", "accessibility"],
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "https://actuallyusefulai.com/bsky/assets/spinner_transparent.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://actuallyusefulai.com/bsky/assets/spinner_transparent.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "https://actuallyusefulai.com/bsky/assets/spinner_transparent.png",
+            "sizes": "1080x1920",
+            "type": "image/png",
+            "platform": "narrow",
+            "label": "blueFlyer on mobile"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "New Post",
+            "url": "/bsky/new",
+            "description": "Create a new post",
+            "icons": [
+                {
+                    "src": "https://actuallyusefulai.com/bsky/assets/spinner_transparent.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                }
+            ]
+        }
+    ]
+} 

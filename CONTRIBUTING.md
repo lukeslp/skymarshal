@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Skymarshal! This guide will help 
 
 ### Our Pledge
 
-We are committed to providing a welcoming and inclusive environment for all contributors, regardless of:
+I am committed to providing a welcoming and inclusive environment for all contributors, regardless of:
 
 - Age, body size, disability, ethnicity, gender identity and expression
 - Level of experience, nationality, personal appearance, race, religion
@@ -628,8 +628,8 @@ We use labels to categorize issues:
 ## Contact
 
 **Project Maintainer:**
-- **Luke Steuber** - [@lukesteuber.com](https://bsky.app/profile/lukesteuber.com)
-- **Email** - [luke@lukesteuber.com](mailto:luke@lukesteuber.com)
+- **Luke Steuber** - [@dr.eamer.dev](https://bsky.app/profile/lukesteuber.com)
+- **Email** - [luke@dr.eamer.dev](mailto:luke@dr.eamer.dev)
 - **GitHub** - [@lukeslp](https://github.com/lukeslp)
 
 **Community Channels:**

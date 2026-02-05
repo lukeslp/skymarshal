@@ -33,6 +33,8 @@ from .models import (
 from .search import SearchManager
 from .settings import SettingsManager
 from .ui import UIManager
+from .followers import FollowerManager
+from .bot_detection import BotDetector
 
 
 class InteractiveContentManager:
@@ -63,6 +65,8 @@ class InteractiveContentManager:
         self.deletion_manager = DeletionManager(
             self.auth, self.settings_manager.settings
         )
+        self.follower_manager = FollowerManager(self.auth, self.settings_manager)
+        self.bot_detector = BotDetector(self.settings_manager)
         self.help_manager = HelpManager(self.ui)
 
         self.current_data: List[ContentItem] = []
@@ -748,94 +752,113 @@ class InteractiveContentManager:
         self._handle_quick_actions()
 
     def handle_nuke(self):
-        """Interactive nuclear delete with multiple confirmations."""
-        console.print(
-            Panel(
-                "WARNING: Delete ALL content (posts, likes, reposts)",
-                title="NUKE",
-                border_style="bright_red",
-            )
-        )
-
-        valid = {
-            "post": "app.bsky.feed.post",
-            "like": "app.bsky.feed.like",
-            "repost": "app.bsky.feed.repost",
-        }
-        console.print("Collections to delete (comma-separated): post, like, repost")
-        inc = Prompt.ask("Include", default="post,like,repost")
-        includes = {
-            s.strip().lower() for s in inc.split(",") if s.strip().lower() in valid
-        }
-
-        if not includes:
-            console.print("No valid collections selected")
+        """Interactive nuclear delete using the safe DeletionManager."""
+        if not self.auth.ensure_authentication():
+            console.print("Authentication required")
             return
 
-        if self.auth.current_handle:
-            handle = self.auth.current_handle
-        else:
-            handle, action = self.ui.input_with_navigation(
-                "Your handle: @", context="handle"
-            )
-            if action in ["back", "main"]:
-                return
-
-        if Confirm.ask("Create backup before deleting?", default=True):
-            try:
-                self.data_manager.create_timestamped_backup(handle)
-            except Exception:
-                console.print("[yellow]Backup failed or skipped[/yellow]")
-
-        phrase = f"DELETE ALL {handle}"
-        console.print(f"Type to confirm: [bold]{phrase}[/bold]")
-        entered = Prompt.ask("Confirmation phrase")
-        if entered != phrase:
-            console.print("Confirmation failed. Aborting.")
+        if not self.current_data:
+            console.print("[yellow]Nuclear option requires loaded data to verify what will be deleted.[/]")
+            console.print("[dim]Use 'Data Management' > 'Download' to get a fresh list of your content.[/]")
             return
 
-        entered_handle, action = self.ui.input_with_navigation(
-            "Re-type your handle to confirm: @", context="handle"
-        )
-        if action in ["back", "main"]:
-            return
-        if entered_handle.strip().lower() != handle.strip().lower():
-            console.print("Handle mismatch. Aborting.")
-            return
+        # Use the unified nuclear option from deletion manager
+        self.deletion_manager.nuclear_option(self.current_data)
 
-        agree = Prompt.ask("Type 'I UNDERSTAND' to proceed", default="")
-        if agree.strip() != "I UNDERSTAND":
-            console.print("Confirmation failed. Aborting.")
-            return
+        # Clear data if we deleted everything (or if we just ran the function, assume it did its job or cancelled)
+        # Actually proper behavior is to reload, but for safety/cleanness we can clear
+        # But we only clear if it actually seemingly succeeded. 
+        # Since nuclear_option doesn't return status easily here (it prints), we can just suggest refresh.
+        console.print("[dim]Tip: Refresh data to verify everything is gone.[/]")
+        self.current_data = []
 
-        if not Confirm.ask(
-            "Final confirmation — proceed with nuclear delete?", default=False
-        ):
-            console.print("Cancelled")
-            return
-
-        total_deleted = 0
-        total_matched = 0
-        for key in includes:
-            coll = valid[key]
-            deleted, matched = self.deletion_manager.bulk_remove_by_collection(
-                coll, dry_run=False
-            )
-            total_deleted += deleted
-            total_matched += matched
-            console.print(f"• {coll}: matched {matched} (deleted {deleted})")
-
-        console.print(
-            f"Nuclear delete complete. Deleted {total_deleted} records (matched {total_matched})."
-        )
+    def handle_followers(self):
+        """Handle follower analysis and management."""
+        self._clear_for_flow("Follower Analysis")
+        
         while True:
-            nav_choice = self.ui.pause_with_navigation("delete")
-            if nav_choice == "continue":
-                break
-            else:
-                action = self.handle_navigation_choice(nav_choice, "delete")
-                if action in ["back", "main"]:
-                    break
+            followers_choices = {
+                "1": ("rank", "Rank followers by count (Popularity)"),
+                "2": ("bots", "Analyze followers for bot indicators"),
+                "3": ("quality", "Identify high-quality mutuals"),
+                "b": ("back", "Back to main menu"),
+            }
+            
+            choice, action = self.ui.prompt_with_choices(
+                "Select option", choices=followers_choices, default="1", context="followers"
+            )
+            
+            if choice == "back":
+                return
+                
+            if not self.auth.ensure_authentication():
+                continue
+                
+            did = self.auth.current_did
+            
+            if choice == "rank":
+                console.print("[dim]Fetching and ranking followers...[/]")
+                with console.status("Fetching profiles..."):
+                    ranked = self.follower_manager.rank_followers(did, limit=1000)
+                
+                if not ranked:
+                    console.print("No followers found or error fetching.")
+                    continue
+                    
+                self._display_follower_table(ranked, title="Follower Ranking")
+                
+            elif choice == "bots":
+                console.print("[dim]Fetching profiles for analysis...[/]")
+                with console.status("Analyzing profiles..."):
+                    ranked = self.follower_manager.rank_followers(did, limit=1000)
+                    suspects = self.bot_detector.analyze_indicators(ranked)
+                
+                if not suspects:
+                    console.print("[green]No obvious bot indicators found.[/]")
+                else:
+                    self._display_follower_table(suspects, title="Potential Bot Indicators", sort_key="ratio")
+                    
+            elif choice == "quality":
+                console.print("[dim]Finding high-quality mutuals...[/]")
+                with console.status("Analyzing..."):
+                    ranked = self.follower_manager.rank_followers(did, limit=1000)
+                    quality = self.follower_manager.analyze_quality(ranked)
+                
+                self._display_follower_table(quality, title="High Quality Followers")
+
+            self.ui.pause()
+
+    def _display_follower_table(self, profiles: List[dict], title: str, sort_key: str = None):
+        """Helper to display follower data."""
+        from rich.table import Table
+        
+        table = Table(title=title)
+        table.add_column("Handle", style="cyan")
+        table.add_column("Followers", justify="right")
+        table.add_column("Following", justify="right")
+        table.add_column("Ratio", justify="right")
+        table.add_column("Bot Prob", style="red")
+        
+        # Sort if requested
+        # (Ranked list is usually already sorted by followers)
+        
+        for p in profiles[:50]: # Show top 50
+            ratio = p.get("ratio", 0)
+            fmt_ratio = f"{ratio:.3f}"
+            prob = p.get("bot_probability", "")
+            
+            table.add_row(
+                f"@{p.get('handle')}",
+                str(p.get("followers_count")),
+                str(p.get("following_count")),
+                fmt_ratio,
+                prob
+            )
+            
+        console.print(table)
+        if len(profiles) > 50:
+            console.print(f"[dim]...and {len(profiles) - 50} more[/]")
+
 
     def handle_startup_flow(self):
         """Handle startup flow with authentication-first approach."""
@@ -1112,6 +1135,8 @@ class InteractiveContentManager:
                         self.handle_data_management()
                     elif choice == "auth":
                         self.handle_authentication()
+                    elif choice == "followers":
+                        self.handle_followers()
                     elif choice == "x":
                         self.handle_nuke()
                     elif choice == "settings":

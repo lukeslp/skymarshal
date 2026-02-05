@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <title>Shared Post | Skymarshal</title>
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Shared Post via Skymarshal">
+    <meta property="og:description" content="{{ post.text[:100] }}...">
+    <meta property="og:type" content="article">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg);
+            padding: 20px;
+        }
+        .share-card {
+            width: 100%;
+            max-width: 600px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .share-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+        .share-meta {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .share-content {
+            font-size: 18px;
+            line-height: 1.6;
+            color: var(--text);
+            white-space: pre-wrap;
+            margin-bottom: 24px;
+        }
+        .share-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .share-footer {
+            margin-top: 24px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="share-card">
+        <div class="share-header">
+            <div>
+                <span class="lite-chip">{{ post.content_type|upper }}</span>
+                <span style="margin-left: 8px; font-weight: 600;">@{{ post.author }}</span>
+            </div>
+            <div class="share-meta">
+                {{ post.created_at }}
+            </div>
+        </div>
+
+        <div class="share-content">
+            {{ post.text }}
+        </div>
+
+        <div class="share-stats">
+            <span class="lite-pill">❤️ {{ post.likes }}</span>
+            <span class="lite-pill">🔄 {{ post.reposts }}</span>
+            <span class="lite-pill">💬 {{ post.replies }}</span>
+        </div>
+
+        <div class="share-footer">
+            <a href="https://bsky.app/profile/{{ post.author }}/post/{{ post.uri.split('/')[-1] }}" target="_blank" class="lite-button">
+                View on Bluesky ↗
+            </a>
+            <p style="margin-top: 16px; font-size: 12px; color: var(--text-muted);">
+                Shared via <a href="/" style="color: var(--primary);">Skymarshal</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Theme handling script -->
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+</body>
+</html>

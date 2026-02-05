@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EgoNet Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#0a0a0a',
+                        surface: '#171717',
+                        border: '#262626',
+                        primary: '#3b82f6',
+                        danger: '#ef4444',
+                        success: '#22c55e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: theme('colors.background');
+            color: #f5f5f5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card {
+            background-color: theme('colors.surface');
+            border: 1px solid theme('colors.border');
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: #404040;
+            transform: translateY(-2px);
+        }
+
+        .btn {
+            transition: all 0.2s ease;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-8">
+
+    <div class="max-w-6xl mx-auto space-y-12">
+
+        <!-- Header -->
+        <header class="flex justify-between items-end border-b border-border pb-6">
+            <div>
+                <h1 class="text-4xl font-bold tracking-tight mb-2">EgoNet Manager</h1>
+                <p class="text-neutral-400">Advanced Network Operations & Repository Management</p>
+            </div>
+            <div class="text-right">
+                <div
+                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface border border-border text-sm text-neutral-300">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                    <span id="user-handle">{{ handle }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="card p-6 rounded-lg">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="p-3 bg-blue-500/10 text-blue-500 rounded-md">
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-neutral-400 font-medium">Network Size</p>
+                        <h3 class="text-2xl font-bold" id="stat-network">-</h3>
+                    </div>
+                </div>
+                <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 w-2/3"></div>
+                </div>
+            </div>
+
+            <div class="card p-6 rounded-lg">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="p-3 bg-purple-500/10 text-purple-500 rounded-md">
+                        <i data-lucide="database" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-neutral-400 font-medium">Repository Size</p>
+                        <h3 class="text-2xl font-bold" id="stat-repo">-</h3>
+                    </div>
+                </div>
+                <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-purple-500 w-1/3"></div>
+                </div>
+            </div>
+
+            <div class="card p-6 rounded-lg">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="p-3 bg-green-500/10 text-green-500 rounded-md">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-neutral-400 font-medium">Status</p>
+                        <h3 class="text-2xl font-bold text-green-500">Active</h3>
+                    </div>
+                </div>
+                <div class="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-500 w-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+            <!-- Visualization -->
+            <div class="card p-8 rounded-xl flex flex-col h-full relative overflow-hidden group">
+                <div
+                    class="absolute top-0 right-0 p-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition group-hover:bg-blue-500/10">
+                </div>
+                <div class="relative z-10">
+                    <div class="mb-6 p-4 bg-surface w-fit rounded-lg border border-border">
+                        <i data-lucide="network" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h2 class="text-xl font-bold mb-2">Ego Network</h2>
+                    <p class="text-neutral-400 mb-8 flex-grow">Visualize your social graph with interactive
+                        force-directed layouts. Explore connections and clusters.</p>
+                    <button onclick="loadSection('visualize')"
+                        class="btn w-full py-3 px-4 bg-white text-black font-semibold rounded-lg hover:bg-neutral-200 flex items-center justify-center gap-2">
+                        Launch Visualizer <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Backup -->
+            <div class="card p-8 rounded-xl flex flex-col h-full relative overflow-hidden group">
+                <div
+                    class="absolute top-0 right-0 p-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition group-hover:bg-purple-500/10">
+                </div>
+                <div class="relative z-10">
+                    <div class="mb-6 p-4 bg-surface w-fit rounded-lg border border-border">
+                        <i data-lucide="download" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h2 class="text-xl font-bold mb-2">Data Backup</h2>
+                    <p class="text-neutral-400 mb-8 flex-grow">Securely download your entire repository as a CAR file or
+                        export content as JSON/CSV.</p>
+                    <button onclick="triggerBackup()"
+                        class="btn w-full py-3 px-4 bg-surface border border-border font-semibold rounded-lg hover:bg-neutral-800 hover:text-white flex items-center justify-center gap-2 transition-colors">
+                        Download Archive <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Nuclear Zone -->
+            <div
+                class="card p-8 rounded-xl flex flex-col h-full relative overflow-hidden group border-red-900/30 hover:border-red-500/50">
+                <div
+                    class="absolute top-0 right-0 p-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 transition group-hover:bg-red-500/10">
+                </div>
+                <div class="relative z-10">
+                    <div class="mb-6 p-4 bg-red-500/10 w-fit rounded-lg border border-red-500/20">
+                        <i data-lucide="radiation" class="w-8 h-8 text-red-500"></i>
+                    </div>
+                    <h2 class="text-xl font-bold mb-2 text-red-500">Nuclear Zone</h2>
+                    <p class="text-neutral-400 mb-8 flex-grow">Advanced deletion tools. Mass remove content or wipe
+                        repository completely while keeping account.</p>
+                    <button onclick="toggleModal('nuke-modal')"
+                        class="btn w-full py-3 px-4 bg-red-500/10 text-red-500 border border-red-500/50 font-semibold rounded-lg hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 transition-all">
+                        Open Hazard Controls <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizer Container (Hidden by default) -->
+        <div id="visualizer-container"
+            class="hidden border border-border rounded-xl bg-surface h-[600px] relative overflow-hidden">
+            <div class="absolute inset-0 flex items-center justify-center" id="vis-loading">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+            <svg id="graph-svg" class="w-full h-full"></svg>
+        </div>
+
+    </div>
+
+    <!-- Nuke Modal -->
+    <div id="nuke-modal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('nuke-modal')"></div>
+        <div
+            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-neutral-900 border border-red-500 rounded-2xl p-8 shadow-2xl shadow-red-900/20">
+            <div class="text-center mb-8">
+                <div class="inline-flex p-4 rounded-full bg-red-500/10 text-red-500 mb-4">
+                    <i data-lucide="alert-octagon" class="w-12 h-12"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">Nuclear Deletion</h2>
+                <p class="text-red-400">This action is permanent and cannot be undone.</p>
+            </div>
+
+            <div class="space-y-4 mb-8">
+                <label
+                    class="flex items-start gap-4 p-4 rounded-lg bg-red-950/30 border border-red-900/50 cursor-pointer hover:bg-red-900/20 transition">
+                    <input type="checkbox" id="check-backup"
+                        class="mt-1 w-4 h-4 rounded border-red-500 text-red-600 focus:ring-red-500 bg-transparent">
+                    <span class="text-sm text-neutral-300">I have created a backup of my data.</span>
+                </label>
+                <label
+                    class="flex items-start gap-4 p-4 rounded-lg bg-red-950/30 border border-red-900/50 cursor-pointer hover:bg-red-900/20 transition">
+                    <input type="checkbox" id="check-permanent"
+                        class="mt-1 w-4 h-4 rounded border-red-500 text-red-600 focus:ring-red-500 bg-transparent">
+                    <span class="text-sm text-neutral-300">I understand this will delete ALL posts, likes, and reposts.
+                        The account will remain empty.</span>
+                </label>
+            </div>
+
+            <div class="mb-8">
+                <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-2">Type "I UNDERSTAND THIS IS
+                    PERMANENT"</label>
+                <input type="text" id="nuke-confirm-input"
+                    class="w-full bg-black border border-neutral-700 rounded-lg p-3 text-white placeholder-neutral-700 focus:border-red-500 focus:outline-none transition"
+                    placeholder="Type confirmation phrase...">
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="toggleModal('nuke-modal')"
+                    class="flex-1 py-3 font-medium text-neutral-400 hover:text-white transition">Cancel</button>
+                <button onclick="executeNuke()" id="btn-nuke"
+                    class="flex-1 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    NUKE IT
+                </button>
+            </div>
+
+            <!-- D3.js -->
+            <script src="https://d3js.org/d3.v7.min.js"></script>
+
+            <script>
+                lucide.createIcons();
+
+                // --- Mock Data Loading ---
+                // In real app, fetch from /api/stats
+                document.getElementById('stat-network').innerText = "1.2k";
+                document.getElementById('stat-repo').innerText = "45MB";
+
+                // --- Interaction Logic ---
+                function toggleModal(id) {
+                    const el = document.getElementById(id);
+                    el.classList.toggle('hidden');
+                }
+
+                async function triggerBackup() {
+                    const btn = event.currentTarget;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-4 h-4"></i> Starting...`;
+                    lucide.createIcons();
+
+                    try {
+                        const res = await fetch('/api/backup', { method: 'POST' });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Saved`;
+                            alert("Backup started/saved: " + data.message);
+                        } else {
+                            alert("Error: " + data.message);
+                        }
+                    } catch (e) {
+                        alert("Request failed");
+                    }
+
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        lucide.createIcons();
+                    }, 3000);
+                }
+
+                // --- Visualizer Logic ---
+                function loadSection(section) {
+                    if (section === 'visualize') {
+                        const container = document.getElementById('visualizer-container');
+                        container.classList.remove('hidden');
+                        container.scrollIntoView({ behavior: 'smooth' });
+
+                        // Fetch graph data
+                        fetch('/api/network')
+                            .then(r => r.json())
+                            .then(data => {
+                                document.getElementById('vis-loading').classList.add('hidden');
+                                renderGraph(data);
+                            })
+                            .catch(e => {
+                                console.error(e);
+                                document.getElementById('vis-loading').innerHTML = `<p class="text-red-500">Error loading graph</p>`;
+                            });
+                    }
+                }
+
+                function renderGraph(data) {
+                    const container = document.getElementById('visualizer-container');
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+
+                    // Clear previous
+                    d3.select("#graph-svg").selectAll("*").remove();
+
+                    const svg = d3.select("#graph-svg")
+                        .attr("viewBox", [0, 0, width, height]);
+
+                    // Force simulation
+                    const simulation = d3.forceSimulation(data.nodes)
+                        .force("link", d3.forceLink(data.links).id(d => d.id).distance(50))
+                        .force("charge", d3.forceManyBody().strength(-100))
+                        .force("center", d3.forceCenter(width / 2, height / 2))
+                        .force("collide", d3.forceCollide(10));
+
+                    // Draw links
+                    const link = svg.append("g")
+                        .selectAll("line")
+                        .data(data.links)
+                        .join("line")
+                        .attr("stroke", "#404040")
+                        .attr("stroke-opacity", 0.6)
+                        .attr("stroke-width", 1);
+
+                    // Draw nodes
+                    const node = svg.append("g")
+                        .selectAll("circle")
+                        .data(data.nodes)
+                        .join("circle")
+                        .attr("r", d => d.group === 1 ? 10 : 5)
+                        .attr("fill", d => {
+                            if (d.group === 1) return "#3b82f6"; // Me
+                            if (d.group === 2) return "#22c55e"; // Follower
+                            return "#a855f7"; // Following
+                        })
+                        .attr("stroke", "#ffffff")
+                        .attr("stroke-width", 1.5)
+                        .call(drag(simulation));
+
+                    // Tooltips
+                    node.append("title")
+                        .text(d => d.handle);
+
+                    simulation.on("tick", () => {
+                        link
+                            .attr("x1", d => d.source.x)
+                            .attr("y1", d => d.source.y)
+                            .attr("x2", d => d.target.x)
+                            .attr("y2", d => d.target.y);
+
+                        node
+                            .attr("cx", d => d.x)
+                            .attr("cy", d => d.y);
+                    });
+
+                    function drag(simulation) {
+                        function dragstarted(event) {
+                            if (!event.active) simulation.alphaTarget(0.3).restart();
+                            event.subject.fx = event.subject.x;
+                            event.subject.fy = event.subject.y;
+                        }
+
+                        function dragged(event) {
+                            event.subject.fx = event.x;
+                            event.subject.fy = event.y;
+                        }
+
+                        function dragended(event) {
+                            if (!event.active) simulation.alphaTarget(0);
+                            event.subject.fx = null;
+                            event.subject.fy = null;
+                        }
+
+                        return d3.drag()
+                            .on("start", dragstarted)
+                            .on("drag", dragged)
+                            .on("end", dragended);
+                    }
+                }
+
+                // --- Nuke Logic ---
+                const checkBackup = document.getElementById('check-backup');
+                const checkPerm = document.getElementById('check-permanent');
+                const inputConfirm = document.getElementById('nuke-confirm-input');
+                const btnNuke = document.getElementById('btn-nuke');
+
+                function updateNukeState() {
+                    const confirmed = checkBackup.checked &&
+                        checkPerm.checked &&
+                        inputConfirm.value === "I UNDERSTAND THIS IS PERMANENT";
+                    btnNuke.disabled = !confirmed;
+                }
+
+                checkBackup.addEventListener('change', updateNukeState);
+                checkPerm.addEventListener('change', updateNukeState);
+                inputConfirm.addEventListener('input', updateNukeState);
+
+                async function executeNuke() {
+                    if (confirm("FINAL WARNING: Are you sure?")) {
+                        btnNuke.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-4 h-4"></i> OBLITERATING...';
+                        lucide.createIcons();
+
+                        try {
+                            const res = await fetch('/api/nuke', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ confirmation: inputConfirm.value })
+                            });
+                            const data = await res.json();
+                            alert(data.message);
+                            toggleModal('nuke-modal');
+                        } catch (e) {
+                            alert("Nuke failed: " + e);
+                        }
+
+                        btnNuke.innerHTML = 'NUKE IT';
+                    }
+                }
+            </script>
+</body>
+
+</html>

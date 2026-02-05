@@ -1,41 +1,37 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Source CLI in `skymarshal/`: `app.py` orchestrates menus and delegates to `auth.py`, `data_manager.py`, `deletion.py`.
-- Shared CLI copy in `templates/`; optional Flask UI in `web/`.
-- Tests in `tests/` with `unit/`, `integration/`, and reusable `fixtures/`.
-- Automation in `scripts/`; design notes in `internal/` (do not ship).
-- Generated artefacts like `dist/` and `skymarshal.egg-info/` are reproducible; don’t patch.
+- `skymarshal/` contains the production Python package and CLI; core modules live beside reusable utilities, with automated suites under `skymarshal/tests/`.
+- `bluevibes/` hosts the Flask profile viewer (`src/`, `templates/`, `static/`) plus a CLI entry point (`python -m src.cli`).
+- `bluesky_tools/` holds standalone scripts that emit reports to `bluesky_reports/`; double-check each subfolder for a local `AGENTS.md` before editing.
+- `bluesky/` serves the static marketing site with `assets/`, `scripts.js`, and `styles.css`; `blueeyes/` and archival data folders are read-mostly unless their own guides permit changes.
 
 ## Build, Test, and Development Commands
-- Create venv: `python -m venv .venv && source .venv/bin/activate`.
-- Install dev deps: `make dev` or `pip install -e ".[dev]"`.
-- Run CLI: `make run` or `python -m skymarshal`.
-- Test suite: `make test` (preferred before commits).
-- Linting: `make lint` (flake8 + mypy). Formatting: `make format` (Black + isort).
+- `cd skymarshal && make dev` installs editable deps; follow with `make run` to exercise the CLI.
+- `cd skymarshal && make test | make lint | make format` wrap `pytest`, `flake8`/`mypy`, and `black`/`isort` respectively.
+- `cd bluevibes && python -m pip install -r requirements.txt` prepares the viewer; run `python run.py` for the Flask UI.
+- Execute individual tooling scripts with `python bluesky_tools/<script>.py`; create virtualenvs locally to isolate deps.
 
 ## Coding Style & Naming Conventions
-- 4-space indentation; Black’s 88-character line limit.
-- isort with Black profile; keep imports clean and grouped.
-- Type hints required for new/changed functions; pass mypy’s strict checks.
-- Naming: `snake_case` for functions/modules/CLI command IDs; `PascalCase` for classes/dataclasses.
-- Place user-facing copy in `templates/` for reuse.
+- Target Python 3.9+ with four-space indents, snake_case modules, and PascalCase classes.
+- Run `make format` inside `skymarshal/` to apply `black`/`isort`; rely on `flake8` and `mypy` for linting.
+- Front-end assets follow existing BEM-style CSS classes and modular JavaScript helpers in `bluesky/`.
+
+## UX Agent Dispatch
+- UX prototypes follow the dedicated playbook in `UX_AGENT.md`—read it before running the UX automation agent.
+- Every prototype must be saved under `~/UX_TEST/<concept_slug>/` so it serves at `https://dr.eamer.dev/ux/<concept_slug>/`.
+- Keep assets self-contained (relative paths only) and add a short `README.md` per concept describing scope, credentials, and review notes.
 
 ## Testing Guidelines
-- Runner: Pytest. Run all tests with `pytest` or targeted with `pytest tests/unit` and `pytest tests/integration`.
-- Name tests `test_*.py`; prefer small, isolated cases.
-- Use `tests/fixtures/` to mock Bluesky traffic—never hit live services.
-- Every bug fix needs a regression test. CAR ingestion/deletion changes require integration coverage.
-- For core module moves, check coverage: `pytest --cov=skymarshal`.
+- Add focused `pytest` suites under `skymarshal/tests/` using `test_<feature>.py` filenames and fixtures for API calls.
+- Verify Bluevibes features manually (UI + CLI) and note the steps in PR descriptions; provide sample outputs for `bluesky_tools` scripts instead of large artifacts.
 
 ## Commit & Pull Request Guidelines
-- Commit style mixes imperative and Conventional prefixes (e.g., `feat:`); keep subjects ≤72 chars with focused bodies.
-- Group related changes per commit; avoid drive-by edits.
-- PRs should summarize behavior changes, list verification steps (`pytest`, CLI walkthroughs), link issues, and include screenshots/terminal captures when output changes.
-- Wait for CI to pass before requesting review.
+- Write imperative commit titles ≈50 chars, e.g., `Fix: Update API routes`, and squash noisy commits before merging.
+- PRs should summarize scope, link related issues, list validation commands (`make test`, manual UI steps), and attach screenshots or logs for user-facing changes.
+- Confirm every nested `AGENTS.md` was honored, document skipped checks, and scrub credentials or personal data before submission.
 
 ## Security & Configuration Tips
-- Never commit Bluesky credentials, CAR archives, or user exports.
-- Settings persist via `SettingsManager`; redact tokens/paths from logs before sharing.
-- Route new settings through the existing JSON workflow and preserve multi-step confirmations for destructive tasks.
-
+- Store Bluesky credentials in environment variables or `.env` files ignored by Git.
+- Review scripts for hard-coded handles or tokens, and prefer sample usernames when demonstrating API usage.
+- Run `create_placeholders.sh` before publishing static assets so no local media leaks.

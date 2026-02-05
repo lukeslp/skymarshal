@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Skymarshal Web{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="{{ url_for('index') }}" class="brand-link">
+                    <h1>Skymarshal</h1>
+                    <span class="nav-tagline">Bluesky Content Manager</span>
+                </a>
+            </div>
+            <div class="nav-right">
+                {% if session.user_handle %}
+                <div class="nav-user">
+                    <div class="user-info">
+                        <img id="user-avatar" class="user-avatar" src="{{ url_for('static', filename='images/default-avatar.svg') }}" alt="Avatar">
+                        <div class="user-details">
+                            <span class="user-display-name" id="user-display-name">{{ session.user_handle }}</span>
+                            <a href="https://bsky.app/profile/{{ session.user_handle }}" target="_blank" class="user-handle">@{{ session.user_handle }}</a>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+                </div>
+                {% else %}
+                <div class="nav-links">
+                    <a href="https://bsky.app/profile/lukesteuber.com" target="_blank" rel="noopener" class="nav-link">@lukesteuber.com</a>
+                    <a href="https://github.com/lukeslp" target="_blank" rel="noopener" class="nav-link">GitHub</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    {% if session.user_handle %}
+    <script>
+    // Load user profile on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        console.log('Loading user profile...');
+        try {
+            const response = await fetch('{{ url_for("user_profile") }}');
+            const data = await response.json();
+            
+            console.log('Profile response:', data);
+            
+            if (data.success && data.profile) {
+                const profile = data.profile;
+                console.log('Profile data received:', profile);
+                
+                // Update avatar
+                const avatarImg = document.getElementById('user-avatar');
+                if (profile.avatar && profile.avatar !== '{{ url_for("static", filename="images/default-avatar.svg") }}') {
+                    console.log('Loading user avatar:', profile.avatar);
+                    avatarImg.onerror = () => {
+                        console.warn('Failed to load user avatar, using default');
+                        avatarImg.src = '{{ url_for("static", filename="images/default-avatar.svg") }}';
+                    };
+                    avatarImg.onload = () => {
+                        console.log('User avatar loaded successfully');
+                    };
+                    avatarImg.src = profile.avatar;
+                } else {
+                    console.log('Using default avatar (no profile avatar available)');
+                }
+                
+                // Update display name (show handle as fallback if no display name)
+                const displayNameEl = document.getElementById('user-display-name');
+                if (profile.displayName && profile.displayName.trim()) {
+                    console.log('Setting display name:', profile.displayName);
+                    displayNameEl.textContent = profile.displayName;
+                } else {
+                    console.log('No display name, using handle:', profile.handle);
+                    displayNameEl.textContent = profile.handle || '{{ session.user_handle }}';
+                }
+                
+                // Ensure the handle link shows the @ symbol
+                const handleEl = document.querySelector('.user-handle');
+                if (handleEl && profile.handle) {
+                    console.log('Updating handle link:', profile.handle);
+                    handleEl.textContent = '@' + profile.handle;
+                    handleEl.href = 'https://bsky.app/profile/' + profile.handle;
+                }
+            } else {
+                console.error('Profile fetch failed:', data.error || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Failed to load user profile:', error);
+        }
+    });
+    </script>
+    {% endif %}
+    
+    {% block extra_js %}{% endblock %}
+    
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-links">
+                <a href="https://bsky.app/profile/lukesteuber.com" target="_blank" rel="noopener" class="footer-link">@lukesteuber.com</a>
+                <a href="https://github.com/lukeslp/skymarshal" target="_blank" rel="noopener" class="footer-link">GitHub</a>
+            </div>
+            <div class="footer-license">
+                <a rel="license" href="http://creativecommons.org/publicdomain/zero/1.0/" target="_blank">
+                    <img src="https://licensebuttons.net/p/zero/1.0/80x15.png" style="border-style: none;" alt="CC0" />
+                </a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

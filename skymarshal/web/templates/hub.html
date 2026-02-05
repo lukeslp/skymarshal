@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+
+{% block title %}Skymarshal Hub - Bluesky Tools{% endblock %}
+
+{% block content %}
+<style>
+    /*--------------------------------------
+     * Dark Slate Theme (Bluevibes Design System)
+     *--------------------------------------*/
+    :root {
+        /* Primary Blue Accents */
+        --primary-color: #3b82f6;
+        --primary-hover: #2563eb;
+        --primary-active: #1d4ed8;
+        --primary-light: #60a5fa;
+
+        /* Secondary Colors */
+        --indigo: #6366f1;
+        --emerald: #10b981;
+        --amber: #f59e0b;
+        --rose: #f43f5e;
+
+        /* Dark Slate Background Scale */
+        --bg-darkest: #020617;
+        --bg-darker: #0f172a;
+        --bg-dark: #1e293b;
+        --bg-mid: #334155;
+        --bg-light: #475569;
+
+        /* Surface colors */
+        --surface: #0f172a;
+        --surface-elevated: #1e293b;
+        --surface-hover: #334155;
+
+        /* Card backgrounds */
+        --card-bg: rgba(15, 23, 42, 0.95);
+
+        /* Text colors */
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --text-dim: #64748b;
+
+        /* Border colors */
+        --border-color: #334155;
+        --border-light: #475569;
+
+        /* Shadows */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+
+        /* Spacing */
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 12px;
+        --spacing-lg: 16px;
+        --spacing-xl: 24px;
+        --spacing-2xl: 32px;
+        --spacing-3xl: 48px;
+
+        /* Radius */
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+        --radius-full: 9999px;
+
+        /* Transitions */
+        --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: var(--bg-darkest);
+        color: var(--text-primary);
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .hub-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: var(--spacing-2xl) var(--spacing-lg);
+    }
+
+    /*--------------------------------------
+     * Authenticated Profile Header
+     *--------------------------------------*/
+    .profile-header {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        margin-bottom: var(--spacing-2xl);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .profile-banner {
+        height: 150px;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--indigo) 100%);
+        background-size: cover;
+        background-position: center;
+    }
+
+    .profile-content {
+        padding: 0 var(--spacing-2xl) var(--spacing-2xl);
+        position: relative;
+    }
+
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: var(--radius-full);
+        border: 4px solid var(--bg-darker);
+        background-color: var(--surface-elevated);
+        margin-top: -50px;
+        margin-bottom: var(--spacing-lg);
+        object-fit: cover;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .profile-avatar-placeholder {
+        width: 100px;
+        height: 100px;
+        border-radius: var(--radius-full);
+        background: linear-gradient(135deg, var(--primary-color), var(--indigo));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        border: 4px solid var(--bg-darker);
+        margin-top: -50px;
+        margin-bottom: var(--spacing-lg);
+        box-shadow: var(--shadow-glow);
+    }
+
+    .profile-details h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .profile-handle {
+        color: var(--primary-light);
+        font-size: 0.95rem;
+        margin-bottom: var(--spacing-xl);
+        display: block;
+    }
+
+    .profile-stats {
+        display: flex;
+        gap: var(--spacing-2xl);
+        border-top: 1px solid var(--border-color);
+        padding-top: var(--spacing-xl);
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .stat-value {
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: var(--text-primary);
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: var(--spacing-xs);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /*--------------------------------------
+     * Public Login Header
+     *--------------------------------------*/
+    .login-header {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        padding: var(--spacing-3xl) var(--spacing-2xl);
+        text-align: center;
+        margin-bottom: var(--spacing-2xl);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .login-header h1 {
+        margin: 0 0 var(--spacing-lg);
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        background: linear-gradient(135deg, var(--primary-color), var(--indigo));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .login-header p {
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-2xl);
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .btn-large-login {
+        display: inline-block;
+        background: var(--primary-color);
+        color: white;
+        padding: var(--spacing-lg) var(--spacing-2xl);
+        border-radius: var(--radius-lg);
+        font-weight: 600;
+        text-decoration: none;
+        transition: all var(--transition-fast);
+        font-size: 1.1rem;
+        box-shadow: var(--shadow-glow);
+    }
+
+    .btn-large-login:hover {
+        background: var(--primary-hover);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+        transform: translateY(-2px);
+    }
+
+    /*--------------------------------------
+     * Tool Grid
+     *--------------------------------------*/
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--spacing-xl);
+    }
+
+    .tool-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-xl);
+        padding: var(--spacing-xl);
+        transition: all var(--transition-normal);
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .tool-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--border-light);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .tool-card.disabled {
+        opacity: 0.6;
+        background: rgba(30, 41, 59, 0.5);
+    }
+
+    .tool-card.disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .tool-icon {
+        font-size: 2.5rem;
+        margin-bottom: var(--spacing-lg);
+        filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+    }
+
+    .tool-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 var(--spacing-sm);
+        color: var(--text-primary);
+    }
+
+    .tool-description {
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-xl);
+        flex-grow: 1;
+        font-size: 0.95rem;
+    }
+
+    .tool-features {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 var(--spacing-xl) 0;
+        text-align: left;
+    }
+
+    .tool-features li {
+        padding: var(--spacing-sm) 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+    }
+
+    .tool-features li:last-child {
+        border-bottom: none;
+    }
+
+    .tool-features li::before {
+        content: "•";
+        color: var(--primary-light);
+        font-weight: bold;
+        display: inline-block;
+        width: 1em;
+        margin-right: var(--spacing-sm);
+    }
+
+    .btn-tool {
+        display: inline-block;
+        background: var(--surface-elevated);
+        color: var(--text-secondary);
+        padding: var(--spacing-md) var(--spacing-lg);
+        border-radius: var(--radius-lg);
+        text-decoration: none;
+        text-align: center;
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: 1px solid var(--border-color);
+        transition: all var(--transition-fast);
+        margin-top: auto;
+    }
+
+    .btn-tool:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        box-shadow: var(--shadow-glow);
+    }
+
+    .btn-disabled {
+        background: var(--bg-mid);
+        color: var(--text-dim);
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .btn-login-prompt {
+        background: var(--surface-elevated);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-login-prompt:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    /*--------------------------------------
+     * Responsive
+     *--------------------------------------*/
+    @media (max-width: 768px) {
+        .hub-container {
+            padding: var(--spacing-lg);
+        }
+
+        .profile-content {
+            padding: 0 var(--spacing-lg) var(--spacing-lg);
+        }
+
+        .profile-stats {
+            gap: var(--spacing-lg);
+            justify-content: center;
+        }
+
+        .login-header {
+            padding: var(--spacing-2xl) var(--spacing-lg);
+        }
+
+        .tools-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .profile-banner {
+            height: 100px;
+        }
+
+        .profile-avatar,
+        .profile-avatar-placeholder {
+            width: 80px;
+            height: 80px;
+            margin-top: -40px;
+            font-size: 2rem;
+        }
+
+        .profile-stats {
+            gap: var(--spacing-md);
+        }
+
+        .stat-value {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<div class="hub-container">
+    {% if is_authenticated and user_handle %}
+    <!-- Authenticated Header -->
+    <div class="profile-header">
+        <div class="profile-banner"
+            style="{% if profile and profile.banner %}background-image: url('{{ profile.banner }}');{% endif %}"></div>
+        <div class="profile-content">
+            {% if profile and profile.avatar %}
+            <img src="{{ profile.avatar }}" alt="{{ profile.displayName or user_handle }}" class="profile-avatar">
+            {% else %}
+            <div class="profile-avatar-placeholder">
+                {{ (profile.displayName[0] if profile else user_handle[0]) | upper }}
+            </div>
+            {% endif %}
+
+            <div class="profile-details">
+                <h1>{{ profile.displayName if profile else user_handle }}</h1>
+                <span class="profile-handle">@{{ profile.handle if profile else user_handle }}</span>
+
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-value">{{ "{:,}".format(profile.postsCount if profile else 0) }}</span>
+                        <span class="stat-label">Posts</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">{{ "{:,}".format(profile.followersCount if profile else 0) }}</span>
+                        <span class="stat-label">Followers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">{{ "{:,}".format(profile.followsCount if profile else 0) }}</span>
+                        <span class="stat-label">Following</span>
+                    </div>
+                    {% if blocked_count is number %}
+                    <div class="stat-item">
+                        <span class="stat-value">{{ "{:,}".format(blocked_count) }}</span>
+                        <span class="stat-label">Blocked</span>
+                    </div>
+                    {% endif %}
+                    {% if muted_count is number %}
+                    <div class="stat-item">
+                        <span class="stat-value">{{ "{:,}".format(muted_count) }}</span>
+                        <span class="stat-label">Muted</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Public Header -->
+    <div class="login-header">
+        <h1>Welcome to Skymarshal</h1>
+        <p>A suite of powerful tools for Bluesky users. Manage your content, visualize your posts, and analyze your
+            engagement.</p>
+        <a href="{{ url_for('login') }}" class="btn-large-login">Login with Bluesky</a>
+    </div>
+    {% endif %}
+
+    <div class="tools-grid">
+        <!-- Skymarshal (Main) -->
+        <div class="tool-card {% if not is_authenticated %}disabled{% endif %}">
+            <div class="tool-icon">&#128737;</div>
+            <h2 class="tool-title">Skymarshal</h2>
+            <p class="tool-description">Advanced content management, search, and bulk deletion tools. Includes "Nuclear
+                delete".</p>
+            <ul class="tool-features">
+                <li>Search & filter posts</li>
+                <li>Bulk deletion</li>
+                <li>Nuclear delete</li>
+            </ul>
+            {% if is_authenticated %}
+            <a href="{{ url_for('dashboard') }}" class="btn-tool">Manage Skymarshal</a>
+            {% else %}
+            <a href="{{ url_for('login') }}" class="btn-tool btn-login-prompt">Login to Manage</a>
+            {% endif %}
+        </div>
+
+        <!-- Bluevibes -->
+        <div class="tool-card">
+            <div class="tool-icon">&#128100;</div>
+            <h2 class="tool-title">Bluevibes</h2>
+            <p class="tool-description">Search and view any Bluesky profile in detail.</p>
+            <ul class="tool-features">
+                <li>Profile search</li>
+                <li>Top followers analysis</li>
+                <li>Post sentiment</li>
+            </ul>
+            <a href="https://dr.eamer.dev/bluesky/bluevibes" target="_blank" class="btn-tool">View Profiles</a>
+        </div>
+
+        <!-- Post Visualizer -->
+        <div class="tool-card">
+            <div class="tool-icon">&#127912;</div>
+            <h2 class="tool-title">Post Visualizer</h2>
+            <p class="tool-description">Turn your Bluesky threads into beautiful, shareable images.</p>
+            <ul class="tool-features">
+                <li>Thread visualization</li>
+                <li>Customizable themes</li>
+                <li>Shareable images</li>
+            </ul>
+            <a href="https://dr.eamer.dev/bluesky/post-visualizer" target="_blank" class="btn-tool">Visualize
+                Threads</a>
+        </div>
+
+        <!-- Repostdar -->
+        <div class="tool-card">
+            <div class="tool-icon">&#128260;</div>
+            <h2 class="tool-title">Repostdar</h2>
+            <p class="tool-description">See who is reposting your content and when.</p>
+            <ul class="tool-features">
+                <li>Repost tracking</li>
+                <li>Self-repost tracking</li>
+                <li>Activity heatmaps</li>
+            </ul>
+            <a href="https://dr.eamer.dev/bluesky/repostdar" target="_blank" class="btn-tool">Analyze Timing</a>
+        </div>
+
+        <!-- Bluesky General -->
+        <div class="tool-card">
+            <div class="tool-icon">&#127968;</div>
+            <h2 class="tool-title">Bluesky Hub</h2>
+            <p class="tool-description">Discover more Bluesky tools and resources</p>
+            <ul class="tool-features">
+                <li>Tool directory</li>
+                <li>API resources</li>
+                <li>Documentation</li>
+            </ul>
+            <a href="https://dr.eamer.dev/bluesky/" target="_blank" class="btn-tool">Explore All Tools</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

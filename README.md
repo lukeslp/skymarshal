@@ -10,14 +10,14 @@ Your personal Bluesky content command center — manage, analyze, and clean up y
 <br>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
+![License](https://img.shields.io/badge/license-MIT-green)
 [![AT Protocol](https://img.shields.io/badge/AT%20Protocol-Compatible-green.svg)](https://atproto.com/)
 
 ## Development Log
 
 > Status snapshot for **Skymarshal**. See [CHANGELOG](./CHANGELOG.md) for full history.
 
-### ✅ Completed
+### Completed
 - [x] **Secure auth**
   - Session-based login with Bluesky credentials
   - No password storage; temporary session tokens only
@@ -328,14 +328,13 @@ Contributions are welcome! See the [Contributing Guide](CONTRIBUTING.md) for:
 
 ## License
 
-CC0 1.0 Universal (Public Domain). No attribution required. See [LICENSE](LICENSE).
+MIT License. See [LICENSE](LICENSE) for details.
 
 ## Maintainer
 
-Luke Steuber — [lukesteuber.com](https://lukesteuber.com)
-Email: [luke@lukesteuber.com](mailto:luke@lukesteuber.com)
-Bluesky: [@lukesteuber.com](https://bsky.app/profile/lukesteuber.com)
-LinkedIn: [linkedin.com/in/lukesteuber](https://www.linkedin.com/in/lukesteuber/)
+Luke Steuber — [dr.eamer.dev](https://dr.eamer.dev)
+Website: [dr.eamer.dev](https://dr.eamer.dev)
+Bluesky: [@dr.eamer.dev](https://bsky.app/profile/dr.eamer.dev)
 GitHub: [github.com/lukeslp](https://github.com/lukeslp)
 
 ---
@@ -349,4 +348,4 @@ GitHub: [github.com/lukeslp](https://github.com/lukeslp)
 
 ---
 
-All code and docs in this repository are dedicated to the public domain under CC0.
+

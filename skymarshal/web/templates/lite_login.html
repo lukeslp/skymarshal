@@ -64,10 +64,10 @@
                 </div>
 
                 <div id="login-progress" style="display: none; margin: 12px 0;">
-                    <div style="background: var(--bg-elevated); border-radius: 8px; height: 8px; overflow: hidden; border: 1px solid var(--border); box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);">
-                        <div id="progress-bar" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); height: 100%; width: 0%; transition: width 0.2s ease-out;"></div>
+                    <div style="background: var(--bg-elevated); border-radius: var(--radius); height: 4px; overflow: hidden; border: 1px solid var(--border);">
+                        <div id="progress-bar" style="background: var(--primary); height: 100%; width: 0%; transition: width 0.2s ease-out;"></div>
                     </div>
-                    <p id="loading-status" style="margin: 10px 0 0; font-size: 13px; color: var(--primary-light); text-align: center; font-weight: 500;">
+                    <p id="loading-status" style="margin: 10px 0 0; font-size: 0.625rem; color: var(--text-muted); text-align: center; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;">
                         <span id="status-text">Initializing...</span>
                     </p>
                 </div>
@@ -79,12 +79,12 @@
 
             <div class="lite-footer">
                 <div id="rotating-tip" style="padding: 12px 0; margin-bottom: 16px; min-height: 50px; display: flex; align-items: center;">
-                    <p id="tip-text" style="margin: 0; font-size: 15px; line-height: 1.5; width: 100%; color: var(--text-muted); text-align: center; transition: opacity 0.4s ease;">
+                    <p id="tip-text" style="margin: 0; font-size: 0.75rem; line-height: 1.5; width: 100%; color: var(--text-subtle); text-align: center; transition: opacity 0.4s ease; text-transform: none; letter-spacing: normal;">
                         Use an app password for better security.
                     </p>
                 </div>
                 <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener noreferrer"
-                   class="app-password-link" style="font-size: 14px;">
+                   class="app-password-link">
                     Generate App Password
                 </a>
             </div>
@@ -94,8 +94,8 @@
         <div style="max-width: 520px; width: 100%; margin-top: 24px; display: flex; flex-direction: column; gap: 14px;">
             <!-- What this tool does -->
             <div class="info-box-primary">
-                <h2 style="margin: 0 0 8px 0; font-size: 13px; color: var(--primary-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">What Skymarshal Does</h2>
-                <p style="margin: 0; font-size: 13px; line-height: 1.6; color: var(--text);">
+                <h2 style="margin: 0 0 8px 0; font-size: 0.625rem; color: var(--text-subtle); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;">What Skymarshal Does</h2>
+                <p style="margin: 0; font-size: 0.8125rem; line-height: 1.6; color: var(--text-muted);">
                     Search, filter, and manage your Bluesky posts, replies, likes, and reposts.
                     Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.
                     View analytics: sentiment analysis, time patterns, engagement trends, word frequency.
@@ -104,8 +104,8 @@
 
             <!-- Critical deletion warning -->
             <div class="info-box-danger">
-                <h2 style="margin: 0 0 8px 0; font-size: 13px; color: var(--danger); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Critical Warning</h2>
-                <p class="danger-text" style="margin: 0; font-size: 13px; line-height: 1.6; font-weight: 600;">
+                <h2 style="margin: 0 0 8px 0; font-size: 0.625rem; color: var(--danger); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Critical Warning</h2>
+                <p class="danger-text" style="margin: 0; font-size: 0.8125rem; line-height: 1.6; font-weight: 500;">
                     I CANNOT RETRIEVE ANYTHING THAT YOU DELETE. Deletions are permanent and cannot be undone.
                     Always review carefully before deleting.
                 </p>
@@ -113,9 +113,9 @@
         </div>
 
         <!-- Footer link -->
-        <p style="text-align: center; margin-top: 32px; margin-bottom: 16px; font-size: 11px; opacity: 0.6;">
+        <p style="text-align: center; margin-top: 32px; margin-bottom: 16px; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em;">
             <a href="https://lukesteuber.com" target="_blank" rel="noopener noreferrer"
-               style="color: var(--text-muted); text-decoration: none;">
+               style="color: var(--text-subtle); text-decoration: none;">
                 lukesteuber.com
             </a>
         </p>
@@ -245,5 +245,8 @@
             }
         }
     </script>
+    <!-- GoatCounter Analytics -->
+    <script data-goatcounter="https://dr.eamer.dev/analytics/count"
+            async src="https://dr.eamer.dev/analytics/count.js"></script>
 </body>
 </html>
