@@ -1194,7 +1194,7 @@ class DataManager:
     def _hydrate_post_engagement(
         self, items: List[ContentItem], progress_callback=None
     ):
-        """Fetch like/repost/reply counts for posts/replies via AppView get_posts in batches.
+        """Fetch like/repost/reply counts for posts/replies via AppView get_posts in parallel batches.
 
         Args:
             items: Items to hydrate
@@ -1210,30 +1210,33 @@ class DataManager:
                 uris[i : i + batch_size] for i in range(0, len(uris), batch_size)
             ]
             index = {it.uri: it for it in items if it.uri}
+            
+            # Determine worker count (default to 5 for hydration if not specified, or use category_workers)
+            max_workers = getattr(self.settings, "hydration_workers", 5)
 
-            processed = 0
-
-            for batch in uri_batches:
-
+            processed_count = 0
+            
+            def process_batch(batch):
                 try:
-                    # Ensure we have a client; require authentication to proceed
+                    # Create a new client instance for this thread if needed, or use existing
+                    # Note: Multithreading with a single client can be tricky if the client isn't thread-safe
+                    # But for simple GET requests it usually works. If not, we might need a lock.
+                    # Ideally, AuthManager would give us a thread-local client.
+                    # For now, we'll use the main client and assume thread-safety for read-only ops.
                     client = self.auth.client
                     if client is None:
                         raise AuthenticationError("Authentication required for hydration")
 
-                    # Direct API call without automatic re-auth to avoid loops
                     resp = client.get_posts(uris=batch)
 
-                    # Validate response structure
                     if not resp or not hasattr(resp, "posts"):
-                        continue
+                        return len(batch)
 
                     posts = getattr(resp, "posts", None)
                     if not posts:
-                        continue
+                        return len(batch)
 
                     for p in posts:
-                        # Validate post object structure
                         if not p or not hasattr(p, "uri"):
                             continue
 
@@ -1253,38 +1256,39 @@ class DataManager:
                             int(it.repost_count or 0),
                             int(it.reply_count or 0),
                         )
-
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
+                    return len(batch)
                 except Exception as e:
+                    # Log error but don't stop everything
+                    # Check for auth errors
                     error_msg = str(e).lower()
                     if any(s in error_msg for s in ["auth", "unauthorized", "token", "expired", "forbidden"]):
-                        # Signal to caller to handle re-auth outside of progress UI
-                        raise AuthenticationError("Authentication expired during hydration")
-                    else:
-                        # Log other types of hydration errors for debugging
-                        console.print(
-                            f"[yellow]Hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
-                        )
-                        processed += len(batch)
+                         # Re-raise auth errors to be handled by the caller
+                         raise AuthenticationError("Authentication expired during hydration")
+                    # console.print(f"[yellow]Batch failed: {e}[/]")
+                    return len(batch)
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(process_batch, batch) for batch in uri_batches]
+                
+                for future in futures:
+                    try:
+                        count = future.result()
+                        processed_count += count
                         if callable(progress_callback):
                             try:
-                                progress_callback(processed)
+                                progress_callback(processed_count)
                             except Exception:
                                 pass
+                    except AuthenticationError:
+                        raise  # Bubbles up to trigger re-auth
+                    except Exception:
+                         # future.result() raises exceptions from the thread
+                         pass
 
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
-                    # Continue with remaining batches using existing data
-        except Exception:
+        except Exception as e:
+            if isinstance(e, AuthenticationError):
+                raise
+            # console.print(f"[yellow]Hydration error: {e}[/]")
             pass
 
     def _hydrate_repost_subject_engagement(

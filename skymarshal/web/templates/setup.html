@@ -1,0 +1,938 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="setup-container">
+    <div class="setup-header">
+        <h2>Welcome, @{{ handle }}!</h2>
+        <p>Let's download your Bluesky data and get started.</p>
+    </div>
+    
+    <div class="setup-steps">
+        <!-- Step 1: Download CAR -->
+        <div class="section-container" id="step-download">
+            <div class="section-number">1</div>
+            <div class="step-card">
+                <div class="step-header">
+                    <span class="step-status" id="download-status"></span>
+                </div>
+            <div class="step-content">
+                <div class="import-intro">
+                    <div class="import-info">
+                        <h4>📥 Import Your Repository</h4>
+                        <p>First, we'll download your complete Bluesky repository. This contains all of your posts, comments, likes, and reposts in a compressed CAR format.</p>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                            ⚡ This is a one-click process that downloads and prepares your data for analysis.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="import-action">
+                    <button id="download-btn" class="btn btn-primary btn-bigass">
+                        <span class="btn-text">📥 Import Your Data</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span> Importing Your Repository...
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- Download backup button (shown after import) -->
+                <div class="backup-download" id="backup-download" style="display: none;">
+                    <div class="backup-info">
+                        <h4>💾 Backup Available</h4>
+                        <p>Your data has been imported successfully. You can download the raw .car file as a backup.</p>
+                    </div>
+                    <button id="backup-btn" class="btn btn-outline btn-backup">
+                        <span class="btn-text">📎 Download Backup (.car file)</span>
+                    </button>
+                </div>
+                <div class="progress-container" id="download-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="download-progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="download-progress-text">0%</div>
+                </div>
+                <div class="step-message" id="download-message"></div>
+                
+                <!-- Quick Stats from CAR -->
+                <div class="car-stats" id="car-stats" style="display: none;">
+                    <h4>📊 Content Overview</h4>
+                    <div class="stats-grid" id="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 2: Select Content -->
+        <div class="section-container collapsed" id="step-select">
+            <div class="section-number">2</div>
+            <div class="step-card">
+                <div class="step-header">
+                    <span class="step-status" id="select-status"></span>
+                </div>
+                <div class="step-content" style="display: none;">
+                    <div class="import-intro">
+                        <div class="import-info">
+                            <h4>⚙️ Choose What to Analyze</h4>
+                            <p>Select which types of content you want to analyze. The system will automatically hydrate engagement data (likes, reposts, replies) during processing.</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                🌊 A live firehose feed will appear to entertain you while processing happens in the background.
+                            </p>
+                        </div>
+                    </div>
+                
+                <div class="content-selector">
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-posts" value="posts" checked>
+                            <span>Posts</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-posts" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-likes" value="likes">
+                            <span>Likes</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-likes" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <div class="content-option">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="select-reposts" value="reposts">
+                            <span>Reposts</span>
+                        </label>
+                        <div class="limit-input">
+                            <label>Limit (0 = all):</label>
+                            <input type="number" id="limit-reposts" min="0" value="0" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="import-action">
+                    <button id="process-btn" class="btn btn-primary btn-bigass" disabled>
+                        <span class="btn-text">⚙️ Process Selected Content</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="spinner"></span> Processing...
+                        </span>
+                    </button>
+                </div>
+                
+                <div class="progress-container" id="process-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="process-progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="process-progress-text">Processing...</div>
+                </div>
+                <div class="step-message" id="process-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Firehose Loading Section -->
+    <div class="firehose-section" id="firehose-section" style="display: none;">
+        <div class="firehose-header">
+            <div class="firehose-title">
+                <h4>🔥 Live Bluesky Feed</h4>
+                <small>Real-time posts and replies from across the network</small>
+            </div>
+            <button id="fullscreen-toggle" class="btn-fullscreen" title="Enter Fullscreen">
+                <span class="fullscreen-icon">⛶</span>
+            </button>
+        </div>
+        <div class="firehose-stream" id="firehose-stream">
+            <!-- Live messages will appear here -->
+        </div>
+    </div>
+</div>
+
+<!-- Completion Overlay -->
+<div class="completion-overlay" id="completion-overlay" style="display: none;">
+    <div class="completion-content">
+        <div class="completion-spinner"></div>
+        <div class="completion-text" id="completion-text">Processing complete!</div>
+        <div class="completion-progress">
+            <div class="completion-progress-bar">
+                <div class="completion-progress-fill" id="completion-progress-fill"></div>
+            </div>
+            <div class="completion-progress-text" id="completion-progress-text">100%</div>
+        </div>
+    </div>
+</div>
+
+<script>
+let carDownloaded = false;
+let firehoseStream = null;
+
+// Show centered completion overlay
+function showCompletionOverlay(message, progress) {
+    const overlay = document.getElementById('completion-overlay');
+    const text = document.getElementById('completion-text');
+    const progressFill = document.getElementById('completion-progress-fill');
+    const progressText = document.getElementById('completion-progress-text');
+    
+    text.textContent = message;
+    progressFill.style.width = `${progress}%`;
+    progressText.textContent = `${progress}%`;
+    
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '0';
+    
+    // Fade in
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+    });
+    
+    // Auto-hide after 3 seconds for finalizing, keep visible for completed
+    if (progress < 100) {
+        setTimeout(() => {
+            hideCompletionOverlay();
+        }, 3000);
+    }
+}
+
+// Hide completion overlay
+function hideCompletionOverlay() {
+    const overlay = document.getElementById('completion-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 300);
+}
+
+// Firehose functionality
+class FirehoseStream {
+    constructor() {
+        this.container = document.getElementById('firehose-section');
+        this.stream = document.getElementById('firehose-stream');
+        this.eventSource = null;
+        this.maxMessages = 30;
+        this.healthCheckInterval = null;
+    }
+    
+    start() {
+        this.container.style.display = 'block';
+        this.container.classList.remove('fullscreen');
+        document.body.style.overflow = 'auto';
+
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        if (fullscreenToggle) {
+            const icon = fullscreenToggle.querySelector('.fullscreen-icon');
+            if (icon) {
+                icon.textContent = '⛶';
+            }
+            fullscreenToggle.title = 'Enter Fullscreen';
+        }
+
+        // Scroll to firehose section smoothly
+        setTimeout(() => {
+            this.container.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+        }, 300);
+        
+        try {
+            this.eventSource = new EventSource('{{ url_for("firehose") }}');
+            
+            this.eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    // Handle different message types
+                    if (data.type === 'status') {
+                        this.addStatusMessage(data.message);
+                    } else if (data.type === 'error') {
+                        this.addErrorMessage(data.message);
+                        console.warn('Firehose error:', data.message);
+                    } else if (data.type === 'post' || data.type === 'reply') {
+                        this.addMessage(data);
+                    }
+                    // Only show posts and replies, ignore likes/reposts
+                } catch (error) {
+                    console.error('Error parsing firehose data:', error);
+                }
+            };
+            
+            this.eventSource.onerror = () => {
+                console.log('Firehose connection lost, retrying...');
+                this.addErrorMessage('Connection lost, retrying...');
+                setTimeout(() => {
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                        this.start();
+                    }
+                }, 5000);
+            };
+        } catch (error) {
+            console.error('Failed to start firehose:', error);
+            // Add some mock messages for demo
+            this.addMockMessages();
+        }
+        
+        // Set up periodic health check to ensure firehose stays running
+        this.healthCheckInterval = setInterval(() => {
+            this.ensureFirehoseRunning();
+        }, 30000); // Check every 30 seconds
+    }
+    
+    addMessage(data) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `firehose-message ${data.type}`;
+        
+        const author = data.author.replace('.bsky.social', '').substring(0, 20);
+        const text = data.text.substring(0, 120);
+        
+        messageDiv.innerHTML = `
+            <span class="message-author">@${author}</span>
+            <span class="message-text">${text}</span>
+        `;
+        
+        // Add to top of stream
+        this.stream.insertBefore(messageDiv, this.stream.firstChild);
+        
+        // Remove old messages to prevent overflow
+        while (this.stream.children.length > this.maxMessages) {
+            this.stream.removeChild(this.stream.lastChild);
+        }
+        
+        // Trigger animation
+        requestAnimationFrame(() => {
+            messageDiv.style.animationDelay = '0s';
+        });
+    }
+    
+    addStatusMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'firehose-message status';
+        messageDiv.innerHTML = `
+            <span class="message-author">📡 System</span>
+            <span class="message-text">${message}</span>
+        `;
+        
+        // Add to top of stream
+        this.stream.insertBefore(messageDiv, this.stream.firstChild);
+        
+        // Remove old messages to prevent overflow
+        while (this.stream.children.length > this.maxMessages) {
+            this.stream.removeChild(this.stream.lastChild);
+        }
+    }
+    
+    addErrorMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'firehose-message error';
+        messageDiv.innerHTML = `
+            <span class="message-author">⚠️ Error</span>
+            <span class="message-text">${message}</span>
+        `;
+        
+        // Add to top of stream
+        this.stream.insertBefore(messageDiv, this.stream.firstChild);
+        
+        // Remove old messages to prevent overflow
+        while (this.stream.children.length > this.maxMessages) {
+            this.stream.removeChild(this.stream.lastChild);
+        }
+    }
+    
+    addMockMessages() {
+        const mockMessages = [
+            { type: 'post', author: 'alice.bsky.social', text: 'Beautiful sunset today! 🌅' },
+            { type: 'reply', author: 'bob.bsky.social', text: '💬 That sounds amazing!' },
+            { type: 'post', author: 'charlie.bsky.social', text: 'Working on a new project today' },
+            { type: 'post', author: 'diana.bsky.social', text: 'Just finished reading a great book' },
+            { type: 'reply', author: 'eve.bsky.social', text: '💬 Which book was it?' },
+            { type: 'post', author: 'dev.bsky.social', text: 'Coding with the AT Protocol is fascinating' },
+            { type: 'reply', author: 'tech.bsky.social', text: '💬 Totally agree! The future is decentralized' }
+        ];
+        
+        let messageIndex = 0;
+        const addNextMessage = () => {
+            if (this.container.style.display === 'block') {
+                this.addMessage(mockMessages[messageIndex % mockMessages.length]);
+                messageIndex++;
+                setTimeout(addNextMessage, 200 + Math.random() * 400);
+            }
+        };
+        
+        setTimeout(addNextMessage, 1000);
+    }
+    
+    startOverlayFade() {
+        const overlay = document.getElementById('firehose-overlay');
+        if (overlay) {
+            // Wait 2.5 seconds to show the "while you wait" message
+            setTimeout(() => {
+                overlay.classList.add('fade-out');
+                // Remove overlay completely after fade
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 800);
+            }, 2500);
+        }
+    }
+    
+    stop() {
+        // Keep firehose running but reset fullscreen state
+        document.body.style.overflow = 'auto';
+        this.container.classList.remove('fullscreen');
+
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        if (fullscreenToggle) {
+            const icon = fullscreenToggle.querySelector('.fullscreen-icon');
+            if (icon) {
+                icon.textContent = '⛶';
+            }
+            fullscreenToggle.title = 'Enter Fullscreen';
+        }
+
+        // Keep container visible
+        this.container.style.display = 'block';
+        
+        // Add a status message indicating processing is complete
+        this.addStatusMessage('Processing complete! Firehose continues running...');
+        
+        // Ensure firehose keeps running
+        this.ensureFirehoseRunning();
+    }
+    
+    ensureFirehoseRunning() {
+        // Check if EventSource is still connected, restart if not
+        if (!this.eventSource || this.eventSource.readyState === EventSource.CLOSED) {
+            this.addStatusMessage('Restarting firehose connection...');
+            setTimeout(() => {
+                this.start();
+            }, 1000);
+        }
+    }
+    
+    forceStop() {
+        // Actually stop the firehose (for cleanup if needed)
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        if (this.healthCheckInterval) {
+            clearInterval(this.healthCheckInterval);
+            this.healthCheckInterval = null;
+        }
+        this.container.style.display = 'none';
+    }
+}
+
+// Handle CAR download
+document.getElementById('download-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('download-btn');
+    const progressContainer = document.getElementById('download-progress');
+    const progressFill = document.getElementById('download-progress-fill');
+    const progressText = document.getElementById('download-progress-text');
+    const messageDiv = document.getElementById('download-message');
+    
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    progressContainer.style.display = 'block';
+    
+    // Don't start firehose during import - it's too fast
+    // firehoseStream = new FirehoseStream();
+    // firehoseStream.start();
+
+    const eventSource = new EventSource('{{ url_for("download_car") }}');
+    
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.status === 'starting') {
+            progressFill.style.width = '10%';
+            progressText.textContent = 'Connecting to Bluesky...';
+        } else if (data.status === 'downloading') {
+            if (data.progress) {
+                progressFill.style.width = `${data.progress}%`;
+                progressText.textContent = data.message;
+            } else {
+                progressFill.style.width = '25%';
+                progressText.textContent = data.message || 'Downloading archive...';
+            }
+        } else if (data.status === 'processing') {
+            progressFill.style.width = '60%';
+            progressText.textContent = 'Processing CAR file...';
+        } else if (data.status === 'analyzing') {
+            progressFill.style.width = '85%';
+            progressText.textContent = 'Analyzing content...';
+        } else if (data.status === 'completed') {
+            progressFill.style.width = '100%';
+            progressText.textContent = '100% - Download Complete!';
+            messageDiv.textContent = 'Your Bluesky repository has been downloaded successfully!';
+            messageDiv.className = 'step-message success';
+            carDownloaded = true;
+            eventSource.close();
+            
+            // Hide loading state and show completion
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-text').innerHTML = '✅ Download Complete!';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.disabled = true;
+            
+            // Show backup download option
+            const backupDownload = document.getElementById('backup-download');
+            if (backupDownload) {
+                setTimeout(() => {
+                    backupDownload.style.display = 'block';
+                    backupDownload.style.opacity = '0';
+                    backupDownload.style.transform = 'translateY(10px)';
+                    backupDownload.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    
+                    requestAnimationFrame(() => {
+                        backupDownload.style.opacity = '1';
+                        backupDownload.style.transform = 'translateY(0)';
+                    });
+                }, 500);
+            }
+            
+            // Hide progress bar after a brief delay
+            setTimeout(() => {
+                progressContainer.style.opacity = '0';
+                progressContainer.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 300);
+            }, 1500);
+            
+            // Show stats if available
+            if (data.stats) {
+                displayCarStats(data.stats);
+            }
+            
+            // Enable step 2 with animation
+            enableStep2();
+            
+            // Update step 1 section number to show completion
+            const step1Number = document.querySelector('#step-download .section-number');
+            if (step1Number) {
+                step1Number.style.background = 'linear-gradient(135deg, var(--success-color), #1e8449)';
+                step1Number.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.3)';
+            }
+            
+            document.getElementById('download-status').textContent = '✅';
+            document.getElementById('download-status').className = 'step-status completed';
+        } else if (data.status === 'error') {
+            messageDiv.textContent = `Error: ${data.error}`;
+            messageDiv.className = 'step-message error';
+            eventSource.close();
+            
+            
+            // Reset button state on error
+            btn.disabled = false;
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-text').innerHTML = '📥 Import Your Data';
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        } else if (data.message) {
+            messageDiv.textContent = data.message;
+            messageDiv.className = 'step-message info';
+        }
+    };
+    
+    eventSource.onerror = () => {
+        eventSource.close();
+        messageDiv.textContent = 'Connection lost. Please try again.';
+        messageDiv.className = 'step-message error';
+        
+        
+        // Reset button state on connection error
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-text').innerHTML = '📥 Import Your Data';
+        btn.querySelector('.btn-loading').style.display = 'none';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-primary');
+    };
+});
+
+// Handle content processing
+document.getElementById('process-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('process-btn');
+    const progressContainer = document.getElementById('process-progress');
+    const progressFill = document.getElementById('process-progress-fill');
+    const progressText = document.getElementById('process-progress-text');
+    const messageDiv = document.getElementById('process-message');
+    
+    // Get selected content types and limits
+    const contentTypes = [];
+    const limits = {};
+    
+    if (document.getElementById('select-posts').checked) {
+        contentTypes.push('posts');
+        limits.posts = parseInt(document.getElementById('limit-posts').value) || 0;
+    }
+    if (document.getElementById('select-likes').checked) {
+        contentTypes.push('likes');
+        limits.likes = parseInt(document.getElementById('limit-likes').value) || 0;
+    }
+    if (document.getElementById('select-reposts').checked) {
+        contentTypes.push('reposts');
+        limits.reposts = parseInt(document.getElementById('limit-reposts').value) || 0;
+    }
+    
+    if (contentTypes.length === 0) {
+        messageDiv.textContent = 'Please select at least one content type.';
+        messageDiv.className = 'step-message error';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    progressContainer.style.display = 'block';
+    progressFill.style.width = '0%';
+    
+    // Start firehose during processing with a slight delay for better UX
+    setTimeout(() => {
+        if (!firehoseStream) {
+            firehoseStream = new FirehoseStream();
+        }
+        firehoseStream.start();
+        
+        // Show notification that firehose is starting
+        showFloatingNotification('🌊 Firehose activated! Watch live Bluesky posts while we process and hydrate your data...', 'info', 5000);
+    }, 1000);
+    
+    try {
+        const response = await fetch('{{ url_for("process_data") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content_types: contentTypes, limits: limits })
+        });
+        
+        // Check for authentication errors
+        if (response.status === 401) {
+            const errorData = await response.json();
+            throw new Error(`Authentication required: ${errorData.error || 'Please log in again'}`);
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+            
+            for (const line of lines) {
+                try {
+                    const data = JSON.parse(line.substring(6));
+                    
+                    if (data.status === 'processing') {
+                        if (data.progress) {
+                            progressFill.style.width = `${data.progress}%`;
+                            progressText.textContent = `${data.progress}% - ${data.message}`;
+                            
+                            // Add special styling for hydration messages
+                            if (data.message && (data.message.toLowerCase().includes('hydrat') || data.message.toLowerCase().includes('engagement'))) {
+                                progressText.classList.add('hydrating');
+                                messageDiv.className = 'step-message hydration';
+                            } else {
+                                progressText.classList.remove('hydrating');
+                                messageDiv.className = 'step-message info';
+                            }
+                        } else {
+                            progressText.textContent = data.message || '';
+                        }
+                        messageDiv.textContent = data.message || '';
+                    } else if (data.status === 'filtering') {
+                        messageDiv.textContent = data.message || '';
+                        messageDiv.className = 'step-message info';
+                        
+                        // Show detailed filtering info
+                        if (data.count !== undefined) {
+                            const filterDetail = document.createElement('div');
+                            filterDetail.className = 'filter-detail';
+                            filterDetail.style.fontSize = '0.9em';
+                            filterDetail.style.color = '#666';
+                            filterDetail.style.marginTop = '0.5rem';
+                            
+                            let detailText = `✓ ${data.type}: ${data.count.toLocaleString()} items`;
+                            if (data.original_count && data.original_count !== data.count) {
+                                detailText += ` (limited from ${data.original_count.toLocaleString()})`;
+                            }
+                            filterDetail.textContent = detailText;
+                            
+                            // Remove previous detail for this type and add new one
+                            const existingDetail = messageDiv.querySelector(`.filter-detail[data-type="${data.type}"]`);
+                            if (existingDetail) {
+                                existingDetail.remove();
+                            }
+                            filterDetail.setAttribute('data-type', data.type);
+                            messageDiv.appendChild(filterDetail);
+                        }
+                    } else if (data.status === 'finalizing') {
+                        progressFill.style.width = `${data.progress || 100}%`;
+                        progressText.textContent = data.message || 'Finalizing...';
+                        messageDiv.textContent = data.message || 'Finalizing...';
+                        messageDiv.className = 'step-message info';
+                    } else if (data.status === 'completed') {
+                        progressFill.style.width = '100%';
+                        progressText.textContent = 'Processing complete!';
+                        messageDiv.textContent = `Successfully processed ${data.total_items} items!`;
+                        messageDiv.className = 'step-message success';
+                        
+                        // Update button state
+                        btn.disabled = false;
+                        btn.querySelector('.btn-text').style.display = 'inline';
+                        btn.querySelector('.btn-text').innerHTML = '✅ Processing Complete!';
+                        btn.querySelector('.btn-loading').style.display = 'none';
+                        btn.classList.remove('btn-primary');
+                        btn.classList.add('btn-success');
+                        
+                        // Update step 2 section number to show completion
+                        const step2Number = document.querySelector('#step-select .section-number');
+                        if (step2Number) {
+                            step2Number.style.background = 'linear-gradient(135deg, var(--success-color), #1e8449)';
+                            step2Number.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.3)';
+                        }
+                        
+                        document.getElementById('select-status').textContent = '✓';
+                        document.getElementById('select-status').className = 'step-status completed';
+                        
+                        // Show success notifications
+                        showFloatingNotification('✅ Import and hydration complete!', 'success', 4000);
+                        
+                        setTimeout(() => {
+                            showFloatingNotification('📊 Ready to explore your data on the dashboard!', 'info', 5000);
+                        }, 2000);
+                        
+                        // Keep firehose running for a bit longer, then stop
+                        setTimeout(() => {
+                            if (firehoseStream) {
+                                firehoseStream.stop();
+                                showFloatingNotification('🌊 Firehose stopped. Redirecting to dashboard...', 'info', 3000);
+                            }
+                        }, 4000);
+                        
+                        // Redirect to dashboard after showing notifications
+                        setTimeout(() => {
+                            if (data.redirect) {
+                                window.location.href = data.redirect;
+                            }
+                        }, 7000);
+                    } else if (data.status === 'error') {
+                        throw new Error(data.error);
+                    }
+                } catch (e) {
+                    console.error('Error parsing SSE data:', e);
+                }
+            }
+        }
+    } catch (error) {
+        messageDiv.textContent = `Error: ${error.message}`;
+        messageDiv.className = 'step-message error';
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loading').style.display = 'none';
+
+        // Keep firehose running even on error
+        if (firehoseStream) {
+            firehoseStream.stop();
+        }
+    }
+});
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function enableStep2() {
+    const step2 = document.getElementById('step-select');
+    const step2Content = step2.querySelector('.step-content');
+    
+    // Remove collapsed class and show content
+    step2.classList.remove('collapsed');
+    step2Content.style.display = 'block';
+    
+    // Add smooth transition
+    step2.style.transition = 'opacity 0.3s ease';
+    step2.style.opacity = '1';
+    
+    // Update section number to show active state
+    const sectionNumber = step2.querySelector('.section-number');
+    if (sectionNumber) {
+        sectionNumber.style.background = 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))';
+        sectionNumber.style.boxShadow = '0 4px 12px rgba(0, 133, 255, 0.3)';
+    }
+    
+    // Enable the process button
+    document.getElementById('process-btn').disabled = false;
+    
+    // Scroll to step 2
+    setTimeout(() => {
+        step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+}
+
+function displayCarStats(stats) {
+    const carStatsDiv = document.getElementById('car-stats');
+    const statsGrid = document.getElementById('stats-grid');
+    
+    if (!stats) return;
+    
+    // Create stat items
+    const statItems = [
+        { label: 'Posts', value: stats.posts || 0, icon: '📝' },
+        { label: 'Replies', value: stats.replies || 0, icon: '💬' },
+        { label: 'Likes', value: stats.likes || 0, icon: '❤️' },
+        { label: 'Reposts', value: stats.reposts || 0, icon: '🔄' }
+    ];
+    
+    // Add total if available
+    if (stats.total) {
+        statItems.push({ label: 'Total', value: stats.total, icon: '📊' });
+    }
+    
+    // Debug info
+    if (stats.debug) {
+        console.log('CAR Stats Debug Info:', stats.debug);
+    }
+    
+    if (stats.error) {
+        console.error('CAR parsing error:', stats.error);
+    }
+    
+    statsGrid.innerHTML = statItems.map(item => `
+        <div class="stat-item">
+            <p class="stat-value">${item.icon} ${item.value.toLocaleString()}</p>
+            <p class="stat-label">${item.label}</p>
+        </div>
+    `).join('');
+    
+    // Show the stats with animation
+    carStatsDiv.style.display = 'block';
+    carStatsDiv.style.opacity = '0';
+    carStatsDiv.style.transform = 'translateY(10px)';
+    carStatsDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    
+    setTimeout(() => {
+        carStatsDiv.style.opacity = '1';
+        carStatsDiv.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+// Handle backup download and fullscreen toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const backupBtn = document.getElementById('backup-btn');
+    if (backupBtn) {
+        backupBtn.addEventListener('click', () => {
+            // Trigger download of the CAR file
+            window.location.href = '/download-backup';
+        });
+    }
+    
+    // Fullscreen toggle functionality
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const firehoseSection = document.getElementById('firehose-section');
+    
+    if (fullscreenToggle && firehoseSection) {
+        fullscreenToggle.addEventListener('click', () => {
+            if (firehoseSection.classList.contains('fullscreen')) {
+                // Exit fullscreen
+                firehoseSection.classList.remove('fullscreen');
+                fullscreenToggle.querySelector('.fullscreen-icon').textContent = '⛶';
+                fullscreenToggle.title = 'Enter Fullscreen';
+                document.body.style.overflow = 'auto';
+            } else {
+                // Enter fullscreen
+                firehoseSection.classList.add('fullscreen');
+                fullscreenToggle.querySelector('.fullscreen-icon').textContent = '🗗';
+                fullscreenToggle.title = 'Exit Fullscreen';
+                document.body.style.overflow = 'hidden';
+
+                // Scroll to top of firehose in fullscreen
+                const firehoseStreamElement = document.getElementById('firehose-stream');
+                if (firehoseStreamElement) {
+                    firehoseStreamElement.scrollTop = 0;
+                }
+            }
+        });
+    }
+});
+
+// Floating notification system
+function showFloatingNotification(message, type = 'info', duration = 3000) {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('floating-notifications');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'floating-notifications';
+        container.className = 'floating-notifications';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `floating-notification ${type}`;
+    notification.innerHTML = `
+        <span class="notification-text">${message}</span>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    // Add close functionality
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => {
+        removeNotification(notification);
+    });
+    
+    // Add to container
+    container.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Auto-remove after duration
+    if (duration > 0) {
+        setTimeout(() => {
+            removeNotification(notification);
+        }, duration);
+    }
+    
+    return notification;
+}
+
+function removeNotification(notification) {
+    notification.classList.remove('show');
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 300);
+}
+
+// Function removed - processing now handled directly through UI flow
+</script>
+{% endblock %}

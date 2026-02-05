@@ -1,38 +1,45 @@
-/* Modern Litemarshal Design */
-:root {
-    --primary: #3b82f6;
-    --primary-dark: #2563eb;
-    --primary-light: #60a5fa;
-    --danger: #ef4444;
-    --danger-dark: #dc2626;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --bg: #0f172a;
-    --bg-card: #1e293b;
-    --bg-elevated: #334155;
-    --text: #f1f5f9;
-    --text-muted: #a8b8d0;
-    --border: #475569;
-    --shadow: rgba(0, 0, 0, 0.3);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
+/* Swiss-inspired Dark Design for Skymarshal */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
 
-/* Light mode theme */
-[data-theme="light"] {
+:root {
     --primary: #2563eb;
-    --primary-dark: #1e40af;
-    --primary-light: #2563eb;  /* Changed: use primary for better contrast (5.79:1) */
+    --primary-dark: #1d4ed8;
+    --primary-light: #3b82f6;
     --danger: #dc2626;
     --danger-dark: #b91c1c;
-    --success: #059669;
-    --warning: #d97706;
+    --success: #22c55e;
+    --warning: #eab308;
+    --bg: #020617;
+    --bg-card: #0f172a;
+    --bg-elevated: #1e293b;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-subtle: #64748b;
+    --border: #334155;
+    --border-light: #1e293b;
+    --shadow: rgba(0, 0, 0, 0.3);
+    --radius: 2px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Light mode theme - keep for toggle but match Swiss style */
+[data-theme="light"] {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #3b82f6;
+    --danger: #dc2626;
+    --danger-dark: #b91c1c;
+    --success: #22c55e;
+    --warning: #eab308;
     --bg: #f8fafc;
     --bg-card: #ffffff;
-    --bg-elevated: #e2e8f0;  /* Changed: better visual distinction from white */
+    --bg-elevated: #f1f5f9;
     --text: #0f172a;
-    --text-muted: #475569;  /* Changed: improved contrast 7.04:1 (was 4.04:1) */
-    --border: #94a3b8;  /* Changed: improved contrast 3.18:1 (was 1.77:1) */
-    --shadow: rgba(0, 0, 0, 0.1);
+    --text-muted: #64748b;
+    --text-subtle: #94a3b8;
+    --border: #e2e8f0;
+    --border-light: #f1f5f9;
+    --shadow: rgba(0, 0, 0, 0.08);
 }
 
 /* Light mode specific overrides for status colors */
@@ -79,9 +86,8 @@ body {
 
 .lite-card {
     background: var(--bg-card);
-    border-radius: 16px;
-    padding: 32px;
-    box-shadow: 0 20px 40px var(--shadow);
+    border-radius: var(--radius);
+    padding: 2rem;
     border: 1px solid var(--border);
     width: 100%;
     position: relative;
@@ -99,19 +105,19 @@ body:not(.lite-body) .lite-card {
 }
 
 .lite-title {
-    margin: 0 0 8px;
-    font-size: 32px;
+    margin: 0 0 0.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text);
+    letter-spacing: -0.025em;
 }
 
 .lite-subtitle {
-    margin: 0 0 32px;
-    color: var(--text-muted);
-    font-size: 16px;
+    margin: 0 0 2rem;
+    color: var(--text-subtle);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .lite-form {
@@ -122,12 +128,12 @@ body:not(.lite-body) .lite-card {
 
 .lite-label {
     display: block;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text);
-    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.625rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.1em;
 }
 
 .lite-input,
@@ -135,56 +141,57 @@ body:not(.lite-body) .lite-card {
 .lite-secondary,
 .lite-danger,
 select.lite-input {
-    font-size: 16px;
-    border-radius: 10px;
-    border: 2px solid var(--border);
-    padding: 14px 16px;
+    font-size: 0.875rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
     font-family: inherit;
     background: var(--bg-elevated);
     color: var(--text);
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
 
 .lite-input:focus,
 select.lite-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .lite-button {
     border: none;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    background: var(--primary);
     color: white;
     cursor: pointer;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
 }
 
 .lite-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+    background: var(--primary-light);
 }
 
 .lite-button:active {
-    transform: translateY(0);
+    background: var(--primary-dark);
 }
 
 .lite-footer {
     margin-top: 24px;
-    color: var(--text-muted);
-    font-size: 13px;
+    color: var(--text-subtle);
+    font-size: 0.75rem;
     text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .lite-error,
 .lite-warning {
     padding: 16px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     margin-bottom: 20px;
     border-left: 4px solid;
-    font-size: 14px;
+    font-size: 0.8125rem;
     animation: slideIn 0.3s ease;
 }
 
@@ -214,9 +221,9 @@ select.lite-input:focus {
 /* Info boxes for login page */
 .info-box-primary,
 .info-box-danger {
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 14px;
-    border: 2px solid;
+    border: 1px solid;
 }
 
 .info-box-primary {
@@ -254,22 +261,23 @@ select.lite-input:focus {
     align-items: center;
     padding: 24px 0;
     margin-bottom: 24px;
-    border-bottom: 2px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
 
 .lite-header h1 {
     margin: 0;
-    font-size: 28px;
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.025em;
 }
 
 .lite-tagline {
     margin: 4px 0 0;
-    color: var(--text-muted);
-    font-size: 14px;
+    color: var(--text-subtle);
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 
 .lite-header-actions {
@@ -279,35 +287,46 @@ select.lite-input:focus {
 }
 
 .lite-handle {
-    font-weight: 600;
-    color: var(--primary-light);
+    font-weight: 500;
+    color: var(--text-muted);
     padding: 8px 16px;
-    background: rgba(59, 130, 246, 0.1);
-    border-radius: 20px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
 }
 
 .lite-secondary {
     background: var(--bg-elevated);
-    color: var(--text);
+    color: var(--text-muted);
     cursor: pointer;
-    border: 2px solid var(--border);
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .lite-secondary:hover {
-    border-color: var(--primary);
-    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--text-subtle);
+    background: var(--bg-card);
+    color: var(--text);
 }
 
 .lite-link {
-    color: var(--primary-light);
+    color: var(--text-muted);
     text-decoration: none;
     padding: 10px 16px;
-    border-radius: 8px;
-    transition: all 0.3s ease;
+    border-radius: var(--radius);
+    transition: all 0.15s ease;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .lite-link:hover {
-    background: rgba(59, 130, 246, 0.1);
+    background: var(--bg-elevated);
+    color: var(--text);
 }
 
 .lite-summary {
@@ -318,33 +337,34 @@ select.lite-input:focus {
 }
 
 .lite-summary-item {
-    border: 2px solid var(--border);
-    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 20px;
     text-align: center;
-    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
-    transition: all 0.3s ease;
+    background: var(--bg-card);
+    transition: all 0.15s ease;
 }
 
 .lite-summary-item:hover {
-    border-color: var(--primary);
-    transform: translateY(-4px);
-    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);
+    border-color: var(--text-subtle);
+    background: var(--bg-elevated);
 }
 
 .lite-summary-value {
     display: block;
-    font-size: 32px;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--primary-light);
+    color: var(--text);
     margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
 }
 
 .lite-summary-label {
-    color: var(--text-muted);
-    font-size: 12px;
+    color: var(--text-subtle);
+    font-size: 0.625rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.1em;
+    font-weight: 500;
 }
 
 .lite-grid {
@@ -392,14 +412,17 @@ select.lite-input:focus {
 
 .lite-danger {
     border: none;
-    background: linear-gradient(135deg, var(--danger) 0%, var(--danger-dark) 100%);
+    background: var(--danger);
     color: white;
     cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
 .lite-danger:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+    background: var(--danger-dark);
 }
 
 .lite-danger:disabled {
@@ -417,8 +440,8 @@ select.lite-input:focus {
 .lite-table-wrapper {
     overflow-x: auto;
     margin-top: 16px;
-    border-radius: 12px;
-    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
 }
 
 .lite-table {
@@ -431,12 +454,12 @@ select.lite-input:focus {
     background: var(--bg-elevated);
     text-align: left;
     padding: 16px;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
-    font-size: 12px;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    border-bottom: 2px solid var(--border);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    color: var(--text-subtle);
+    border-bottom: 1px solid var(--border);
 }
 
 .lite-table td {
@@ -446,18 +469,19 @@ select.lite-input:focus {
 }
 
 .lite-table tr:hover {
-    background: rgba(59, 130, 246, 0.05);
+    background: var(--bg-elevated);
 }
 
 .lite-chip {
     padding: 6px 12px;
-    border-radius: 20px;
-    background: rgba(59, 130, 246, 0.2);
-    color: var(--primary-light);
-    font-weight: 600;
-    font-size: 12px;
+    border-radius: var(--radius);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.625rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.1em;
     display: inline-block;
 }
 
@@ -473,16 +497,17 @@ select.lite-input:focus {
     margin-right: 8px;
     margin-bottom: 4px;
     padding: 4px 10px;
-    border-radius: 16px;
+    border-radius: var(--radius);
     background: var(--bg-elevated);
-    font-size: 12px;
+    font-size: 0.625rem;
     border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .lite-meta {
-    color: var(--text-muted);
-    font-size: 14px;
-    font-style: italic;
+    color: var(--text-subtle);
+    font-size: 0.75rem;
 }
 
 /* Focus indicators for accessibility */
@@ -517,7 +542,7 @@ label:has(input[type="checkbox"]:focus) {
 a:focus {
     outline: 3px solid var(--primary);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius);
 }
 
 /* Checkbox labels hover effect */
@@ -534,22 +559,25 @@ label:has(input[type="checkbox"]:checked) {
 /* Theme toggle button */
 .theme-toggle {
     background: var(--bg-elevated);
-    border: 2px solid var(--border);
-    color: var(--text);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
     padding: 8px 16px;
-    border-radius: 20px;
+    border-radius: var(--radius);
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.3s ease;
+    font-size: 0.625rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
     display: flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 
 .theme-toggle:hover {
-    border-color: var(--primary);
-    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--text-subtle);
+    background: var(--bg-card);
+    color: var(--text);
 }
 
 .theme-toggle:focus {
@@ -775,7 +803,7 @@ label:has(input[type="checkbox"]:checked) {
 
     .lite-card {
         padding: 16px !important;
-        border-radius: 12px;
+        border-radius: var(--radius);
     }
 
     .lite-title {
@@ -947,28 +975,25 @@ label:has(input[type="checkbox"]:checked) {
 }
 
 /* App password link styling */
-.lite-footer {
-    text-align: center;
-}
-
 .app-password-link {
     display: inline-block;
     margin-top: 16px;
     padding: 12px 24px;
-    background: var(--primary);
-    color: white;
+    background: var(--bg-elevated);
+    color: var(--text-muted);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--radius);
     font-weight: 500;
-    transition: all 0.2s ease;
-    border: 2px solid var(--primary);
+    transition: all 0.15s ease;
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .app-password-link:hover {
-    background: var(--primary-dark);
-    border-color: var(--primary-dark);
+    background: var(--primary);
+    border-color: var(--primary);
     color: white;
     text-decoration: none;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }

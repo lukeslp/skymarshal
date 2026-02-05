@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenor GIF Generator</title>
+
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="Tenor GIF Alt Generator">
+    <meta name="description" content="Search Tenor, attempt to make alt text">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Tenor GIF Alt Generator">
+    <meta property="og:description" content="Search Tenor, attempt to make alt text">
+    <meta property="og:image" content="https://i.imgur.com/Gz89xk0.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Tenor GIF Alt Generator">
+    <meta name="twitter:description" content="Search Tenor, attempt to make alt text">
+    <meta name="twitter:image" content="https://i.imgur.com/Gz89xk0.png">
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+
+    <style>
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .gif-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .gif-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--secondary-color);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .gif-item:hover {
+            transform: scale(1.02);
+        }
+
+        .gif-item.selected {
+            outline: 3px solid var(--primary-color);
+        }
+
+        .gif-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .selected-gifs {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .clear-search {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--muted-color);
+            cursor: pointer;
+            padding: 4px;
+            display: none;
+        }
+
+        .search-wrapper {
+            position: relative;
+        }
+
+        .clear-search:hover {
+            color: var(--error-color);
+        }
+
+        .search-input:not(:placeholder-shown) + .clear-search {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header container">
+        <h1 class="site-title">Tenor GIF Alt Generator</h1>
+        <p class="site-subtitle">Search Tenor, attempt to make alt text</p>
+    </header>
+
+    <div class="main-container">
+        <div class="search-container">
+            <div class="search-wrapper">
+                <input type="text" 
+                       class="search-input" 
+                       placeholder="Search for GIFs..."
+                       aria-label="Search for GIFs">
+                <button class="clear-search" aria-label="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="gif-grid" role="grid" aria-label="GIF search results"></div>
+        <div class="selected-gifs" aria-label="Selected GIFs with descriptions"></div>
+    </div>
+
+    <footer class="site-footer container">
+        <p>
+            This is an open source tool that uses a small, energy efficient language model to create alt text for GIFs. 
+            No data is stored and nothing is used for training.
+        </p>
+        <p>
+            Find me at <a href="https://bsky.app/profile/coolhand.bsky.social" target="_blank" rel="noopener noreferrer">coolhand.bsky.social</a> with questions and feedback;
+            my model is available for download <a href="https://ollama.com/coolhand/impossible_alt" target="_blank" rel="noopener noreferrer">here</a>.
+        </p>
+    </footer>
+
+    <script type="module">
+        import AltTextGenerator from './js/alt.js';
+
+        // Initialize the alt text generator
+        const altTextGenerator = new AltTextGenerator();
+
+        // Tenor API configuration
+        const TENOR_API_KEY = 'AIzaSyB6YEhNp-Bt5I4vUbST0Q2cspvA95Oho4k';
+        const TENOR_API = {
+            SEARCH: 'https://tenor.googleapis.com/v2/search',
+            FEATURED: 'https://tenor.googleapis.com/v2/featured'
+        };
+
+        // Search debouncing
+        let searchTimeout;
+        const SEARCH_DELAY = 300;
+
+        // DOM Elements
+        const searchInput = document.querySelector('.search-input');
+        const clearSearchBtn = document.querySelector('.clear-search');
+        const gifGrid = document.querySelector('.gif-grid');
+        const selectedGifsContainer = document.querySelector('.selected-gifs');
+
+        // Search GIFs
+        async function searchGifs(query) {
+            try {
+                const params = new URLSearchParams({
+                    key: TENOR_API_KEY,
+                    q: query || 'trending',
+                    limit: 20,
+                    contentfilter: 'medium'
+                });
+
+                const response = await fetch(`${TENOR_API.SEARCH}?${params}`);
+                if (!response.ok) throw new Error('Failed to fetch GIFs');
+                
+                const data = await response.json();
+                return data.results;
+            } catch (error) {
+                console.error('Error fetching GIFs:', error);
+                return [];
+            }
+        }
+
+        // Render GIF grid
+        function renderGifGrid(gifs) {
+            gifGrid.innerHTML = gifs.map(gif => `
+                <div class="gif-item" data-gif-url="${gif.media_formats.gif.url}" role="gridcell">
+                    <img src="${gif.media_formats.tinygif.url}" 
+                         alt="GIF preview" 
+                         loading="lazy">
+                </div>
+            `).join('');
+
+            // Add click handlers
+            gifGrid.querySelectorAll('.gif-item').forEach(item => {
+                item.addEventListener('click', () => selectGif(item));
+            });
+        }
+
+        // Select and process a GIF
+        async function selectGif(gifItem) {
+            if (selectedGifsContainer.children.length >= 4) {
+                alert('Maximum 4 GIFs allowed');
+                return;
+            }
+
+            const gifUrl = gifItem.dataset.gifUrl;
+            const response = await fetch(gifUrl);
+            const blob = await response.blob();
+            const file = new File([blob], 'tenor.gif', { type: 'image/gif' });
+
+            const container = document.createElement('div');
+            container.className = 'image-preview-container';
+            container.innerHTML = `
+                <div class="preview-controls">
+                    <div class="image-controls">
+                        <button type="button" class="image-control-btn try-again-btn" aria-label="Try generating alt text again" title="Regenerate description">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button" class="image-control-btn remove-btn" aria-label="Remove GIF" title="Remove GIF">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <img src="${gifUrl}" alt="Selected GIF" class="preview-image">
+                <div class="preview-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="preview-loading-text">
+                        Generating description...
+                    </div>
+                </div>
+                <div class="alt-text-area">
+                    <div 
+                        class="alt-text-editor"
+                        contenteditable="true"
+                        role="textbox"
+                        aria-multiline="true"
+                        aria-label="GIF description"
+                        placeholder="GIF description (alt text)"></div>
+                    <div class="warning-text">Always double check! I can be very wrong!</div>
+                </div>
+            `;
+
+            selectedGifsContainer.appendChild(container);
+
+            // Scroll to the new container with smooth animation
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Set up remove button
+            container.querySelector('.remove-btn').addEventListener('click', () => {
+                container.remove();
+            });
+
+            // Set up regenerate button
+            container.querySelector('.try-again-btn').addEventListener('click', async () => {
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.className = 'preview-loading';
+                loadingOverlay.innerHTML = `
+                    <div class="loading-spinner"></div>
+                    <div class="preview-loading-text">
+                        Regenerating description...
+                    </div>
+                `;
+                container.appendChild(loadingOverlay);
+
+                const altTextArea = container.querySelector('.alt-text-area');
+                altTextArea.classList.remove('ready');
+
+                try {
+                    const newAltText = await altTextGenerator.generateAltText(file, true);
+                    const editorEl = altTextArea.querySelector('.alt-text-editor');
+                    editorEl.textContent = newAltText;
+                    setTimeout(() => altTextArea.classList.add('ready'), 100);
+                } catch (error) {
+                    console.error('Error regenerating description:', error);
+                    const editorEl = altTextArea.querySelector('.alt-text-editor');
+                    editorEl.textContent = 'Error regenerating description. Please try again or enter a description manually.';
+                    setTimeout(() => altTextArea.classList.add('ready'), 100);
+                } finally {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => loadingOverlay.remove(), 300);
+                }
+            });
+
+            // Generate initial alt text
+            try {
+                const altText = await altTextGenerator.generateAltText(file);
+                const altTextArea = container.querySelector('.alt-text-area');
+                const editorEl = altTextArea.querySelector('.alt-text-editor');
+                editorEl.textContent = altText;
+
+                const loadingOverlay = container.querySelector('.preview-loading');
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.remove();
+                    altTextArea.classList.add('ready');
+                }, 300);
+            } catch (error) {
+                console.error('Error generating description:', error);
+                const altTextArea = container.querySelector('.alt-text-area');
+                const editorEl = altTextArea.querySelector('.alt-text-editor');
+                editorEl.textContent = 'Error generating description. Please enter a description manually.';
+                
+                const loadingOverlay = container.querySelector('.preview-loading');
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.remove();
+                    altTextArea.classList.add('ready');
+                }, 300);
+            }
+        }
+
+        // Event Listeners
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            searchTimeout = setTimeout(async () => {
+                const gifs = await searchGifs(query);
+                renderGifGrid(gifs);
+            }, SEARCH_DELAY);
+        });
+
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            searchInput.focus();
+            searchGifs('').then(renderGifGrid);
+        });
+
+        // Initial load
+        searchGifs('').then(renderGifGrid);
+    </script>
+</body>
+</html> 

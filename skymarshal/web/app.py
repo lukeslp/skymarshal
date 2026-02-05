@@ -27,11 +27,16 @@ from skymarshal.search import SearchManager
 from skymarshal.deletion import DeletionManager
 from skymarshal.models import ContentType, SearchFilters, DeleteMode, UserSettings, console, calculate_engagement_score
 from skymarshal.settings import SettingsManager
-from skymarshal.analytics import FollowerAnalyzer, PostAnalyzer, ContentAnalyzer
 from skymarshal.cleanup import FollowingCleaner, PostImporter
+from skymarshal.web.share_manager import SharedPostManager
+from skymarshal.analytics import FollowerAnalyzer, PostAnalyzer, ContentAnalyzer
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+
+# Configure static file serving to work with the /skymarshal prefix
+# This ensures that url_for('static', ...) generates the correct paths
+app.config['APPLICATION_ROOT'] = '/skymarshal'
 
 # Configure for reverse proxy with subpath
 class PrefixMiddleware:
@@ -48,6 +53,7 @@ class PrefixMiddleware:
 
 app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/skymarshal')
 
+
 # Use simple server-side sessions without Flask-Session
 app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -57,6 +63,16 @@ app.config['SESSION_COOKIE_PATH'] = '/skymarshal'
 # Global progress tracking and auth storage
 progress_data = {}
 auth_storage = {}  # Store auth managers by session ID
+
+# Initialize Share Manager
+share_db_path = Path.home() / '.skymarshal' / 'shared_posts.db'
+share_db_path.parent.mkdir(exist_ok=True)
+share_db_path.parent.mkdir(exist_ok=True)
+share_manager = SharedPostManager(share_db_path)
+
+# Store managers per session
+cleaner_storage = {}
+analyzer_storage = {}
 
 def login_required(f):
     @wraps(f)
@@ -87,6 +103,32 @@ def get_auth_manager():
     if session_id and session_id in auth_storage:
         return auth_storage[session_id]
     return None
+
+def get_or_create_cleaner():
+    """Get or create a FollowingCleaner instance for the current user"""
+    session_id = session.get('session_id')
+    if not session_id:
+        return None
+    
+    if session_id not in cleaner_storage:
+        auth_manager = get_auth_manager()
+        if auth_manager:
+            cleaner_storage[session_id] = FollowingCleaner(auth_manager)
+    
+    return cleaner_storage.get(session_id)
+
+def get_or_create_analyzer():
+    """Get or create a FollowerAnalyzer instance for the current user"""
+    session_id = session.get('session_id')
+    if not session_id:
+        return None
+    
+    if session_id not in analyzer_storage:
+        auth_manager = get_auth_manager()
+        if auth_manager:
+            analyzer_storage[session_id] = FollowerAnalyzer(auth_manager)
+    
+    return analyzer_storage.get(session_id)
 
 def get_json_path():
     """Get the current user's JSON data path with fallback logic"""
@@ -1597,76 +1639,76 @@ def firehose():
             last_message_time = 0
             min_delay = 0.1  # Very minimal delay for real-time display
             messages_received = 0
-            start_time = time.time()
             
-            # Send initial status
-            yield f"data: {json.dumps({'type': 'status', 'message': 'Connecting to live Bluesky posts and replies...', 'timestamp': time.time()})}\n\n"
-            
-            timeout_duration = 8  # 8 seconds timeout for initial connection
-            
+            # Keep connection alive
             while True:
-                try:
-                    current_time = time.time()
-                    
-                    # Check for timeout if no messages received
-                    if messages_received == 0 and (current_time - start_time) > timeout_duration:
-                        if firehose_error:
-                            yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose connection failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
-                        else:
-                            yield f"data: {json.dumps({'type': 'status', 'message': 'Firehose connected but quiet - falling back to demo mode', 'timestamp': time.time()})}\n\n"
-                        break
-                    
-                    if not message_queue.empty():
-                        if current_time - last_message_time >= min_delay:
-                            message = message_queue.get_nowait()
-                            messages_received += 1
-                            yield f"data: {json.dumps(message)}\n\n"
-                            last_message_time = current_time
-                        else:
-                            time.sleep(0.05)  # Very short wait for real-time feel
-                    else:
-                        time.sleep(0.05)  # Check very frequently for real-time updates
-                except queue.Empty:
-                    time.sleep(0.05)
-                except Exception as e:
-                    print(f"ERROR: Streaming firehose data: {e}")
+                # Check for errors
+                if firehose_error:
+                    yield f"data: {json.dumps({'error': firehose_error})}\n\n"
                     break
+                
+                try:
+                    # Get message from queue with timeout
+                    # 5-second timeout to send keepalive
+                    post_data = message_queue.get(timeout=5.0)
                     
+                    # Ensure we don't flood the client too fast, but keep it snappy
+                    current_time = time.time()
+                    time_diff = current_time - last_message_time
+                    if time_diff < min_delay:
+                        time.sleep(min_delay - time_diff)
+                    
+                    yield f"data: {json.dumps(post_data)}\n\n"
+                    last_message_time = time.time()
+                    messages_received += 1
+                    
+                except queue.Empty:
+                    # Send keepalive comment
+                    yield ": keepalive\n\n"
+                    
+        except GeneratorExit:
+            print("INFO: Client disconnected from firehose stream")
         except Exception as e:
-            print(f"ERROR: Firehose setup failed: {e}")
-            import traceback
-            traceback.print_exc()
-            firehose_error = str(e)
-            
-        # Send error notification if we had issues
-        if firehose_error:
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Firehose failed: {firehose_error}', 'timestamp': time.time()})}\n\n"
-            
-            # Fallback with mock data if firehose fails - ONLY posts and replies
-            print("INFO: Using mock posts and replies for demo")
-            yield f"data: {json.dumps({'type': 'status', 'message': '✨ Demo mode: showing sample posts while processing continues...', 'timestamp': time.time()})}\n\n"
-        
-        mock_messages = [
-            {'type': 'post', 'author': 'alice.bsky.social', 'text': 'Hello Bluesky! 🌅', 'timestamp': time.time()},
-            {'type': 'reply', 'author': 'bob.bsky.social', 'text': '💬 That sounds great!', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'charlie.bsky.social', 'text': 'Beautiful sunset today', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'photographer...', 'text': 'Just captured an amazing landscape 📸', 'timestamp': time.time()},
-            {'type': 'reply', 'author': 'artist.bsky...', 'text': '💬 Amazing work! Love the composition', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'developer...', 'text': 'Working on a new project with AT Protocol', 'timestamp': time.time()},
-            {'type': 'reply', 'author': 'tech.bsky...', 'text': '💬 What kind of project? Sounds interesting!', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'news.bsky.social', 'text': 'Breaking: New features coming to Bluesky!', 'timestamp': time.time()},
-            {'type': 'post', 'author': 'music.bsky...', 'text': 'Just released a new track 🎵', 'timestamp': time.time()},
-            {'type': 'reply', 'author': 'fan.bsky.social', 'text': '💬 Can\'t wait to listen!', 'timestamp': time.time()}
-        ]
-        
-        for i in range(150):  # Stream for demo - more content
-            import random
-            message = random.choice(mock_messages)
-            message['timestamp'] = time.time()
-            yield f"data: {json.dumps(message)}\n\n"
-            time.sleep(0.3)  # Faster rate to simulate real-time activity
-    
+            print(f"ERROR: Stream generation error: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+@app.route('/api/share', methods=['POST'])
+@login_required
+def share_post():
+    """Create a shared permalink for a post"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+            
+        share_id = share_manager.create_share(data)
+        
+        # Build the full share URL
+        # If running behind a proxy with prefix (which we are), url_for needed some care
+        # but _external=True usually handles host/scheme. 
+        # The PrefixMiddleware handles SCRIPT_NAME, so url_for should generate /skymarshal/p/...
+        share_url = url_for('view_shared_post', share_id=share_id, _external=True)
+        
+        return jsonify({
+            'success': True, 
+            'share_id': share_id,
+            'share_url': share_url
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/p/<share_id>')
+def view_shared_post(share_id):
+    """View a shared post (public access)"""
+    post_data = share_manager.get_share(share_id)
+    if not post_data:
+        return render_template('error.html', error="Shared post not found"), 404
+        
+    return render_template('shared_post.html', post=post_data)
+
+
 
 @app.route('/download-backup')
 @login_required
@@ -2229,9 +2271,24 @@ def api_activity():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ===== New Page Routes =====
+
+@app.route('/cleanup/following/page')
+@login_required
+def cleanup_following_page():
+    """Render following cleanup page"""
+    return render_template('cleanup_following.html')
+
+@app.route('/analytics/followers/page')
+@login_required
+def analytics_followers_page():
+    """Render follower analysis page"""
+    return render_template('follower_analysis.html')
+
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5051)
+    port = int(os.environ.get('PORT', 5051))
+    app.run(debug=True, host='0.0.0.0', port=port)

@@ -9,6 +9,9 @@ import sys
 # Add the correct path to find skymarshal modules
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
+# Add the parent of the skymarshal package (two levels up from web/)
+skymarshal_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, skymarshal_root)
 
 # Import and run the Flask app
 from lite_app import app
@@ -22,10 +25,10 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 if __name__ == '__main__':
-    port = 5050  # Litemarshal web interface port (lite version)
-    # Only honor Lite-specific toggles to avoid inheriting global Flask debug env
-    debug_mode = _env_flag('SKYMARSHAL_LITE_DEBUG')
-    use_reloader = debug_mode and _env_flag('SKYMARSHAL_LITE_RELOAD')
+    # Allow port to be configured via environment variable
+    port = int(os.getenv('SKYMARSHAL_PORT', '5050'))
+    debug_mode = os.getenv('SKYMARSHAL_DEBUG', 'False').lower() == 'true'
+    use_reloader = os.getenv('FLASK_RELOADER', 'False').lower() == 'true'
 
     print("🚀 Starting Skymarshal Web Interface...")
     print(f"📍 Interface will be available at: http://localhost:{port}")

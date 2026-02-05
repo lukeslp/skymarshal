@@ -1,0 +1,423 @@
+Metadata-Version: 2.4
+Name: skymarshal
+Version: 0.1.0
+Summary: Your personal Bluesky content command center - manage, analyze, and clean up your social media presence
+Author-email: Luke Steuber <luke@lukesteuber.com>
+Maintainer-email: Luke Steuber <luke@lukesteuber.com>
+License: CC0 1.0 Universal
+        
+        Statement of Purpose
+        
+        The laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator and subsequent owner(s) (each and all, an "owner") of an original work of authorship and/or a database (each, a "Work").
+        
+        Certain owners wish to permanently relinquish those rights to a Work for the purpose of contributing to a commons of creative, cultural and scientific works ("Commons") that the public can reliably and without fear of later claims of infringement build upon, modify, incorporate in other works, reuse and redistribute as freely as possible in any form whatsoever and for any purposes, including without limitation commercial purposes. These owners may contribute to the Commons to promote the ideal of a free culture and the further production of creative, cultural and scientific works, or to gain reputation or greater distribution for their Work in part through the use and efforts of others.
+        
+        For these and/or other purposes and motivations, and without any expectation of additional consideration or compensation, the person associating CC0 with a Work (the "Affirmer"), to the extent that he or she is an owner of Copyright and Related Rights in the Work, voluntarily elects to apply CC0 to the Work and publicly distribute the Work under its terms, with knowledge of his or her Copyright and Related Rights in the Work and the meaning and intended legal effect of CC0 on those rights.
+        
+        1. Copyright and Related Rights. A Work made available under CC0 may be protected by copyright and related or neighboring rights ("Copyright and Related Rights"). Copyright and Related Rights include, but are not limited to, the following:
+          i. the right to reproduce, adapt, distribute, perform, display, communicate, and translate a Work;
+          ii. moral rights retained by the original author(s) and/or performer(s);
+          iii. publicity and privacy rights pertaining to a person's image or likeness depicted in a Work;
+          iv. rights protecting against unfair competition in regards to a Work, subject to the limitations in paragraph 4(a), below;
+          v. rights protecting the extraction, dissemination, use and reuse of data in a Work;
+          vi. database rights (such as those arising under Directive 96/9/EC of the European Parliament and of the Council of 11 March 1996 on the legal protection of databases, and under any national implementation thereof, including any amended or successor version of such directive); and
+          vii. other similar, equivalent or corresponding rights throughout the world based on applicable law or treaty, and any national implementations thereof.
+        
+        2. Waiver. To the greatest extent permitted by, but not in contravention of, applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and unconditionally waives, abandons, and surrenders all of Affirmer's Copyright and Related Rights and associated claims and causes of action, whether now known or unknown (including existing as well as future claims and causes of action), in the Work (i) in all territories worldwide, (ii) for the maximum duration provided by applicable law or treaty (including future time extensions), (iii) in any current or future medium and for any number of copies, and (iv) for any purpose whatsoever, including without limitation commercial, advertising or promotional purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each member of the public at large and to the detriment of Affirmer's heirs and successors, fully intending that such Waiver shall not be subject to revocation, rescission, cancellation, termination, or any other legal or equitable action to disrupt the quiet enjoyment of the Work by the public as contemplated by Affirmer's express Statement of Purpose.
+        
+        3. Public License Fallback. Should any part of the Waiver for any reason be judged legally invalid or ineffective under applicable law, then the Waiver shall be preserved to the maximum extent permitted taking into account Affirmer's express Statement of Purpose. In addition, to the extent the Waiver is so judged Affirmer hereby grants to each affected person a royalty-free, non transferable, non sublicensable, non exclusive, irrevocable and unconditional license to exercise Affirmer's Copyright and Related Rights in the Work (i) in all territories worldwide, (ii) for the maximum duration provided by applicable law or treaty (including future time extensions), (iii) in any current or future medium and for any number of copies, and (iv) for any purpose whatsoever, including without limitation commercial, advertising or promotional purposes (the "License"). The License shall be deemed effective as of the date CC0 was applied by Affirmer to the Work. Should any part of the License for any reason be judged legally invalid or ineffective under applicable law, such partial invalidity or ineffectiveness shall not invalidate the remainder of the License, and in such case Affirmer hereby affirms that he or she will not (i) exercise any of his or her remaining Copyright and Related Rights in the Work or (ii) assert any associated claims and causes of action with respect to the Work, in either case contrary to Affirmer's express Statement of Purpose.
+        
+        4. Limitations and Disclaimers.
+          a. No trademark or patent rights held by Affirmer are waived, abandoned, surrendered, licensed or otherwise affected by this document.
+          b. Affirmer offers the Work as-is and makes no representations or warranties of any kind concerning the Work, express, implied, statutory or otherwise, including without limitation warranties of title, merchantability, fitness for a particular purpose, non infringement, or the absence of latent or other defects, accuracy, or the present or absence of errors, whether or not discoverable, all to the greatest extent permissible under applicable law.
+          c. Affirmer disclaims responsibility for clearing rights of other persons that may apply to the Work or any use thereof, including without limitation any person's Copyright and Related Rights in the Work. Further, Affirmer disclaims responsibility for obtaining any necessary consents, permissions or other rights required for any use of the Work.
+          d. Affirmer understands and acknowledges that Creative Commons is not a party to this document and has no duty or obligation with respect to this CC0 or use of the Work.
+        
+        For more information, please see: https://creativecommons.org/publicdomain/zero/1.0/
+        
+Project-URL: Homepage, https://github.com/lukeslp/skymarshal
+Project-URL: Documentation, https://github.com/lukeslp/skymarshal#readme
+Project-URL: Repository, https://github.com/lukeslp/skymarshal.git
+Project-URL: Issues, https://github.com/lukeslp/skymarshal/issues
+Project-URL: Author, https://lukesteuber.com
+Project-URL: Author on Bluesky, https://bsky.app/profile/lukesteuber.com
+Keywords: bluesky,social-media,content-management,at-protocol,cli-tool,analytics
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: Public Domain
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Archiving
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: atproto>=0.0.46
+Requires-Dist: rich>=13.0.0
+Requires-Dist: flask>=2.3.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: build>=0.10.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: skymarshal[dev]; extra == "all"
+Dynamic: license-file
+
+# Skymarshal
+
+Your personal Bluesky content command center — manage, analyze, and clean up your social media presence with ease.
+
+# THIS IS A WORK IN PROGRESS. 
+## Non-critical functions may be buggy or broken. 
+### [Bluesky: @lukesteuber.com](https://bluesky.app/profile/lukesteuber.com)
+### [lukesteuber.com](https://lukesteuber.com)
+
+<br>
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
+[![AT Protocol](https://img.shields.io/badge/AT%20Protocol-Compatible-green.svg)](https://atproto.com/)
+
+## Development Log
+
+> Status snapshot for **Skymarshal**. See [CHANGELOG](./CHANGELOG.md) for full history.
+
+### ✅ Completed
+- [x] **Secure auth**
+  - Session-based login with Bluesky credentials
+  - No password storage; temporary session tokens only
+  - Handle normalization and guardrails to restrict access to own content
+- [x] **CAR processing, download, and backup**
+  - Create and import CAR archives (with resume + progress)
+  - Integrity checks and local backup directory structure
+  - Graceful handling of empty/partial CARs
+
+### 🧪 In Testing
+- [ ] **Debug engagement hydration**
+  - Verify/repair like, repost, and reply counts during imports
+  - Backoff + retry around rate limits; reconcile mismatches
+- [ ] **Follower/Following reconciliation**
+  - Diff local vs live graph; handle suspended/deleted accounts
+  - Optional CSV/JSON export of deltas
+- [ ] **Flask web interface (read-only MVP)**
+  - Auth handshake, backup trigger, basic search/view of items
+  - Simple analytics cards (top posts, dead threads)
+
+### 🔧 Notes
+- CLI currently menu-driven; subcommands on the roadmap
+- Destructive ops remain gated behind explicit confirm flows
+- Large accounts: prefer CAR workflows for speed and stability
+
+## What Skymarshal Does For You
+
+### Keep Your Account Secure
+- Log in safely with your existing Bluesky credentials
+- Your data stays private and local to your computer
+- No passwords stored - only temporary session access
+- Access only your own content with built-in user protection
+
+### Get Your Data When You Need It
+- Download all your posts, likes, and reposts in minutes
+- See real-time progress so you know exactly what's happening
+- Pick up where you left off if something interrupts the process
+- Choose what content to download - posts only, everything, or custom selections
+
+### Find What You're Looking For
+- Search through thousands of posts instantly using keywords or dates
+- Discover your most and least popular content automatically
+- Filter by engagement levels to find your hits and misses
+- Get personalized categories based on your actual performance (not generic thresholds)
+
+### Clean Up Your Profile Safely
+- Preview exactly what will be deleted before you commit
+- Delete one post at a time, in batches, or everything at once
+- Get multiple confirmation prompts so you never delete by accident
+- See progress bars during deletion so you know it's working
+
+### Understand Your Bluesky Performance
+- See which posts resonated with your audience and which didn't
+- Understand your engagement patterns over time
+- Identify your "dead threads" that got no interaction
+- Discover your "bangers" that performed above average
+- Track your posting habits and peak activity times
+
+## Quick Start
+
+### Installation
+
+#### From PyPI (Recommended)
+
+```bash
+# Install via pip
+pip install skymarshal
+
+# Or in a virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install skymarshal
+```
+
+#### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/lukeslp/skymarshal.git
+cd skymarshal
+
+# (Recommended) Create and activate a virtualenv
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install (development mode)
+pip install -e .
+
+# Or install with dev extras
+pip install -e ".[dev]"
+```
+
+### Usage
+
+Skymarshal currently runs as an interactive terminal app. Start it and follow the guided menus.
+
+```bash
+# Easiest way
+skymarshal
+
+# Or via Python module
+python -m skymarshal
+
+# Or with the Makefile helper
+make run
+```
+
+What you can do from the menus:
+- Authenticate with Bluesky
+- Create and process complete backups (CAR files)
+- Import existing backups and export to JSON/CSV
+- Search and filter by keywords, content types, and engagement
+- Review stats and analytics
+- Safely delete content with multiple confirmation flows
+
+## Feature Reference
+
+Skymarshal exposes all functionality through the interactive UI. A direct subcommand-style CLI is on the roadmap; until then, use the menus for these capabilities:
+
+- Authentication: login/logout, handle normalization
+- Data: create backups (CAR), import/process backups, export JSON/CSV
+- Search & Analyze: filters, engagement scoring, dead thread detection
+- Content Operations: delete by criteria with review/confirm/batch modes
+- Statistics: content overview, engagement metrics, temporal breakdowns
+
+## Safety Features
+
+All destructive operations include multiple safety layers:
+- Confirmation Prompts: Multiple verification steps
+- Dry-run Modes: Preview operations without execution
+- Progress Tracking: Real-time feedback with error handling
+- Individual Approval: Review each item before deletion
+- Batch Processing: Handle large operations safely
+- Undo Capabilities: Temporary backups before permanent changes
+
+## Architecture
+
+Skymarshal uses a modular architecture with clear separation of concerns:
+
+### Core Modules
+- **`app.py`** - Main application controller and CLI orchestration
+- **`models.py`** - Data structures (`ContentItem`, `UserSettings`, `SearchFilters`)
+- **`auth.py`** - Authentication and session management (`AuthManager`)
+- **`ui.py`** - User interface components and Rich displays (`UIManager`)
+- **`data_manager.py`** - Data export/import and file operations (`DataManager`)
+- **`search.py`** - Content search and filtering engine (`SearchManager`)
+- **`deletion.py`** - Safe deletion workflows (`DeletionManager`)
+- **`settings.py`** - User settings persistence (`SettingsManager`)
+- **`help.py`** - Help system and documentation (`HelpManager`)
+- **`banner.py`** - Startup sequences and visual elements
+
+### Data Flow
+1. **Authentication** → Validate Bluesky credentials
+2. **Data Loading** → Download/import content from multiple sources
+3. **Analysis** → Search, filter, and analyze content
+4. **Operations** → Safe deletion with multiple confirmation modes
+5. **Export** → Save results in various formats
+
+## Troubleshooting
+
+### Installation Issues
+
+**Entry point issues** (editable installs during development):
+```bash
+# If the skymarshal command isn’t found, use module execution
+python -m skymarshal
+
+# Or use the Makefile
+make run
+```
+
+**Multiple Python Versions**:
+```bash
+# Use the same Python for install and execution
+python -m pip install -e .
+python -m skymarshal
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **"Module not found"** | Use `python -m skymarshal` instead of `skymarshal` command |
+| **CBOR decoding errors** | Install libipld: `pip install libipld` |
+| **Authentication failures** | Check handle format: `username.bsky.social` (not `@username`) |
+| **File access denied** | Each user's data is isolated by handle for security |
+| **Empty CAR import** | Some CAR files lack commit records - app handles this automatically |
+| **Deletion failures** | Fixed in latest version - update your installation |
+
+### Data & File Locations
+
+- **Settings**: `~/.car_inspector_settings.json`
+- **CAR Files**: `~/.skymarshal/cars/`
+- **JSON Exports**: `~/.skymarshal/json/`
+
+### Performance Tips
+
+- **Large datasets**: Use CAR files for faster processing
+- **Slow downloads**: CAR downloads are typically faster than API calls
+- **Memory usage**: Process data in batches for large accounts
+- **Rate limiting**: Built-in delays respect Bluesky API limits
+
+## Development
+
+### Prerequisites
+- Python 3.8 or higher
+- Git
+- pip (or pipenv/poetry)
+
+### Development Setup
+
+```bash
+# Clone and setup
+git clone https://github.com/lukeslp/skymarshal.git
+cd skymarshal
+
+# Create virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run the application
+make run
+```
+
+### Development Commands
+
+```bash
+# Code quality
+make format          # Format with black + isort
+make lint           # Run flake8 + mypy
+make test           # Run pytest
+
+# Build and distribution
+make build          # Build distribution packages
+make clean          # Clean build artifacts
+
+# All-in-one development check
+make check-all      # Format + lint + test
+```
+
+### Project Structure
+
+```
+skymarshal/
+├── skymarshal/           # Main package
+│   ├── app.py            # Main application controller
+│   ├── models.py         # Data structures and enums
+│   ├── auth.py           # Authentication management
+│   ├── ui.py             # User interface components
+│   ├── data_manager.py   # Data operations
+│   ├── search.py         # Search and filtering
+│   ├── deletion.py       # Safe deletion workflows
+│   ├── settings.py       # Settings management
+│   ├── help.py           # Help system
+│   └── banner.py         # Startup sequences
+├── tests/                # Test suite
+├── internal/             # Internal docs, prototypes, and build artifacts
+├── Makefile             # Development commands
+├── pyproject.toml       # Project configuration
+└── requirements*.txt    # Dependencies
+```
+
+### Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** following the code style guidelines
+4. **Run tests**: `make test`
+5. **Format code**: `make format`
+6. **Commit changes**: `git commit -m 'Add amazing feature'`
+7. **Push to branch**: `git push origin feature/amazing-feature`
+8. **Open a Pull Request**
+
+### Code Style
+
+- **Formatting**: Black (88 character line length)
+- **Import sorting**: isort with black-compatible profile
+- **Type hints**: Encouraged for all functions
+- **Documentation**: Comprehensive docstrings for all modules
+- **Testing**: pytest for unit and integration tests
+
+## Documentation
+
+- **[Architecture Guide](ARCHITECTURE.md)** - Detailed system design and component relationships
+- **[API Reference](API.md)** - Complete CLI command documentation
+- **[Contributing Guide](CONTRIBUTING.md)** - Guidelines for contributors
+- **[Changelog](CHANGELOG.md)** - Version history and changes
+  
+For development setup and best practices, see the [Contributing Guide](CONTRIBUTING.md).
+
+## Contributing
+
+Contributions are welcome! See the [Contributing Guide](CONTRIBUTING.md) for:
+- Code style and standards
+- Testing requirements
+- Pull request process
+- Issue reporting
+
+## License
+
+CC0 1.0 Universal (Public Domain). No attribution required. See [LICENSE](LICENSE).
+
+## Maintainer
+
+Luke Steuber — [lukesteuber.com](https://lukesteuber.com)
+Email: [luke@lukesteuber.com](mailto:luke@lukesteuber.com)
+Bluesky: [@lukesteuber.com](https://bsky.app/profile/lukesteuber.com)
+LinkedIn: [linkedin.com/in/lukesteuber](https://www.linkedin.com/in/lukesteuber/)
+GitHub: [github.com/lukeslp](https://github.com/lukeslp)
+
+---
+
+## Acknowledgments
+
+- **AT Protocol Team** for the excellent `atproto` Python library
+- **Rich Library** for beautiful terminal interfaces
+- **Bluesky Team** for building the decentralized social web
+- **Open Source Community** for inspiration and collaboration
+
+---
+
+All code and docs in this repository are dedicated to the public domain under CC0.

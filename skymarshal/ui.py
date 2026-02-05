@@ -81,6 +81,7 @@ class UIManager:
             "2": ("stats", "View statistics and engagement insights"),
             "3": ("data", "Make fresh backup or manage files"),
             "4": ("auth", "Login to Bluesky or check auth status"),
+            "5": ("followers", "Follower analysis & ranking"),
             "s": ("settings", "Settings"),
             "?": ("help", "Help"),
             "q": ("quit", "Quit"),

@@ -9,6 +9,9 @@ import sys
 # Add the correct path to find skymarshal modules
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
+# Add the parent of the skymarshal package (two levels up from web/)
+skymarshal_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, skymarshal_root)
 
 # Import and run the Flask app
 from app import app

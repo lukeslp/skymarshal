@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
@@ -11,7 +12,8 @@
 
     <!-- Open Graph / Social Share -->
     <meta property="og:title" content="Skymarshal - Bluesky Content Manager">
-    <meta property="og:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.">
+    <meta property="og:description"
+        content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually. Export your data as CSV or CAR backups.">
     <meta property="og:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
     <meta property="og:url" content="https://dr.eamer.dev/skymarshal/">
     <meta property="og:type" content="website">
@@ -19,11 +21,13 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Skymarshal - Bluesky Content Manager">
-    <meta name="twitter:description" content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually.">
+    <meta name="twitter:description"
+        content="Search, filter, and manage your Bluesky posts, replies, likes, and reposts. Delete unwanted content in bulk or individually.">
     <meta name="twitter:image" content="{{ url_for('static', filename='images/socialshare.png', _external=True) }}">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lite.css') }}">
 </head>
+
 <body style="background: var(--bg); margin: 0; padding: 24px;">
     <div style="max-width: 1400px; margin: 0 auto;">
         <header class="lite-header">
@@ -38,7 +42,8 @@
                     <span id="theme-text">Light</span>
                 </button>
                 <form method="post" action="{{ url_for('refresh') }}" id="refresh-form" style="margin: 0;">
-                    <button type="submit" class="lite-secondary lite-small" aria-label="Refresh content from Bluesky">🔄 Refresh</button>
+                    <button type="submit" class="lite-secondary lite-small" aria-label="Refresh content from Bluesky">🔄
+                        Refresh</button>
                 </form>
                 <a href="{{ url_for('logout') }}" class="lite-link">Logout →</a>
             </div>
@@ -60,12 +65,15 @@
             <!-- Sidebar with compact tools -->
             <aside style="display: flex; flex-direction: column; gap: 16px;">
                 <section class="lite-card" style="padding: 16px;">
-                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">EXPORT DATA</h2>
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">EXPORT
+                        DATA</h2>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <a href="{{ url_for('export_csv') }}" class="lite-button lite-small" style="text-align: center; text-decoration: none;">
+                        <a href="{{ url_for('export_csv') }}" class="lite-button lite-small"
+                            style="text-align: center; text-decoration: none;">
                             📊 CSV Export
                         </a>
-                        <a href="{{ url_for('export_car') }}" class="lite-button lite-secondary lite-small" style="text-align: center; text-decoration: none;">
+                        <a href="{{ url_for('export_car') }}" class="lite-button lite-secondary lite-small"
+                            style="text-align: center; text-decoration: none;">
                             💾 CAR Backup
                         </a>
                     </div>
@@ -75,29 +83,37 @@
                 </section>
 
                 <section class="lite-card" style="padding: 16px;">
-                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">LOAD MORE</h2>
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">LOAD
+                        MORE</h2>
                     <p style="margin: 0 0 12px 0; font-size: 12px; color: var(--text);">
                         <strong><span id="loaded-count">{{ loaded_count or 0 }}</span> items loaded</strong><br>
                         <span style="font-size: 11px; color: var(--text-muted);">(posts, likes, reposts combined)</span>
                     </p>
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <input type="number" id="load-limit" class="lite-input" placeholder="Number" min="1" step="500" value="1000" style="flex: 1; font-size: 13px; padding: 8px;">
-                        <button id="load-custom-btn" class="lite-button lite-small" style="flex-shrink: 0;">Load</button>
+                        <input type="number" id="load-limit" class="lite-input" placeholder="Number" min="1" step="500"
+                            value="1000" style="flex: 1; font-size: 13px; padding: 8px;">
+                        <button id="load-custom-btn" class="lite-button lite-small"
+                            style="flex-shrink: 0;">Load</button>
                     </div>
                     <button id="load-all-btn" class="lite-button lite-secondary lite-small" style="width: 100%;">
                         ⚠️ Load All Content
                     </button>
-                    <p id="load-status" style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+                    <p id="load-status"
+                        style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
                         Initially loaded 500 recent items. Load more to search older content.
                     </p>
-                    <div id="load-warning" style="display: none; margin-top: 12px; padding: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 6px; font-size: 11px; color: var(--danger); line-height: 1.4;">
-                        <strong>Large accounts:</strong> Loading all content may take several minutes. Leave the tab open and be patient.
+                    <div id="load-warning"
+                        style="display: none; margin-top: 12px; padding: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); border-radius: 6px; font-size: 11px; color: var(--danger); line-height: 1.4;">
+                        <strong>Large accounts:</strong> Loading all content may take several minutes. Leave the tab
+                        open and be patient.
                     </div>
                 </section>
 
                 <section class="lite-card" style="padding: 16px;">
-                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">ANALYTICS</h2>
-                    <button id="load-analytics-btn" class="lite-button lite-small" style="width: 100%; text-align: center;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--text-muted);">
+                        ANALYTICS</h2>
+                    <button id="load-analytics-btn" class="lite-button lite-small"
+                        style="width: 100%; text-align: center;">
                         📈 View Insights
                     </button>
                     <p style="margin: 12px 0 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
@@ -111,92 +127,107 @@
                 <h2 style="margin: 0 0 20px 0; font-size: 20px;">Search & Manage Content</h2>
 
                 <!-- Search form at the top -->
-                <form id="search-form" role="search" aria-label="Content search form" style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid var(--border);">
+                <form id="search-form" role="search" aria-label="Content search form"
+                    style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid var(--border);">
                     <!-- Highlighted keyword search -->
-                    <div style="background: rgba(59, 130, 246, 0.1); border: 2px solid var(--primary); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div
+                        style="background: rgba(59, 130, 246, 0.1); border: 2px solid var(--primary); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
                         <label class="lite-field" style="margin-bottom: 0;">
                             <span style="color: var(--primary-light); font-size: 14px;">🔍 Keyword Search</span>
-                            <input class="lite-input" name="keyword" type="text" placeholder="Search text in posts, replies, likes..." style="border-color: var(--primary); background: var(--bg-card);">
+                            <input class="lite-input" name="keyword" type="text"
+                                placeholder="Search text in posts, replies, likes..."
+                                style="border-color: var(--primary); background: var(--bg-card);">
                         </label>
                     </div>
 
                     <!-- Toggle for advanced filters -->
-                    <button type="button" id="toggle-filters-btn" class="lite-button lite-secondary lite-small" style="width: 100%; margin-bottom: 16px;" aria-expanded="false" aria-controls="advanced-filters">
+                    <button type="button" id="toggle-filters-btn" class="lite-button lite-secondary lite-small"
+                        style="width: 100%; margin-bottom: 16px;" aria-expanded="false"
+                        aria-controls="advanced-filters">
                         ⚙️ Show Advanced Filters
                     </button>
 
                     <!-- Advanced filters (collapsible) -->
                     <div id="advanced-filters" style="display: none;">
-                    <!-- Other filters in grid -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
-                        <label class="lite-field">
-                            <span>Start Date</span>
-                            <input class="lite-input" name="start_date" type="date">
-                        </label>
-                        <label class="lite-field">
-                            <span>End Date</span>
-                            <input class="lite-input" name="end_date" type="date">
-                        </label>
-                    </div>
-
-                    <!-- Engagement filters - Likes -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                        <label class="lite-field">
-                            <span>Min Likes</span>
-                            <input class="lite-input" name="min_likes" type="number" min="0" placeholder="0">
-                        </label>
-                        <label class="lite-field">
-                            <span>Max Likes</span>
-                            <input class="lite-input" name="max_likes" type="number" min="0" placeholder="∞">
-                        </label>
-                    </div>
-
-                    <!-- Engagement filters - Reposts -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                        <label class="lite-field">
-                            <span>Min Reposts</span>
-                            <input class="lite-input" name="min_reposts" type="number" min="0" placeholder="0">
-                        </label>
-                        <label class="lite-field">
-                            <span>Max Reposts</span>
-                            <input class="lite-input" name="max_reposts" type="number" min="0" placeholder="∞">
-                        </label>
-                    </div>
-
-                    <!-- Engagement filters - Replies -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                        <label class="lite-field">
-                            <span>Min Replies</span>
-                            <input class="lite-input" name="min_replies" type="number" min="0" placeholder="0">
-                        </label>
-                        <label class="lite-field">
-                            <span>Max Replies</span>
-                            <input class="lite-input" name="max_replies" type="number" min="0" placeholder="∞">
-                        </label>
-                    </div>
-
-                    <!-- Content types as checkboxes -->
-                    <div class="lite-field" style="margin-bottom: 20px;">
-                        <span>Content Types</span>
-                        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
-                                <input type="checkbox" name="content_types" value="post" checked style="cursor: pointer; width: 18px; height: 18px;">
-                                <span style="font-size: 14px; font-weight: 500;">Posts</span>
+                        <!-- Other filters in grid -->
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                            <label class="lite-field">
+                                <span>Start Date</span>
+                                <input class="lite-input" name="start_date" type="date">
                             </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
-                                <input type="checkbox" name="content_types" value="reply" checked style="cursor: pointer; width: 18px; height: 18px;">
-                                <span style="font-size: 14px; font-weight: 500;">Replies</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
-                                <input type="checkbox" name="content_types" value="repost" style="cursor: pointer; width: 18px; height: 18px;">
-                                <span style="font-size: 14px; font-weight: 500;">Reposts</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
-                                <input type="checkbox" name="content_types" value="like" style="cursor: pointer; width: 18px; height: 18px;">
-                                <span style="font-size: 14px; font-weight: 500;">Likes</span>
+                            <label class="lite-field">
+                                <span>End Date</span>
+                                <input class="lite-input" name="end_date" type="date">
                             </label>
                         </div>
-                    </div>
+
+                        <!-- Engagement filters - Likes -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <label class="lite-field">
+                                <span>Min Likes</span>
+                                <input class="lite-input" name="min_likes" type="number" min="0" placeholder="0">
+                            </label>
+                            <label class="lite-field">
+                                <span>Max Likes</span>
+                                <input class="lite-input" name="max_likes" type="number" min="0" placeholder="∞">
+                            </label>
+                        </div>
+
+                        <!-- Engagement filters - Reposts -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <label class="lite-field">
+                                <span>Min Reposts</span>
+                                <input class="lite-input" name="min_reposts" type="number" min="0" placeholder="0">
+                            </label>
+                            <label class="lite-field">
+                                <span>Max Reposts</span>
+                                <input class="lite-input" name="max_reposts" type="number" min="0" placeholder="∞">
+                            </label>
+                        </div>
+
+                        <!-- Engagement filters - Replies -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <label class="lite-field">
+                                <span>Min Replies</span>
+                                <input class="lite-input" name="min_replies" type="number" min="0" placeholder="0">
+                            </label>
+                            <label class="lite-field">
+                                <span>Max Replies</span>
+                                <input class="lite-input" name="max_replies" type="number" min="0" placeholder="∞">
+                            </label>
+                        </div>
+
+                        <!-- Content types as checkboxes -->
+                        <div class="lite-field" style="margin-bottom: 20px;">
+                            <span>Content Types</span>
+                            <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                    <input type="checkbox" name="content_types" value="post" checked
+                                        style="cursor: pointer; width: 18px; height: 18px;">
+                                    <span style="font-size: 14px; font-weight: 500;">Posts</span>
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                    <input type="checkbox" name="content_types" value="reply" checked
+                                        style="cursor: pointer; width: 18px; height: 18px;">
+                                    <span style="font-size: 14px; font-weight: 500;">Replies</span>
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                    <input type="checkbox" name="content_types" value="repost"
+                                        style="cursor: pointer; width: 18px; height: 18px;">
+                                    <span style="font-size: 14px; font-weight: 500;">Reposts</span>
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 12px; background: var(--bg-elevated); border-radius: 8px; border: 2px solid var(--border); transition: all 0.2s;">
+                                    <input type="checkbox" name="content_types" value="like"
+                                        style="cursor: pointer; width: 18px; height: 18px;">
+                                    <span style="font-size: 14px; font-weight: 500;">Likes</span>
+                                </label>
+                            </div>
+                        </div>
                     </div><!-- End advanced-filters -->
 
                     <button type="submit" class="lite-button" style="width: 100%;">🔍 Search</button>
@@ -206,22 +237,16 @@
                 <div class="lite-results-header">
                     <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Results</h3>
                     <div class="lite-results-actions">
-                        <button id="select-all" class="lite-secondary lite-small" type="button" aria-label="Select all results">Select All</button>
-                        <button id="clear-all" class="lite-secondary lite-small" type="button" aria-label="Clear all selections">Clear</button>
-                        <button id="delete-selected"
-                                class="lite-danger lite-small"
-                                type="button"
-                                disabled
-                                aria-disabled="true"
-                                aria-label="Delete selected items (0 selected)">Delete Selected</button>
+                        <button id="select-all" class="lite-secondary lite-small" type="button"
+                            aria-label="Select all results">Select All</button>
+                        <button id="clear-all" class="lite-secondary lite-small" type="button"
+                            aria-label="Clear all selections">Clear</button>
+                        <button id="delete-selected" class="lite-danger lite-small" type="button" disabled
+                            aria-label="Delete selected items">🗑️ Delete Selected</button>
                     </div>
                 </div>
-                <p id="results-meta"
-                   class="lite-meta"
-                   role="status"
-                   aria-live="polite"
-                   aria-atomic="true"
-                   style="margin: 12px 0 16px 0;">Loading your recent posts...</p>
+                <p id="results-meta" class="lite-meta" role="status" aria-live="polite" aria-atomic="true"
+                    style="margin: 12px 0 16px 0;">Loading your recent posts...</p>
 
                 <!-- Screen reader announcements -->
                 <div class="sr-only" role="status" aria-live="polite" aria-atomic="true">
@@ -243,13 +268,37 @@
                     </table>
                 </div>
             </section>
-        </main>
+    </div>
+    </section>
+    </main>
+
+    <!-- Share Modal - hidden for future use
+    <div id="share-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="lite-card" style="width: 100%; max-width: 500px; padding: 24px;">
+            <h2 style="margin: 0 0 16px 0;">🔗 Share Post</h2>
+            <p style="margin-bottom: 16px; color: var(--text-muted);">This permalink will be instantly accessible to
+                anyone you share it with.</p>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+                <input type="text" id="share-url-input" class="lite-input" readonly style="flex: 1;">
+                <button id="copy-share-btn" class="lite-button">Copy</button>
+            </div>
+
+            <div style="text-align: right;">
+                <button id="close-share-btn" class="lite-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+    -->
 
     <!-- Analytics Modal -->
-    <div id="analytics-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; overflow-y: auto; padding: 16px;">
+    <div id="analytics-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; overflow-y: auto; padding: 16px;">
         <div style="max-width: 900px; margin: 0 auto; width: 100%;">
             <div class="lite-card" style="padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
                     <h1 style="margin: 0; font-size: 20px; flex: 1;">📈 Analytics & Insights</h1>
                     <button id="close-analytics-btn" class="lite-secondary lite-small">✕ Close</button>
                 </div>
@@ -260,48 +309,67 @@
 
                 <div id="analytics-content" style="display: none;">
                     <!-- Sentiment Analysis -->
-                    <section class="lite-card" style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
-                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">😊 Sentiment Analysis</h2>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+                    <section class="lite-card"
+                        style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">😊 Sentiment
+                            Analysis</h2>
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                             <div style="text-align: center;">
-                                <div id="sentiment-score" style="font-size: 28px; font-weight: 700; color: var(--primary-light);">0.0</div>
-                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Avg Score</div>
+                                <div id="sentiment-score"
+                                    style="font-size: 28px; font-weight: 700; color: var(--primary-light);">0.0</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Avg
+                                    Score</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-positive" style="font-size: 28px; font-weight: 700; color: #10b981;">0%</div>
-                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Positive</div>
+                                <div id="sentiment-positive" style="font-size: 28px; font-weight: 700; color: #10b981;">
+                                    0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">
+                                    Positive</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-neutral" style="font-size: 28px; font-weight: 700; color: var(--text-muted);">0%</div>
-                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Neutral</div>
+                                <div id="sentiment-neutral"
+                                    style="font-size: 28px; font-weight: 700; color: var(--text-muted);">0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">
+                                    Neutral</div>
                             </div>
                             <div style="text-align: center;">
-                                <div id="sentiment-negative" style="font-size: 28px; font-weight: 700; color: #ef4444;">0%</div>
-                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Negative</div>
+                                <div id="sentiment-negative" style="font-size: 28px; font-weight: 700; color: #ef4444;">
+                                    0%</div>
+                                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">
+                                    Negative</div>
                             </div>
                         </div>
                     </section>
 
                     <!-- Time Patterns -->
-                    <section class="lite-card" style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
-                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">⏰ Time Patterns</h2>
+                    <section class="lite-card"
+                        style="margin-bottom: 16px; background: var(--bg-elevated); padding: 16px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">⏰ Time Patterns
+                        </h2>
                         <div style="display: flex; flex-direction: column; gap: 16px;">
                             <div>
-                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Best Time to Post</h3>
-                                <div id="best-hour" style="font-size: 20px; font-weight: 600; color: var(--primary-light);">--</div>
+                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Best Time to
+                                    Post</h3>
+                                <div id="best-hour"
+                                    style="font-size: 20px; font-weight: 600; color: var(--primary-light);">--</div>
                                 <div id="best-day" style="font-size: 16px; color: var(--text);">--</div>
                             </div>
                             <div>
-                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Posting Activity</h3>
-                                <div id="time-stats" style="font-size: 13px; color: var(--text); line-height: 1.6;"></div>
+                                <h3 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-muted);">Posting
+                                    Activity</h3>
+                                <div id="time-stats" style="font-size: 13px; color: var(--text); line-height: 1.6;">
+                                </div>
                             </div>
                         </div>
                     </section>
 
                     <!-- Word Frequency -->
                     <section class="lite-card" style="background: var(--bg-elevated); padding: 16px;">
-                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">📝 Most Used Words</h2>
-                        <div id="word-frequency" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;">
+                        <h2 style="margin: 0 0 12px 0; font-size: 16px; color: var(--primary-light);">📝 Most Used Words
+                        </h2>
+                        <div id="word-frequency"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;">
                         </div>
                     </section>
                 </div>
@@ -310,503 +378,600 @@
     </div>
 
     <script>
-    const searchForm = document.getElementById('search-form');
-    const resultsBody = document.getElementById('results-body');
-    const resultsMeta = document.getElementById('results-meta');
-    const deleteSelected = document.getElementById('delete-selected');
-    const selectAll = document.getElementById('select-all');
-    const clearAll = document.getElementById('clear-all');
-    const refreshForm = document.getElementById('refresh-form');
-    const selected = new Set();
+        const searchForm = document.getElementById('search-form');
+        const resultsBody = document.getElementById('results-body');
+        const resultsMeta = document.getElementById('results-meta');
+        const deleteSelected = document.getElementById('delete-selected'); // May be null (hidden for future)
+        const selectAll = document.getElementById('select-all');
+        const clearAll = document.getElementById('clear-all');
+        const refreshForm = document.getElementById('refresh-form');
+        const selected = new Set();
 
-    refreshForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        deleteSelected.disabled = true;
-        selected.clear();
-        resultsMeta.textContent = '⏳ Refreshing data from Bluesky...';
-        const response = await fetch('{{ url_for('refresh') }}', { method: 'POST' });
-        if (!response.ok) {
-            resultsMeta.textContent = 'Refresh failed. Try again later.';
-            return;
-        }
-        const data = await response.json();
-        if (data.success) {
-            resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
-            // Update loaded count if available
-            if (data.loaded_count !== undefined) {
-                const loadedCountSpan = document.getElementById('loaded-count');
-                if (loadedCountSpan) {
-                    loadedCountSpan.textContent = data.loaded_count;
-                }
+        // Helper to safely update deleteSelected button state
+        const updateDeleteBtn = () => {
+            if (deleteSelected) deleteSelected.disabled = selected.size === 0;
+        };
+
+        refreshForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (deleteSelected) deleteSelected.disabled = true;
+            selected.clear();
+            resultsMeta.textContent = '⏳ Refreshing data from Bluesky...';
+            const response = await fetch('{{ url_for('refresh') }}', { method: 'POST' });
+            if (!response.ok) {
+                resultsMeta.textContent = 'Refresh failed. Try again later.';
+                return;
             }
-        } else {
-            resultsMeta.textContent = data.error || 'Refresh failed.';
-        }
-    });
+            const data = await response.json();
+            if (data.success) {
+                resultsMeta.textContent = 'Data refreshed! Run a search to view updated posts.';
+                // Update loaded count if available
+                if (data.loaded_count !== undefined) {
+                    const loadedCountSpan = document.getElementById('loaded-count');
+                    if (loadedCountSpan) {
+                        loadedCountSpan.textContent = data.loaded_count;
+                    }
+                }
+            } else {
+                resultsMeta.textContent = data.error || 'Refresh failed.';
+            }
+        });
 
-    function buildPayload(formData) {
-        const payload = Object.fromEntries(formData.entries());
-        const types = formData.getAll('content_types');
-        payload.content_types = types;
-        return payload;
-    }
-
-    function escapeHtml(value) {
-        if (typeof value !== 'string') {
-            return value === undefined || value === null ? '' : String(value);
+        function buildPayload(formData) {
+            const payload = Object.fromEntries(formData.entries());
+            const types = formData.getAll('content_types');
+            payload.content_types = types;
+            return payload;
         }
-        return value
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
 
-    function renderResults(items, total) {
-        resultsBody.innerHTML = '';
-        selected.clear();
-        deleteSelected.disabled = true;
-        if (!items.length) {
-            resultsMeta.textContent = 'No results. Adjust filters and try again.';
-            return;
+        function escapeHtml(value) {
+            if (typeof value !== 'string') {
+                return value === undefined || value === null ? '' : String(value);
+            }
+            return value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
-        resultsMeta.textContent = `Showing ${items.length} of ${total}`;
-        items.forEach((item) => {
-            const row = document.createElement('tr');
-            row.dataset.uri = item.uri;
-            const textContent = item.text ? escapeHtml(item.text) : 'No text';
-            const contentType = escapeHtml(item.content_type);
-            const createdAt = item.created_at ? escapeHtml(item.created_at) : '';
-            const likes = escapeHtml(item.likes);
-            const reposts = escapeHtml(item.reposts);
-            const replies = escapeHtml(item.replies);
-            const score = escapeHtml(item.engagement_score);
-            const uriAttr = escapeHtml(item.uri);
-            row.innerHTML = `
+
+        function renderResults(items, total) {
+            resultsBody.innerHTML = '';
+            selected.clear();
+            if (deleteSelected) deleteSelected.disabled = true;
+            if (!items.length) {
+                resultsMeta.textContent = 'No results. Adjust filters and try again.';
+                return;
+            }
+            resultsMeta.textContent = `Showing ${items.length} of ${total}`;
+            items.forEach((item) => {
+                const row = document.createElement('tr');
+                row.dataset.uri = item.uri;
+                const textContent = item.text ? escapeHtml(item.text) : 'No text';
+                const contentType = escapeHtml(item.content_type);
+                // Format date to readable format with seconds
+                let formattedDate = '';
+                if (item.created_at) {
+                    const d = new Date(item.created_at);
+                    if (!isNaN(d.getTime())) {
+                        formattedDate = d.toLocaleString('en-US', {
+                            year: 'numeric', month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        });
+                    } else {
+                        formattedDate = escapeHtml(item.created_at);
+                    }
+                }
+                const likes = escapeHtml(item.likes);
+                const reposts = escapeHtml(item.reposts);
+                const replies = escapeHtml(item.replies);
+                const uriAttr = escapeHtml(item.uri);
+                row.innerHTML = `
                 <td><input type="checkbox" class="result-select"></td>
                 <td><span class="lite-chip">${contentType}</span></td>
                 <td class="lite-text">${textContent}</td>
-                <td>${createdAt}</td>
+                <td>${formattedDate}</td>
                 <td>
-                    <span class="lite-pill">❤️ ${likes}</span>
-                    <span class="lite-pill">🔄 ${reposts}</span>
-                    <span class="lite-pill">💬 ${replies}</span>
-                    <span class="lite-pill">⚡ ${score}</span>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="lite-pill">❤️ ${likes}</span>
+                        <span class="lite-pill">🔄 ${reposts}</span>
+                        <span class="lite-pill">💬 ${replies}</span>
+                    </div>
                 </td>
                 <td>
-                    <button type="button" class="lite-danger lite-small" data-uri="${uriAttr}">Delete</button>
+                    <button class="lite-danger lite-small delete-single-btn" data-uri="${uriAttr}"
+                        aria-label="Delete this item" title="Delete">🗑️</button>
                 </td>
             `;
-            resultsBody.appendChild(row);
-        });
-    }
 
-    searchForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        // Show loading state
-        const submitBtn = searchForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Loading...';
-        
-        resultsMeta.textContent = '⏳ Loading data from Bluesky... This may take a moment for large accounts.';
-        resultsBody.innerHTML = '';
-
-        try {
-            const formData = new FormData(searchForm);
-            const payload = buildPayload(formData);
-            const response = await fetch('{{ url_for('search') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.error || 'Search failed');
-            }
-
-            renderResults(data.results, data.total);
-        } catch (error) {
-            console.error('Search error:', error);
-            resultsMeta.textContent = `❌ Error: ${error.message}`;
-            resultsBody.innerHTML = '';
-        } finally {
-            // Reset button state
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }
-    });
-
-    resultsBody.addEventListener('change', (event) => {
-        if (!event.target.classList.contains('result-select')) {
-            return;
-        }
-        const row = event.target.closest('tr');
-        if (!row) {
-            return;
-        }
-        const uri = row.dataset.uri;
-        if (!uri) {
-            return;
-        }
-        if (event.target.checked) {
-            selected.add(uri);
-        } else {
-            selected.delete(uri);
-        }
-        deleteSelected.disabled = selected.size === 0;
-    });
-
-    resultsBody.addEventListener('click', async (event) => {
-        const button = event.target.closest('button');
-        if (!button || !button.dataset.uri) {
-            return;
-        }
-        const uri = button.dataset.uri;
-        
-        if (!confirm('Are you sure you want to delete this item?')) {
-            return;
-        }
-        
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = '⏳ Deleting...';
-        
-        try {
-            const response = await fetch('{{ url_for('delete') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uris: [uri] })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            if (data.success && data.deleted) {
-                const row = button.closest('tr');
-                if (row) {
-                    row.remove();
+                // Set data safely to avoid quoting issues
+                const shareBtn = row.querySelector('.share-btn');
+                if (shareBtn) {
+                    shareBtn.dataset.json = JSON.stringify(item);
                 }
-                selected.delete(uri);
-                resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully`;
-            } else {
-                throw new Error(data.error || 'Delete failed');
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            resultsMeta.textContent = `❌ Delete failed: ${error.message}`;
-            button.disabled = false;
-            button.textContent = originalText;
-        }
-        
-        deleteSelected.disabled = selected.size === 0;
-    });
 
-    deleteSelected.addEventListener('click', async () => {
-        if (!selected.size) {
-            return;
-        }
-        
-        if (!confirm(`Are you sure you want to delete ${selected.size} selected item(s)?`)) {
-            return;
-        }
-        
-        const originalText = deleteSelected.textContent;
-        deleteSelected.disabled = true;
-        deleteSelected.textContent = `⏳ Deleting ${selected.size} items...`;
-        
-        try {
-            const response = await fetch('{{ url_for('delete') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uris: Array.from(selected) })
+                resultsBody.appendChild(row);
             });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        searchForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            // Show loading state
+            const submitBtn = searchForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Loading...';
+
+            resultsMeta.textContent = '⏳ Loading data from Bluesky... This may take a moment for large accounts.';
+            resultsBody.innerHTML = '';
+
+            try {
+                const formData = new FormData(searchForm);
+                const payload = buildPayload(formData);
+                const response = await fetch('{{ url_for('search') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Search failed');
+                }
+
+                renderResults(data.results, data.total);
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsMeta.textContent = `❌ Error: ${error.message}`;
+                resultsBody.innerHTML = '';
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
             }
-            
-            const data = await response.json();
-            if (data.success) {
-                Array.from(selected).forEach((uri) => {
-                    const row = resultsBody.querySelector(`tr[data-uri="${uri}"]`);
+        });
+
+        resultsBody.addEventListener('change', (event) => {
+            if (!event.target.classList.contains('result-select')) {
+                return;
+            }
+            const row = event.target.closest('tr');
+            if (!row) {
+                return;
+            }
+            const uri = row.dataset.uri;
+            if (!uri) {
+                return;
+            }
+            if (event.target.checked) {
+                selected.add(uri);
+            } else {
+                selected.delete(uri);
+            }
+            if (deleteSelected) deleteSelected.disabled = selected.size === 0;
+        });
+
+        resultsBody.addEventListener('click', async (event) => {
+            // Handle Share Button
+            const shareBtn = event.target.closest('.share-btn');
+            if (shareBtn) {
+                const itemData = JSON.parse(shareBtn.dataset.json);
+                const originalText = shareBtn.textContent;
+                shareBtn.textContent = '⏳';
+                shareBtn.disabled = true;
+
+                try {
+                    // Prepare simpler payload
+                    const payload = {
+                        uri: itemData.uri,
+                        text: itemData.text,
+                        content_type: itemData.content_type,
+                        created_at: itemData.created_at,
+                        likes: itemData.likes,
+                        reposts: itemData.reposts,
+                        replies: itemData.replies,
+                        // Assume handle from session context is "me" for now, or extract if available
+                        author: '{{ handle }}'
+                    };
+
+                    const response = await fetch('{{ url_for('share_post') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        const shareModal = document.getElementById('share-modal');
+                        const shareInput = document.getElementById('share-url-input');
+                        const closeShare = document.getElementById('close-share-btn');
+                        const copyShare = document.getElementById('copy-share-btn');
+
+                        shareInput.value = data.share_url;
+                        shareModal.style.display = 'flex';
+
+                        shareInput.select();
+
+                        closeShare.onclick = () => { shareModal.style.display = 'none'; };
+                        copyShare.onclick = () => {
+                            shareInput.select();
+                            document.execCommand('copy');
+                            copyShare.textContent = 'Copied!';
+                            setTimeout(() => copyShare.textContent = 'Copy', 2000);
+                        };
+
+                        // Close on background click
+                        shareModal.onclick = (e) => {
+                            if (e.target === shareModal) shareModal.style.display = 'none';
+                        };
+                    } else {
+                        alert('Share failed: ' + data.error);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alert('Share failed');
+                } finally {
+                    shareBtn.textContent = originalText;
+                    shareBtn.disabled = false;
+                }
+                return;
+            }
+
+            const button = event.target.closest('button');
+            if (!button || !button.dataset.uri) {
+                return;
+            }
+            const uri = button.dataset.uri;
+
+            if (!confirm('Are you sure you want to delete this item?')) {
+                return;
+            }
+
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '⏳ Deleting...';
+
+            try {
+                const response = await fetch('{{ url_for('delete') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uris: [uri] })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (data.success && data.deleted) {
+                    const row = button.closest('tr');
                     if (row) {
                         row.remove();
                     }
-                });
-                selected.clear();
-                resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully. ${data.failed || 0} failed.`;
-            } else {
-                throw new Error(data.error || 'Bulk delete failed');
+                    selected.delete(uri);
+                    resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully`;
+                } else {
+                    throw new Error(data.error || 'Delete failed');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                resultsMeta.textContent = `❌ Delete failed: ${error.message}`;
+                button.disabled = false;
+                button.textContent = originalText;
             }
-        } catch (error) {
-            console.error('Bulk delete error:', error);
-            resultsMeta.textContent = `❌ Bulk delete failed: ${error.message}`;
-        } finally {
-            deleteSelected.disabled = true;
-            deleteSelected.textContent = originalText;
-        }
-    });
 
-    selectAll.addEventListener('click', () => {
-        resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
-            checkbox.checked = true;
-            const row = checkbox.closest('tr');
-            if (row && row.dataset.uri) {
-                selected.add(row.dataset.uri);
+            if (deleteSelected) deleteSelected.disabled = selected.size === 0;
+        });
+
+        // Bulk delete handler
+        if (deleteSelected) {
+            deleteSelected.addEventListener('click', async () => {
+                if (!selected.size) {
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to delete ${selected.size} selected item(s)?`)) {
+                    return;
+                }
+
+                const originalText = deleteSelected.textContent;
+                deleteSelected.disabled = true;
+                deleteSelected.textContent = `⏳ Deleting ${selected.size} items...`;
+
+                try {
+                    const response = await fetch('{{ url_for('delete') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uris: Array.from(selected) })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success) {
+                        Array.from(selected).forEach((uri) => {
+                            const row = resultsBody.querySelector(`tr[data-uri="${uri}"]`);
+                            if (row) {
+                                row.remove();
+                            }
+                        });
+                        selected.clear();
+                        resultsMeta.textContent = `✅ Deleted ${data.deleted} item(s) successfully. ${data.failed || 0} failed.`;
+                    } else {
+                        throw new Error(data.error || 'Bulk delete failed');
+                    }
+                } catch (error) {
+                    console.error('Bulk delete error:', error);
+                    resultsMeta.textContent = `❌ Bulk delete failed: ${error.message}`;
+                } finally {
+                    deleteSelected.disabled = true;
+                    deleteSelected.textContent = originalText;
+                }
+            });
+        }
+
+        selectAll.addEventListener('click', () => {
+            resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
+                checkbox.checked = true;
+                const row = checkbox.closest('tr');
+                if (row && row.dataset.uri) {
+                    selected.add(row.dataset.uri);
+                }
+            });
+            if (deleteSelected) deleteSelected.disabled = selected.size === 0;
+        });
+
+        clearAll.addEventListener('click', () => {
+            resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
+                checkbox.checked = false;
+            });
+            selected.clear();
+            if (deleteSelected) deleteSelected.disabled = true;
+        });
+
+        // Analytics modal functionality
+        const analyticsModal = document.getElementById('analytics-modal');
+        const loadAnalyticsBtn = document.getElementById('load-analytics-btn');
+        const closeAnalyticsBtn = document.getElementById('close-analytics-btn');
+        const analyticsLoading = document.getElementById('analytics-loading');
+        const analyticsContent = document.getElementById('analytics-content');
+
+        loadAnalyticsBtn.addEventListener('click', async () => {
+            analyticsModal.style.display = 'block';
+            analyticsLoading.style.display = 'block';
+            analyticsContent.style.display = 'none';
+
+            try {
+                const response = await fetch('{{ url_for('analytics') }}');
+                const data = await response.json();
+
+                if (data.success) {
+                    displayAnalytics(data.analytics);
+                    analyticsLoading.style.display = 'none';
+                    analyticsContent.style.display = 'block';
+                } else {
+                    analyticsLoading.innerHTML = `<p style="color: var(--danger);">Failed to load analytics: ${data.error}</p>`;
+                }
+            } catch (error) {
+                analyticsLoading.innerHTML = `<p style="color: var(--danger);">Error loading analytics: ${error.message}</p>`;
             }
         });
-        deleteSelected.disabled = selected.size === 0;
-    });
 
-    clearAll.addEventListener('click', () => {
-        resultsBody.querySelectorAll('.result-select').forEach((checkbox) => {
-            checkbox.checked = false;
-        });
-        selected.clear();
-        deleteSelected.disabled = true;
-    });
-
-    // Analytics modal functionality
-    const analyticsModal = document.getElementById('analytics-modal');
-    const loadAnalyticsBtn = document.getElementById('load-analytics-btn');
-    const closeAnalyticsBtn = document.getElementById('close-analytics-btn');
-    const analyticsLoading = document.getElementById('analytics-loading');
-    const analyticsContent = document.getElementById('analytics-content');
-
-    loadAnalyticsBtn.addEventListener('click', async () => {
-        analyticsModal.style.display = 'block';
-        analyticsLoading.style.display = 'block';
-        analyticsContent.style.display = 'none';
-
-        try {
-            const response = await fetch('{{ url_for('analytics') }}');
-            const data = await response.json();
-
-            if (data.success) {
-                displayAnalytics(data.analytics);
-                analyticsLoading.style.display = 'none';
-                analyticsContent.style.display = 'block';
-            } else {
-                analyticsLoading.innerHTML = `<p style="color: var(--danger);">Failed to load analytics: ${data.error}</p>`;
-            }
-        } catch (error) {
-            analyticsLoading.innerHTML = `<p style="color: var(--danger);">Error loading analytics: ${error.message}</p>`;
-        }
-    });
-
-    closeAnalyticsBtn.addEventListener('click', () => {
-        analyticsModal.style.display = 'none';
-    });
-
-    // Close modal on background click
-    analyticsModal.addEventListener('click', (e) => {
-        if (e.target === analyticsModal) {
+        closeAnalyticsBtn.addEventListener('click', () => {
             analyticsModal.style.display = 'none';
-        }
-    });
+        });
 
-    function displayAnalytics(analytics) {
-        // Sentiment Analysis
-        const sentiment = analytics.sentiment;
-        document.getElementById('sentiment-score').textContent = sentiment.average_score.toFixed(2);
-        document.getElementById('sentiment-positive').textContent = sentiment.percentage_positive.toFixed(1) + '%';
-        document.getElementById('sentiment-neutral').textContent = sentiment.percentage_neutral.toFixed(1) + '%';
-        document.getElementById('sentiment-negative').textContent = sentiment.percentage_negative.toFixed(1) + '%';
+        // Close modal on background click
+        analyticsModal.addEventListener('click', (e) => {
+            if (e.target === analyticsModal) {
+                analyticsModal.style.display = 'none';
+            }
+        });
 
-        // Time Patterns
-        const time = analytics.time_patterns;
-        if (time.best_hour !== null) {
-            const hour = time.best_hour;
-            const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            document.getElementById('best-hour').textContent = `${hour12}:00 ${ampm}`;
-        }
-        document.getElementById('best-day').textContent = time.best_day || 'N/A';
+        function displayAnalytics(analytics) {
+            // Sentiment Analysis
+            const sentiment = analytics.sentiment;
+            document.getElementById('sentiment-score').textContent = sentiment.average_score.toFixed(2);
+            document.getElementById('sentiment-positive').textContent = sentiment.percentage_positive.toFixed(1) + '%';
+            document.getElementById('sentiment-neutral').textContent = sentiment.percentage_neutral.toFixed(1) + '%';
+            document.getElementById('sentiment-negative').textContent = sentiment.percentage_negative.toFixed(1) + '%';
 
-        // Time stats
-        const totalPosts = Object.values(time.by_day_of_week).reduce((a, b) => a + b, 0);
-        document.getElementById('time-stats').innerHTML = `
+            // Time Patterns
+            const time = analytics.time_patterns;
+            if (time.best_hour !== null) {
+                const hour = time.best_hour;
+                const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                document.getElementById('best-hour').textContent = `${hour12}:00 ${ampm}`;
+            }
+            document.getElementById('best-day').textContent = time.best_day || 'N/A';
+
+            // Time stats
+            const totalPosts = Object.values(time.by_day_of_week).reduce((a, b) => a + b, 0);
+            document.getElementById('time-stats').innerHTML = `
             Total posts analyzed: ${totalPosts}<br>
             Most active hour: ${time.best_hour !== null ? time.best_hour + ':00' : 'N/A'}<br>
             Most active day: ${time.best_day || 'N/A'}
         `;
 
-        // Word Frequency
-        const wordFrequency = document.getElementById('word-frequency');
-        wordFrequency.innerHTML = '';
-        analytics.word_frequency.top_words.slice(0, 20).forEach(word => {
-            const chip = document.createElement('div');
-            chip.style.cssText = 'background: var(--bg-card); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid var(--border);';
-            chip.innerHTML = `
+            // Word Frequency
+            const wordFrequency = document.getElementById('word-frequency');
+            wordFrequency.innerHTML = '';
+            analytics.word_frequency.top_words.slice(0, 20).forEach(word => {
+                const chip = document.createElement('div');
+                chip.style.cssText = 'background: var(--bg-card); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid var(--border);';
+                chip.innerHTML = `
                 <div style="font-weight: 600; color: var(--text);">${escapeHtml(word.word)}</div>
                 <div style="font-size: 12px; color: var(--text-muted);">${word.count} times</div>
             `;
-            wordFrequency.appendChild(chip);
-        });
-    }
-
-    // Auto-load recent posts on page load
-    window.addEventListener('DOMContentLoaded', () => {
-        // Automatically trigger search with default filters (posts + replies, no other filters)
-        const formData = new FormData(searchForm);
-        const payload = buildPayload(formData);
-
-        // Ensure posts and replies are selected
-        payload.content_types = ['post', 'reply'];
-        payload.limit = 100; // Load first 100 items
-
-        fetch('{{ url_for('search') }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderResults(data.results, data.total);
-            } else {
-                resultsMeta.textContent = `Error loading posts: ${data.error || 'Unknown error'}`;
-            }
-        })
-        .catch(error => {
-            resultsMeta.textContent = `Failed to load posts: ${error.message}`;
-        });
-    });
-
-    // Advanced Filters Toggle
-    const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
-    const advancedFilters = document.getElementById('advanced-filters');
-
-    toggleFiltersBtn.addEventListener('click', () => {
-        const isHidden = advancedFilters.style.display === 'none';
-        advancedFilters.style.display = isHidden ? 'block' : 'none';
-        toggleFiltersBtn.textContent = isHidden ? '⚙️ Hide Advanced Filters' : '⚙️ Show Advanced Filters';
-        toggleFiltersBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
-    });
-
-    // Load More functionality
-    const loadCustomBtn = document.getElementById('load-custom-btn');
-    const loadAllBtn = document.getElementById('load-all-btn');
-    const loadLimitInput = document.getElementById('load-limit');
-    const loadStatus = document.getElementById('load-status');
-    const loadWarning = document.getElementById('load-warning');
-    const loadedCountSpan = document.getElementById('loaded-count');
-
-    async function loadMoreContent(limit) {
-        // Show warning for large loads
-        if (limit === 'all' || parseInt(limit) > 5000) {
-            loadWarning.style.display = 'block';
+                wordFrequency.appendChild(chip);
+            });
         }
 
-        // Disable buttons during load
-        loadCustomBtn.disabled = true;
-        loadAllBtn.disabled = true;
-        loadCustomBtn.textContent = 'Loading...';
-        loadAllBtn.textContent = 'Loading...';
-        loadStatus.textContent = 'Loading content... This may take a while for large accounts.';
-        loadStatus.style.color = 'var(--primary)';
+        // Auto-load recent posts on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Automatically trigger search with default filters (posts + replies, no other filters)
+            const formData = new FormData(searchForm);
+            const payload = buildPayload(formData);
 
-        try {
-            const response = await fetch('{{ url_for('load_more') }}', {
+            // Ensure posts and replies are selected
+            payload.content_types = ['post', 'reply'];
+            payload.limit = 100; // Load first 100 items
+
+            fetch('{{ url_for('search') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ limit: limit })
-            });
+                body: JSON.stringify(payload)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderResults(data.results, data.total);
+                    } else {
+                        resultsMeta.textContent = `Error loading posts: ${data.error || 'Unknown error'}`;
+                    }
+                })
+                .catch(error => {
+                    resultsMeta.textContent = `Failed to load posts: ${error.message}`;
+                });
+        });
 
-            const data = await response.json();
+        // Advanced Filters Toggle
+        const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
+        const advancedFilters = document.getElementById('advanced-filters');
 
-            if (data.success) {
-                loadedCountSpan.textContent = data.loaded_count;
-                loadStatus.textContent = `✅ ${data.message}`;
-                loadStatus.style.color = 'var(--success, #10b981)';
+        toggleFiltersBtn.addEventListener('click', () => {
+            const isHidden = advancedFilters.style.display === 'none';
+            advancedFilters.style.display = isHidden ? 'block' : 'none';
+            toggleFiltersBtn.textContent = isHidden ? '⚙️ Hide Advanced Filters' : '⚙️ Show Advanced Filters';
+            toggleFiltersBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+        });
 
-                // Update summary if available
-                if (data.summary) {
-                    updateSummary(data.summary);
-                }
+        // Load More functionality
+        const loadCustomBtn = document.getElementById('load-custom-btn');
+        const loadAllBtn = document.getElementById('load-all-btn');
+        const loadLimitInput = document.getElementById('load-limit');
+        const loadStatus = document.getElementById('load-status');
+        const loadWarning = document.getElementById('load-warning');
+        const loadedCountSpan = document.getElementById('loaded-count');
 
-                // Announce to screen readers
-                const announcement = document.getElementById('screen-reader-announcements');
-                if (announcement) {
-                    announcement.textContent = data.message;
-                }
-            } else {
-                loadStatus.textContent = `❌ Error: ${data.error}`;
-                loadStatus.style.color = 'var(--danger)';
+        async function loadMoreContent(limit) {
+            // Show warning for large loads
+            if (limit === 'all' || parseInt(limit) > 5000) {
+                loadWarning.style.display = 'block';
             }
-        } catch (error) {
-            loadStatus.textContent = `❌ Failed to load: ${error.message}`;
-            loadStatus.style.color = 'var(--danger)';
-        } finally {
-            // Re-enable buttons
-            loadCustomBtn.disabled = false;
-            loadAllBtn.disabled = false;
-            loadCustomBtn.textContent = 'Load';
-            loadAllBtn.textContent = '⚠️ Load All Content';
+
+            // Disable buttons during load
+            loadCustomBtn.disabled = true;
+            loadAllBtn.disabled = true;
+            loadCustomBtn.textContent = 'Loading...';
+            loadAllBtn.textContent = 'Loading...';
+            loadStatus.textContent = 'Loading content... This may take a while for large accounts.';
+            loadStatus.style.color = 'var(--primary)';
+
+            try {
+                const response = await fetch('{{ url_for('load_more') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ limit: limit })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    loadedCountSpan.textContent = data.loaded_count;
+                    loadStatus.textContent = `✅ ${data.message}`;
+                    loadStatus.style.color = 'var(--success, #10b981)';
+
+                    // Update summary if available
+                    if (data.summary) {
+                        updateSummary(data.summary);
+                    }
+
+                    // Announce to screen readers
+                    const announcement = document.getElementById('screen-reader-announcements');
+                    if (announcement) {
+                        announcement.textContent = data.message;
+                    }
+                } else {
+                    loadStatus.textContent = `❌ Error: ${data.error}`;
+                    loadStatus.style.color = 'var(--danger)';
+                }
+            } catch (error) {
+                loadStatus.textContent = `❌ Failed to load: ${error.message}`;
+                loadStatus.style.color = 'var(--danger)';
+            } finally {
+                // Re-enable buttons
+                loadCustomBtn.disabled = false;
+                loadAllBtn.disabled = false;
+                loadCustomBtn.textContent = 'Load';
+                loadAllBtn.textContent = '⚠️ Load All Content';
+            }
         }
-    }
 
-    loadCustomBtn.addEventListener('click', () => {
-        const limit = loadLimitInput.value || '1000';
-        loadMoreContent(limit);
-    });
+        loadCustomBtn.addEventListener('click', () => {
+            const limit = loadLimitInput.value || '1000';
+            loadMoreContent(limit);
+        });
 
-    loadAllBtn.addEventListener('click', () => {
-        if (confirm('⚠️ Load ALL content? For large accounts (10k+ posts), this may take several minutes. Continue?')) {
-            loadMoreContent('all');
+        loadAllBtn.addEventListener('click', () => {
+            if (confirm('⚠️ Load ALL content? For large accounts (10k+ posts), this may take several minutes. Continue?')) {
+                loadMoreContent('all');
+            }
+        });
+
+        // Helper to update summary display
+        function updateSummary(summary) {
+            // Update summary cards if they exist in your UI
+            // This is optional - implement if you have summary display
         }
-    });
 
-    // Helper to update summary display
-    function updateSummary(summary) {
-        // Update summary cards if they exist in your UI
-        // This is optional - implement if you have summary display
-    }
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const themeText = document.getElementById('theme-text');
 
-    // Theme toggle functionality
-    const themeToggle = document.getElementById('theme-toggle');
-    const themeIcon = document.getElementById('theme-icon');
-    const themeText = document.getElementById('theme-text');
+        // Load saved theme or default to dark
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButton(savedTheme);
 
-    // Load saved theme or default to dark
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeButton(savedTheme);
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
-    themeToggle.addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
 
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        updateThemeButton(newTheme);
+            // Announce theme change to screen readers
+            const announcement = document.getElementById('screen-reader-announcements');
+            announcement.textContent = `Theme changed to ${newTheme} mode`;
+        });
 
-        // Announce theme change to screen readers
-        const announcement = document.getElementById('screen-reader-announcements');
-        announcement.textContent = `Theme changed to ${newTheme} mode`;
-    });
-
-    function updateThemeButton(theme) {
-        if (theme === 'dark') {
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'Light';
-            themeToggle.setAttribute('aria-label', 'Switch to light mode');
-        } else {
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'Dark';
-            themeToggle.setAttribute('aria-label', 'Switch to dark mode');
+        function updateThemeButton(theme) {
+            if (theme === 'dark') {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Light';
+                themeToggle.setAttribute('aria-label', 'Switch to light mode');
+            } else {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Dark';
+                themeToggle.setAttribute('aria-label', 'Switch to dark mode');
+            }
         }
-    }
     </script>
+    <!-- GoatCounter Analytics -->
+    <script data-goatcounter="https://dr.eamer.dev/analytics/count" async
+        src="https://dr.eamer.dev/analytics/count.js"></script>
 </body>
+
 </html>

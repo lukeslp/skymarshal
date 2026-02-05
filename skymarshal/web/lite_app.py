@@ -25,6 +25,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skymarshal.services import ContentService, SearchRequest
 from skymarshal.services.analytics import ContentAnalytics
+from skymarshal.web.share_manager import SharedPostManager
+from pathlib import Path
 
 
 app = Flask(__name__)
@@ -54,7 +56,7 @@ class PrefixMiddleware:
                 environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
         return self.app(environ, start_response)
 
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix='/skymarshal')
+app.wsgi_app = ProxyFix(PrefixMiddleware(app.wsgi_app, prefix='/skymarshal'), x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SESSION_COOKIE_PATH'] = '/skymarshal'
 app.config['SESSION_COOKIE_SECURE'] = False
@@ -64,12 +66,44 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 _services: Dict[str, ContentService] = {}
 _prefer_car_for_lite = _env_flag("SKYMARSHAL_LITE_USE_CAR")
 
+# Initialize share manager for post permalinks
+_share_db_path = Path.home() / ".skymarshal" / "shared_posts.db"
+_share_db_path.parent.mkdir(parents=True, exist_ok=True)
+share_manager = SharedPostManager(_share_db_path)
+
 
 @app.route("/")
 def index():
-    if session.get("session_id") in _services:
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
+    # Redirect to the hub as the main landing page
+    return redirect(url_for("hub"))
+
+
+@app.route("/hub")
+def hub():
+    """Skymarshal Hub - landing page showing all available tools."""
+    session_id = session.get("session_id")
+    service = _services.get(session_id) if session_id else None
+
+    is_authenticated = service is not None
+    user_handle = session.get("user_handle")
+    profile = None
+    blocked_count = None
+    muted_count = None
+
+    if is_authenticated and service:
+        try:
+            profile = service.get_profile()
+        except Exception:
+            pass
+
+    return render_template(
+        "hub.html",
+        is_authenticated=is_authenticated,
+        user_handle=user_handle,
+        profile=profile,
+        blocked_count=blocked_count,
+        muted_count=muted_count,
+    )
 
 
 def _require_service() -> ContentService:
@@ -499,5 +533,157 @@ def analytics():
         return jsonify({"success": False, "error": str(exc)}), 400
 
 
+@app.get("/user-profile")
+def user_profile():
+    """Return the current user's profile data for avatar/display name."""
+    try:
+        service = _require_service()
+    except PermissionError:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    try:
+        profile = service.get_profile()
+        if profile:
+            return jsonify({
+                "success": True,
+                "profile": {
+                    "handle": profile.get("handle", session.get("user_handle")),
+                    "displayName": profile.get("displayName", ""),
+                    "avatar": profile.get("avatar", ""),
+                }
+            })
+        return jsonify({
+            "success": True,
+            "profile": {
+                "handle": session.get("user_handle", ""),
+                "displayName": "",
+                "avatar": "",
+            }
+        })
+    except Exception as e:
+        current_app.logger.warning(f"Failed to get profile: {e}")
+        return jsonify({
+            "success": True,
+            "profile": {
+                "handle": session.get("user_handle", ""),
+                "displayName": "",
+                "avatar": "",
+            }
+        })
+
+
+@app.route('/api/share', methods=['POST'])
+@_login_required
+def share_post():
+    """Create a shared permalink for a post."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        share_id = share_manager.create_share(data)
+        share_url = url_for('view_shared_post', share_id=share_id, _external=True)
+
+        return jsonify({
+            'success': True,
+            'share_id': share_id,
+            'share_url': share_url
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/p/<share_id>')
+def view_shared_post(share_id):
+    """View a shared post (public access)."""
+    post_data = share_manager.get_share(share_id)
+    if not post_data:
+        return f"<h1>Shared post not found</h1><p>The post with ID '{share_id}' does not exist or has been removed.</p>", 404
+
+    return render_template('shared_post.html', post=post_data)
+
+
+# --- EgoNet Manager Integration ---
+from skymarshal.deletion import DeletionManager
+import threading
+import time
+
+@app.route("/egonet")
+@_login_required
+def egonet_dashboard():
+    """EgoNet Manager Dashboard."""
+    handle = session.get("user_handle")
+    return render_template("egonet.html", handle=handle)
+
+@app.route("/api/egonet/network")
+@_login_required
+def api_egonet_network():
+    """Get network data (mocked for now, pending real implementation)."""
+    # In a real implementation we would fetch this from AppView
+    # For now, return a mock graph so the visualizer works immediately
+    service = _require_service()
+    me = session.get("user_handle")
+    
+    nodes = [{"id": me, "handle": me, "group": 1}]
+    links = []
+    
+    # Mock some data if we have it, otherwise just return me
+    # Ideally we'd validly fetch followers/follows here
+    # Since we can't easily wait for a long API call in a synchronous route,
+    # we return a small sample or placeholder.
+    
+    return jsonify({
+        "nodes": nodes,
+        "links": links
+    })
+
+@app.post("/api/egonet/backup")
+@_login_required
+def api_egonet_backup():
+    """Trigger a backup creation."""
+    try:
+        service = _require_service()
+        handle = session.get("user_handle")
+        
+        # We reuse the logic from export_car but return JSON
+        # Run in thread to not block? Backup can be fast enough for small repos,
+        # but large ones might timeout.
+        # Ideally we'd use a task queue. For now, we block (lite version).
+        
+        backup_path = service.data_manager.create_timestamped_backup(handle)
+        
+        if backup_path:
+            return jsonify({"status": "success", "message": f"Backup created at {backup_path}"})
+        else:
+            return jsonify({"status": "error", "message": "Backup failed"})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+@app.post("/api/egonet/nuke")
+@_login_required
+def api_egonet_nuke():
+    """Nuclear option: Delete everything."""
+    payload = request.get_json()
+    if not payload or payload.get("confirmation") != "I UNDERSTAND THIS IS PERMANENT":
+        return jsonify({"status": "error", "message": "Invalid confirmation"}), 400
+        
+    service = _require_service()
+    
+    def run_nuke(app_context_service):
+        # We need a fresh DeletionManager or use service's capabilities
+        # Creating a DeletionManager requires auth.
+        # service.auth is available.
+        dm = DeletionManager(app_context_service.auth)
+        dm.nuke_all_content()
+        
+    # Run in background thread because it takes a long time
+    thread = threading.Thread(target=run_nuke, args=(service,))
+    thread.start()
+    
+    return jsonify({"status": "success", "message": "Nuclear deletion started in background. Check back later."})
+
+
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5051)
+    port = int(os.environ.get('PORT', 5050))
+    app.run(debug=True, host="0.0.0.0", port=port)

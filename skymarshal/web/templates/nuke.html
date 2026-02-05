@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Nuclear Delete - Skymarshal{% endblock %}
+
+{% block content %}
+<div class="nuke-container">
+    <div class="nuke-warning">
+        <div class="warning-icon">⚠️</div>
+        <h1>Nuclear Delete</h1>
+        <p class="warning-subtitle">This will delete ALL your Bluesky content</p>
+    </div>
+
+    <div class="nuke-content">
+        <div class="nuke-stats">
+            <h2>Content to be deleted:</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-number" id="posts-count">{{ stats.total_posts }}</span>
+                    <span class="stat-label">Posts</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="replies-count">{{ stats.total_replies }}</span>
+                    <span class="stat-label">Replies</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="likes-count">{{ stats.total_likes }}</span>
+                    <span class="stat-label">Likes Given</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="reposts-count">{{ stats.total_reposts }}</span>
+                    <span class="stat-label">Reposts Given</span>
+                </div>
+            </div>
+            <p class="total-items">Total: <strong id="total-count">{{ stats.total_items }}</strong> items</p>
+        </div>
+
+        <div class="nuke-warning-text">
+            <h3>⚠️ WARNING: This action cannot be undone!</h3>
+            <ul>
+                <li>All your posts and replies will be permanently deleted</li>
+                <li>All your likes and reposts will be removed</li>
+                <li>This action cannot be reversed</li>
+                <li>Your content will be gone forever</li>
+            </ul>
+        </div>
+
+        <form id="nuke-form" class="nuke-form">
+            <div class="confirmation-step">
+                <h3>Step 1: Type the confirmation phrase</h3>
+                <p>Type exactly: <code>DELETE ALL {{ session.user_handle }}</code></p>
+                <input type="text" id="confirmation-phrase" class="confirmation-input" 
+                       placeholder="Type the exact phrase above">
+            </div>
+
+            <div class="confirmation-step">
+                <h3>Step 2: Final confirmation</h3>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="final-confirmation">
+                    <span>I understand this will permanently delete all my Bluesky content and cannot be undone</span>
+                </label>
+            </div>
+
+            <div class="nuke-actions">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Cancel</a>
+                <button type="submit" id="nuke-button" class="btn btn-danger" disabled>
+                    <span class="btn-text">🚀 NUCLEAR DELETE</span>
+                    <span class="btn-loading" style="display: none;">
+                        <span class="spinner"></span> Deleting...
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmationPhrase = document.getElementById('confirmation-phrase');
+    const finalConfirmation = document.getElementById('final-confirmation');
+    const nukeButton = document.getElementById('nuke-button');
+    const expectedPhrase = `DELETE ALL {{ session.user_handle }}`;
+
+    function updateButtonState() {
+        const phraseCorrect = confirmationPhrase.value === expectedPhrase;
+        const checkboxChecked = finalConfirmation.checked;
+        nukeButton.disabled = !(phraseCorrect && checkboxChecked);
+    }
+
+    confirmationPhrase.addEventListener('input', updateButtonState);
+    finalConfirmation.addEventListener('change', updateButtonState);
+
+    document.getElementById('nuke-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!confirm('Are you absolutely sure? This will delete ALL your content permanently!')) {
+            return;
+        }
+
+        const btn = nukeButton;
+        const btnText = btn.querySelector('.btn-text');
+        const btnLoading = btn.querySelector('.btn-loading');
+        
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+
+        try {
+            const response = await fetch('{{ url_for("nuke") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    confirmation_phrase: confirmationPhrase.value,
+                    final_confirmation: finalConfirmation.checked
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert(`Nuclear delete completed! Deleted ${data.deleted} items.`);
+                window.location.href = '{{ url_for("dashboard") }}';
+            } else {
+                alert('Nuclear delete failed: ' + (data.error || 'Unknown error'));
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        } catch (error) {
+            alert('An error occurred: ' + error.message);
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+        }
+    });
+});
+</script>
+
+<style>
+.nuke-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.nuke-warning {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(255, 107, 107, 0.3);
+}
+
+.warning-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.nuke-warning h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    color: white;
+}
+
+.warning-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+.nuke-content {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: var(--shadow);
+}
+
+.nuke-stats h2 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bg-color);
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--danger-color);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.total-items {
+    text-align: center;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+.nuke-warning-text {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+}
+
+.nuke-warning-text h3 {
+    color: #856404;
+    margin-bottom: 1rem;
+}
+
+.nuke-warning-text ul {
+    margin-left: 1.5rem;
+    color: #856404;
+}
+
+.nuke-warning-text li {
+    margin-bottom: 0.5rem;
+}
+
+.nuke-form {
+    margin-top: 2rem;
+}
+
+.confirmation-step {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-color);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.confirmation-step h3 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.confirmation-step code {
+    background: var(--text-primary);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+
+.confirmation-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+.confirmation-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 133, 255, 0.1);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin: 0;
+    transform: scale(1.2);
+}
+
+.nuke-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    min-width: 200px;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: var(--danger-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.btn-danger:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .nuke-container {
+        padding: 1rem;
+    }
+    
+    .nuke-warning h1 {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .nuke-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-danger {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+</style>
+{% endblock %}

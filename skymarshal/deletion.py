@@ -209,33 +209,62 @@ class DeletionManager:
             return False
         return False
 
-    def delete_all_at_once(self, items: List[ContentItem], display_func):
-        """Delete all items with single confirmation."""
-        console.print()
-        console.print("Review ALL items to be deleted:")
-        display_func(items, limit=len(items))
-        console.print()
-
-        console.print(
-            Panel(
-                f"WARNING: You are about to permanently delete [bold red]{len(items)}[/] items from Bluesky!\n\n"
-                f"This action cannot be undone and will make real API calls.",
-                title="FINAL WARNING",
-                border_style="bright_red",
-            )
-        )
-        console.print()
-
-        if not Confirm.ask(
-            f"[bold white]Are you absolutely sure you want to delete {len(items)} items?[/]"
-        ):
-            console.print("[yellow]Deletion cancelled[/]")
+    def nuclear_option(self, items: List[ContentItem]):
+        """Delete EVERYTHING with extreme confirmations."""
+        if not items:
+            console.print("[yellow]No items to delete.[/]")
             return
 
-        if not Confirm.ask("[bold white]Last chance - really delete everything?[/]"):
-            console.print("[yellow]Deletion cancelled[/]")
+        console.print()
+        console.print(Rule("⚠️  NUCLEAR DELETION OPTION  ⚠️", style="bold red"))
+        console.print()
+        console.print(f"[bold red]You are about to delete ALL content ({len(items)} items).[/]")
+        console.print()
+        
+        # Breakdown
+        posts = [i for i in items if i.content_type == "post"]
+        likes = [i for i in items if i.content_type == "like"]
+        reposts = [i for i in items if i.content_type == "repost"]
+        
+        console.print(f"  • {len(posts)} posts")
+        console.print(f"  • {len(likes)} likes")
+        console.print(f"  • {len(reposts)} reposts")
+        console.print()
+        console.print("[yellow]This action CANNOT be undone![/]")
+        console.print()
+        
+        # Confirmation 1: Understand consequences
+        if not Confirm.ask("[bold red]Do you understand this will delete ALL your content?[/]"):
+            console.print("[green]Operation cancelled[/]")
             return
-
+        
+        # Confirmation 2: Backup reminder
+        console.print()
+        console.print("[yellow]Have you backed up your data?[/]")
+        if not Confirm.ask("I have a backup and want to proceed"):
+            console.print("[green]Please create a backup first[/]")
+            return
+        
+        # Confirmation 3: Type confirmation phrase
+        console.print()
+        console.print("[bold red]Type 'DELETE EVERYTHING' to confirm:[/]")
+        confirmation = Prompt.ask("Confirmation phrase")
+        if confirmation != "DELETE EVERYTHING":
+            console.print("[green]Phrase did not match - operation cancelled[/]")
+            return
+        
+        # Confirmation 4: Final countdown
+        console.print()
+        console.print("[bold red]Starting deletion in 5 seconds... Press Ctrl+C to cancel[/]")
+        try:
+            for i in range(5, 0, -1):
+                console.print(f"  {i}...")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            console.print("[green]Operation cancelled[/]")
+            return
+        
+        # Execute deletion
         deleted_count = self.delete_content_with_progress(items)
         console.print()
         console.print(f"Successfully deleted [bold green]{deleted_count}[/] items")
