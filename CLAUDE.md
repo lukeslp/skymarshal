@@ -10,8 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make run                   # Recommended - handles entry point issues
 python -m skymarshal       # Direct module execution
 
-# Web Interface (lite version - main dashboard)
-python skymarshal/web/lite_app.py    # Port 5050
+# Web Interface (lite version - primary dashboard)
+python skymarshal/web/lite_app.py    # Port 5050, serves at /skymarshal/
 
 # Web Interface (full version)
 python skymarshal/web/app.py         # Port 5051
@@ -37,80 +37,116 @@ pytest tests/unit/ -v                               # Unit tests only
 pytest tests/integration/ -v                        # Integration tests
 pytest tests/unit/test_auth.py::TestAuthManager -v  # Single class
 pytest -m "not performance"                         # Skip slow tests
+pytest -m unit                                      # Only unit-marked tests
+pytest -m "auth"                                    # Only auth-related tests
 ```
+
+Custom markers are auto-applied based on directory (`unit/`, `integration/`) and name (`performance`/`perf`). Additional markers: `auth`, `api`.
 
 ## Architecture Overview
 
-Skymarshal is a Bluesky content management toolkit with three interfaces:
+Skymarshal is a Bluesky content management toolkit (published to PyPI as `skymarshal` v0.1.0) with three interfaces:
 - **CLI**: Interactive Rich-based terminal UI (`skymarshal/app.py`)
-- **Web Lite**: Streamlined Flask dashboard for search/delete (`skymarshal/web/lite_app.py`)
-- **Web Full**: Complete Flask interface with CAR processing (`skymarshal/web/app.py`)
+- **Web Lite**: Primary Flask dashboard for search/delete/analytics (`skymarshal/web/lite_app.py`, port 5050)
+- **Web Full**: Extended interface with CAR processing wizard (`skymarshal/web/app.py`, port 5051)
 
-### Manager Pattern
+### Three-Layer Architecture
+
 ```
-InteractiveCARInspector (app.py)
-├── AuthManager (auth.py)        # Bluesky authentication & sessions
-├── UIManager (ui.py)            # Rich terminal components
-├── DataManager (data_manager.py)# CAR files, JSON export/import
-├── SearchManager (search.py)    # Content filtering & statistics
-├── DeletionManager (deletion.py)# Safe deletion with confirmations
-├── SettingsManager (settings.py)# User preferences
-└── HelpManager (help.py)        # Context-aware documentation
+┌─────────────────────────────────────────────────────┐
+│  Interfaces                                         │
+│  ├── CLI: InteractiveCARInspector (app.py)          │
+│  ├── Web Lite: Flask + PrefixMiddleware (lite_app)  │
+│  └── Web Full: Flask + setup wizard (app.py)        │
+├─────────────────────────────────────────────────────┤
+│  Service Layer (services/)                          │
+│  ├── ContentService: Unified API for all workflows  │
+│  ├── ContentAnalytics: Sentiment, posting patterns  │
+│  └── SearchRequest/SearchResult: Typed DTOs         │
+├─────────────────────────────────────────────────────┤
+│  Domain Managers                                    │
+│  ├── AuthManager (auth.py)         # AT Protocol    │
+│  ├── DataManager (data_manager.py) # CAR/JSON I/O   │
+│  ├── SearchManager (search.py)     # Filtering      │
+│  ├── DeletionManager (deletion.py) # Safe deletion  │
+│  ├── SettingsManager (settings.py) # Preferences    │
+│  ├── UIManager (ui.py)            # Rich terminal   │
+│  └── HelpManager (help.py)        # Context docs    │
+├─────────────────────────────────────────────────────┤
+│  Supporting Modules                                 │
+│  ├── analytics/    # FollowerAnalyzer, PostAnalyzer,│
+│  │                 # ContentAnalyzer (LLM-powered)  │
+│  ├── cleanup/      # FollowingCleaner, PostImporter │
+│  ├── bot_detection # Follower ratio heuristics      │
+│  ├── engagement_cache # SQLite cache with TTL       │
+│  └── egonet/       # Network visualization Flask app│
+└─────────────────────────────────────────────────────┘
 ```
+
+### Service Layer Pattern
+
+The `services/` package (`ContentService`) is the **primary abstraction** both CLI and web use. It wraps all domain managers into a single API:
+
+```python
+from skymarshal.services import ContentService, SearchRequest
+service = ContentService(settings_path=..., storage_root=..., auth_manager=...)
+results = service.search(SearchRequest(keyword="python", min_likes=5))
+```
+
+The web lite app stores `ContentService` instances per session in `_services: Dict[str, ContentService]`.
+
+### Web Dependency Injection
+
+`web/dependencies.py` provides Flask request-scoped (`flask.g`) dependency management. Instead of recreating managers per route, use:
+
+```python
+from skymarshal.web.dependencies import get_content_service, get_auth_manager, get_json_path
+```
+
+`get_json_path()` handles intelligent fallback for finding a user's data file (exact match → timestamped files → most recent).
+
+### Web Subpath Routing
+
+The lite app runs behind Caddy at `/skymarshal/` using `PrefixMiddleware` (defined inline in `lite_app.py`) that sets `SCRIPT_NAME` and strips the prefix from `PATH_INFO`. This is wrapped with `ProxyFix` for reverse proxy headers. All `url_for()` calls automatically include the prefix.
 
 ### Data Flow
 1. **Auth** → Bluesky credentials validation via AT Protocol
-2. **Load** → CAR file download/import or direct API fetch
+2. **Load** → CAR file download/import or direct API fetch (configurable via `SKYMARSHAL_LITE_USE_CAR` env flag)
 3. **Analyze** → Filter by engagement, keywords, dates, content type
 4. **Act** → Delete with multiple safety confirmation modes
-5. **Export** → JSON/CSV output
+5. **Export** → JSON/CSV output, or share via `SharedPostManager` (SQLite-backed permalinks)
 
 ### Key Data Structures (`models.py`)
 - `ContentItem`: Posts/likes/reposts with engagement metadata
 - `UserSettings`: Batch sizes, API limits, thresholds
 - `SearchFilters`: Comprehensive filtering criteria
 - `DeleteMode`, `ContentType`: Type-safe enums
+- `console`: Shared Rich console (auto-detects terminal vs web context)
+- `safe_progress()`: Context manager for Rich Progress that degrades gracefully in non-terminal contexts
+- `calculate_engagement_score()`: LRU-cached (10K) formula: `likes + (2 × reposts) + (2.5 × replies)`
 
-## Project Layout
+## Modules Not Obvious From File Listing
 
-```
-skymarshal/
-├── skymarshal/              # Core CLI package
-│   ├── app.py               # Main controller (72K)
-│   ├── models.py            # Data structures
-│   ├── auth.py              # AT Protocol auth
-│   ├── data_manager.py      # CAR/JSON operations (74K)
-│   ├── search.py            # Filter engine (35K)
-│   ├── deletion.py          # Safe deletion workflows
-│   ├── ui.py                # Rich terminal UI (40K)
-│   └── web/                 # Flask web interfaces
-│       ├── lite_app.py      # Streamlined dashboard (port 5050)
-│       ├── app.py           # Full interface (port 5051)
-│       └── templates/       # Jinja2 templates
-├── loners/                  # Standalone CLI scripts
-├── bluevibes/               # Profile viewer subproject
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
-├── Makefile                 # Dev commands
-└── pyproject.toml           # Build config
-```
+### `analytics/` — Three analyzers
+- `FollowerAnalyzer`: Follower ranking and engagement analysis
+- `PostAnalyzer`: Post fetching, ranking, engagement scoring
+- `ContentAnalyzer`: LLM-powered content analysis and "vibe checking"
 
-## Subprojects
+### `cleanup/` — Account cleanup tools
+- `FollowingCleaner`: Detect and unfollow inactive/bot accounts
+- `PostImporter`: Import posts from external sources
 
-### Loners (`loners/`)
-Standalone scripts for specific operations. Run from loners directory:
-```bash
-python search.py          # Search & filter
-python stats.py           # Analytics
-python delete.py          # Safe deletion
-python nuke.py            # Delete ALL (dangerous)
-python export.py          # Data export
-```
+### `engagement_cache.py` — SQLite Cache
+Stores engagement data (likes, reposts, replies) with **configurable TTL based on post age**. Provides 90% reduction in API calls on repeat loads. Located at `~/.skymarshal/engagement_cache.db`.
 
-### Bluevibes (`bluevibes/`)
-Separate Flask app for Bluesky profile viewing and network analysis.
+### `web/session_manager.py` — Centralized Session State
+`SessionManager` + `UserSession` dataclass replaces scattered Flask session/global dict storage. Thread-safe with `Lock`.
+
+### `web/share_manager.py` — Post Permalinks
+`SharedPostManager` generates 8-char hex share IDs for posts, stored in `~/.skymarshal/shared_posts.db`. Enables the `/share/<id>` route.
+
+### `egonet/` — Network Visualization
+Separate Flask app for ego network visualization. Uses environment-based Bluesky credentials (`BSKY_IDENTIFIER`, `BSKY_PASSWORD`). Hardcoded data directory at `/home/coolhand/html/bluesky/egonet-manager`.
 
 ## AT Protocol Integration
 
@@ -125,18 +161,25 @@ Separate Flask app for Bluesky profile viewing and network analysis.
 ```
 ~/.skymarshal/
 ├── cars/                    # CAR backup files
-└── json/                    # JSON exports
+├── json/                    # JSON exports (named <safe_handle>.json or timestamped)
+├── engagement_cache.db      # SQLite engagement cache
+└── shared_posts.db          # SQLite shared post permalinks
 
-~/.car_inspector_settings.json  # User settings (legacy name)
+~/.car_inspector_settings.json  # User settings (legacy name, still active)
 ```
 
-## Performance Notes
+## Testing Infrastructure
 
-Optimized for large datasets (10K+ items):
-- Single-pass statistics computation
-- LRU-cached engagement scores (10K capacity)
-- Batch processing with configurable sizes
-- Engagement formula: `likes + (2 × reposts) + (2.5 × replies)`
+Shared fixtures in `tests/conftest.py`:
+- `mock_auth`: Mock `AuthManager` with standard handle/DID
+- `mock_settings`: Default `UserSettings` from mock data
+- `skymarshal_dirs`: Temp directory structure (`skymarshal_dir`, `cars_dir`, `json_dir`)
+- `data_manager`: Pre-wired `DataManager` with mock auth/settings/dirs
+- `sample_content_items`: Mixed content dataset (posts + likes + reposts)
+- `content_type` (parametrized): `'post'`, `'like'`, `'repost'`
+- `engagement_level` (parametrized): `0`, `1`, `5`, `50`
+
+Mock data factory in `tests/fixtures/mock_data.py`: `create_mock_content_item()`, `create_mock_posts_dataset(n)`, `create_mixed_content_dataset()`, `create_large_dataset()`, `create_mock_atproto_profile()`, `create_mock_atproto_records_response()`.
 
 ## Code Style
 
@@ -144,23 +187,7 @@ Optimized for large datasets (10K+ items):
 - Black (88 char), isort (black profile)
 - Rich console for all terminal output
 - Pytest with unit/integration/performance markers
-
-## Web Interface Notes
-
-### Lite App (Port 5050)
-Primary web dashboard at `/skymarshal/` path. Features:
-- Quick filters: bangers, dead threads, old posts
-- Bulk delete with confirmation
-- Real-time search
-
-### Full App (Port 5051)
-Extended interface with CAR download/processing, setup wizard, and analytics.
-
-### Templates Structure
-- `lite_dashboard.html`: Main search/results interface
-- `hub.html`: Navigation hub
-- `dashboard.html`: Full analytics dashboard
-- `cleanup_*.html`: Cleanup workflows
+- `mypy` configured with `check_untyped_defs = true` but `disallow_untyped_defs = false`
 
 ## Safety Features
 
