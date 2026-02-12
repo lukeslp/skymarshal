@@ -16,3 +16,39 @@
 +4. Jetstream WebSocket: background thread or eventlet greenlet?
 +5. NetworkX graph analysis (heavy): inside Flask request handler or background task?
 +Give specific recommendations with rationale.
+
+# 2026-02-12 02:39:44.578163
++Flask+Flask-SocketIO with eventlet. Porting network viz + firehose. Questions:
++1. WebSocket client: websockets vs aiohttp vs websocket-client? (eventlet)
++2. Sentiment: nltk.sentiment.vader vs textblob vs vaderSentiment?
++3. HTTP client: httpx async vs aiohttp vs sync requests? (eventlet)
++4. Long-running WebSocket: background thread or eventlet greenlet?
++5. Heavy NetworkX computation: Flask handler or background task?
++Specific recommendations please.
+
+# 2026-02-12 02:39:44.579768
++Flask+Flask-SocketIO with eventlet. Porting network viz + firehose. Questions:
++1. WebSocket client: websockets vs aiohttp vs websocket-client? (eventlet)
++2. Sentiment: nltk.sentiment.vader vs textblob vs vaderSentiment?
++3. HTTP client: httpx async vs aiohttp vs sync requests? (eventlet)
++4. Long-running WebSocket: background thread or eventlet greenlet?
++5. Heavy NetworkX computation: Flask handler or background task?
++Specific recommendations please.
+
+# 2026-02-12 02:40:06.282028
++Flask+Flask-SocketIO with eventlet. Porting network viz + firehose. Questions:
++1. WebSocket client: websockets vs aiohttp vs websocket-client? (eventlet)
++2. Sentiment: nltk.sentiment.vader vs textblob vs vaderSentiment?
++3. HTTP client: httpx async vs aiohttp vs sync requests? (eventlet)
++4. Long-running WebSocket: background thread or eventlet greenlet?
++5. Heavy NetworkX computation: Flask handler or background task?
++Specific recommendations please.
+
+# 2026-02-12 02:40:06.282079
++Flask+Flask-SocketIO with eventlet. Porting network viz + firehose. Questions:
++1. WebSocket client: websockets vs aiohttp vs websocket-client? (eventlet)
++2. Sentiment: nltk.sentiment.vader vs textblob vs vaderSentiment?
++3. HTTP client: httpx async vs aiohttp vs sync requests? (eventlet)
++4. Long-running WebSocket: background thread or eventlet greenlet?
++5. Heavy NetworkX computation: Flask handler or background task?
++Specific recommendations please.
