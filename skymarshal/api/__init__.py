@@ -109,13 +109,12 @@ def create_app(*, testing: bool = False) -> Flask:
 
 
 def _register_socketio_events() -> None:
-    """Register Socket.IO event handlers for real-time features."""
-    from flask_socketio import emit
+    """Register Socket.IO event handlers for real-time features.
 
-    @socketio.on("connect")
-    def handle_connect():
-        logger.info("Client connected")
-        emit("connected", {"status": "ok"})
+    Note: firehose-specific connect logic (sending initial stats) is
+    registered in skymarshal.api.firehose when the blueprint is imported.
+    """
+    from flask_socketio import emit
 
     @socketio.on("disconnect")
     def handle_disconnect():
