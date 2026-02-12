@@ -70,6 +70,7 @@ def create_app(*, testing: bool = False) -> Flask:
     from skymarshal.api.network import network_bp
     from skymarshal.api.profile import profile_bp
     from skymarshal.api.cleanup import cleanup_bp
+    from skymarshal.api.firehose import firehose_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(content_bp, url_prefix="/api")
@@ -77,6 +78,7 @@ def create_app(*, testing: bool = False) -> Flask:
     app.register_blueprint(network_bp, url_prefix="/api/network")
     app.register_blueprint(profile_bp, url_prefix="/api/profile")
     app.register_blueprint(cleanup_bp, url_prefix="/api/cleanup")
+    app.register_blueprint(firehose_bp, url_prefix="/api/firehose")
 
     # ---- Health endpoint ----------------------------------------------------
     @app.route("/health")
