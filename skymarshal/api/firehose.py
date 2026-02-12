@@ -13,9 +13,9 @@ import logging
 from dataclasses import asdict
 from typing import Optional
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, session
 
-from skymarshal.api import socketio
+from skymarshal.api import get_services, socketio
 from skymarshal.firehose.jetstream import FirehosePost, JetstreamClient
 
 logger = logging.getLogger(__name__)
@@ -120,9 +120,20 @@ def firehose_stats():
     )
 
 
+def _is_authenticated() -> bool:
+    """Check if the current session has a valid API token."""
+    token = session.get("api_token")
+    if not token:
+        return False
+    service = get_services().get(token)
+    return service is not None and service.auth.is_authenticated()
+
+
 @firehose_bp.route("/start", methods=["POST"])
 def firehose_start():
-    """Start the firehose if not already running."""
+    """Start the firehose if not already running. Requires authentication."""
+    if not _is_authenticated():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
     client = get_jetstream_client()
     if client.running:
         return jsonify({"success": True, "message": "Already running"})
@@ -132,7 +143,9 @@ def firehose_start():
 
 @firehose_bp.route("/stop", methods=["POST"])
 def firehose_stop():
-    """Stop the firehose."""
+    """Stop the firehose. Requires authentication."""
+    if not _is_authenticated():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
     client = get_jetstream_client()
     if not client.running:
         return jsonify({"success": True, "message": "Already stopped"})

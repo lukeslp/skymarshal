@@ -80,6 +80,16 @@ def create_app(*, testing: bool = False) -> Flask:
     app.register_blueprint(cleanup_bp, url_prefix="/api/cleanup")
     app.register_blueprint(firehose_bp, url_prefix="/api/firehose")
 
+    # ---- Global JSON error handlers -----------------------------------------
+    @app.errorhandler(404)
+    def not_found(e):
+        return jsonify({"success": False, "error": "Not found"}), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        logger.exception("Unhandled server error")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
     # ---- Health endpoint ----------------------------------------------------
     @app.route("/health")
     def health():
