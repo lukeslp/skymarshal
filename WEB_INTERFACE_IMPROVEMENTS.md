@@ -91,7 +91,7 @@ http://localhost:5050/litemarshal/
 A comprehensive test suite (`test_web_interfaces.py`) has been created to verify both interfaces:
 
 ```bash
-cd /home/coolhand/projects/tools_bluesky/skymarshal
+cd /home/coolhand/servers/skymarshal
 python test_web_interfaces.py
 ```
 

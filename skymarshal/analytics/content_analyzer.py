@@ -1,11 +1,11 @@
 """
 Content Analyzer Module
 
-This module provides AI-powered content analysis capabilities for Bluesky posts.
+This module provides LLM-powered content analysis capabilities for Bluesky posts.
 It integrates functionality from the standalone vibe_check_posts.py tool.
 
 Features:
-- AI-powered content analysis and vibe checking
+- LLM-powered content analysis and vibe checking
 - Post summarization and theme extraction
 - Sentiment analysis and tone detection
 - Content categorization and insights
@@ -28,7 +28,7 @@ class ContentAnalyzer:
     """
     Analyzes Bluesky content using AI models for insights and categorization.
     
-    This class provides AI-powered content analysis capabilities including:
+    This class provides LLM-powered content analysis capabilities including:
     - Vibe checking and tone analysis
     - Content summarization
     - Theme and topic extraction

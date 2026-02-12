@@ -8,7 +8,7 @@ analytics experience within the Skymarshal ecosystem.
 Modules:
 - follower_analyzer: Follower ranking and analysis
 - post_analyzer: Post fetching, ranking, and analysis
-- content_analyzer: AI-powered content analysis and vibe checking
+- content_analyzer: LLM-powered content analysis and vibe checking
 """
 
 from .follower_analyzer import FollowerAnalyzer
