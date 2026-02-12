@@ -4,30 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Quick Reference
 
-### Running the Application
+### Unified Backend (primary — serves the React client)
 ```bash
-# CLI (interactive menu)
-make run                   # Recommended - handles entry point issues
-python -m skymarshal       # Direct module execution
-
-# Web Interface (lite version - primary dashboard)
-python skymarshal/web/lite_app.py    # Port 5050, serves at /skymarshal/
-
-# Web Interface (full version)
-python skymarshal/web/app.py         # Port 5051
-
-# Loners (standalone scripts)
-cd loners && python run.py           # Menu-driven launcher
+source .venv/bin/activate
+python unified_app.py                    # Dev server on port 5090
+python unified_app.py --port 5050        # Production port
+./start.sh                               # Production (activates venv, port 5050)
 ```
 
-### Development Commands
+### CLI (interactive terminal tool)
+```bash
+make run                   # Recommended — python -m skymarshal
+python -m skymarshal       # Direct module execution
+```
+
+### Legacy Web Interfaces (standalone Flask dashboards)
+```bash
+python skymarshal/web/lite_app.py        # Port 5050, serves at /skymarshal/
+python skymarshal/web/app.py             # Port 5051, extended interface
+```
+
+### Development
 ```bash
 make dev                   # Install with dev dependencies
-make test                  # Run pytest suite
+make test                  # pytest
 make format                # Black + isort
 make lint                  # flake8 + mypy
 make check-all             # All quality checks
-make build                 # Build distribution packages
 ```
 
 ### Testing
@@ -37,118 +40,167 @@ pytest tests/unit/ -v                               # Unit tests only
 pytest tests/integration/ -v                        # Integration tests
 pytest tests/unit/test_auth.py::TestAuthManager -v  # Single class
 pytest -m "not performance"                         # Skip slow tests
-pytest -m unit                                      # Only unit-marked tests
-pytest -m "auth"                                    # Only auth-related tests
 ```
 
-Custom markers are auto-applied based on directory (`unit/`, `integration/`) and name (`performance`/`perf`). Additional markers: `auth`, `api`.
+Custom markers auto-applied from directory (`unit/`, `integration/`) and name (`performance`/`perf`). Additional markers: `auth`, `api`.
 
-## Architecture Overview
+## Architecture
 
-Skymarshal is a Bluesky content management toolkit (published to PyPI as `skymarshal` v0.1.0) with three interfaces:
-- **CLI**: Interactive Rich-based terminal UI (`skymarshal/app.py`)
-- **Web Lite**: Primary Flask dashboard for search/delete/analytics (`skymarshal/web/lite_app.py`, port 5050)
-- **Web Full**: Extended interface with CAR processing wizard (`skymarshal/web/app.py`, port 5051)
+Skymarshal has two roles:
 
-### Three-Layer Architecture
+1. **Unified Backend** — Flask + Flask-SocketIO server (`unified_app.py`) powering the React Bluesky client at `/home/coolhand/html/bluesky/unified/`. This is the production service (port 5050). It exposes 35 REST API routes across 7 blueprints plus real-time Socket.IO events.
+
+2. **CLI Toolkit** — Interactive Rich terminal UI (`skymarshal/app.py`) and standalone web dashboards (`web/lite_app.py`, `web/app.py`) for content management. Published to PyPI as `skymarshal` v0.1.0.
+
+### Unified Backend Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Interfaces                                         │
-│  ├── CLI: InteractiveCARInspector (app.py)          │
-│  ├── Web Lite: Flask + PrefixMiddleware (lite_app)  │
-│  └── Web Full: Flask + setup wizard (app.py)        │
-├─────────────────────────────────────────────────────┤
-│  Service Layer (services/)                          │
-│  ├── ContentService: Unified API for all workflows  │
-│  ├── ContentAnalytics: Sentiment, posting patterns  │
-│  └── SearchRequest/SearchResult: Typed DTOs         │
-├─────────────────────────────────────────────────────┤
-│  Domain Managers                                    │
-│  ├── AuthManager (auth.py)         # AT Protocol    │
-│  ├── DataManager (data_manager.py) # CAR/JSON I/O   │
-│  ├── SearchManager (search.py)     # Filtering      │
-│  ├── DeletionManager (deletion.py) # Safe deletion  │
-│  ├── SettingsManager (settings.py) # Preferences    │
-│  ├── UIManager (ui.py)            # Rich terminal   │
-│  └── HelpManager (help.py)        # Context docs    │
-├─────────────────────────────────────────────────────┤
-│  Supporting Modules                                 │
-│  ├── analytics/    # FollowerAnalyzer, PostAnalyzer,│
-│  │                 # ContentAnalyzer (LLM-powered)  │
-│  ├── cleanup/      # FollowingCleaner, PostImporter │
-│  ├── bot_detection # Follower ratio heuristics      │
-│  ├── engagement_cache # SQLite cache with TTL       │
-│  └── egonet/       # Network visualization Flask app│
-└─────────────────────────────────────────────────────┘
+unified_app.py → create_app() in skymarshal/api/__init__.py
+  │
+  ├── Flask app factory
+  │   ├── CORS (localhost:5086, dr.eamer.dev, d.reamwalker.com)
+  │   ├── Flask-SocketIO (threading async mode)
+  │   ├── Global JSON error handlers (404, 500)
+  │   └── /health endpoint
+  │
+  ├── 7 Blueprints:
+  │   ├── /api/auth/*         auth.py        Login/logout/session
+  │   ├── /api/content/*      content.py     Load, search, delete, export, share
+  │   ├── /api/analytics/*    analytics.py   Sentiment, engagement, followers, posts
+  │   ├── /api/network/*      network.py     Graph fetch jobs + NetworkX analysis
+  │   ├── /api/profile/*      profile.py     Profile data, bot detection
+  │   ├── /api/cleanup/*      cleanup.py     Following cleanup + unfollow
+  │   └── /api/firehose/*     firehose.py    Stats, start/stop, recent posts
+  │
+  └── Socket.IO events:
+      ├── firehose:post       Real-time Bluesky posts from Jetstream
+      ├── firehose:stats      Live post rate + sentiment stats (1/sec)
+      ├── job:progress        Network fetch progress updates
+      └── connect/disconnect  Connection lifecycle
 ```
 
-### Service Layer Pattern
+### Auth Pattern
 
-The `services/` package (`ContentService`) is the **primary abstraction** both CLI and web use. It wraps all domain managers into a single API:
+Every blueprint duplicates the same auth pattern (not shared):
 
 ```python
-from skymarshal.services import ContentService, SearchRequest
-service = ContentService(settings_path=..., storage_root=..., auth_manager=...)
-results = service.search(SearchRequest(keyword="python", min_likes=5))
+def _require_service() -> ContentService | None:
+    token = session.get("api_token")
+    if not token:
+        return None
+    return get_services().get(token)
 ```
 
-The web lite app stores `ContentService` instances per session in `_services: Dict[str, ContentService]`.
+Per-session `ContentService` instances stored in `_services: Dict[str, ContentService]` (in `api/__init__.py`), keyed by session token. Public endpoints (stats, recent) skip auth. Protected endpoints (start/stop, delete, network fetch) check `_is_authenticated()`.
 
-### Web Dependency Injection
+### React Frontend Integration
 
-`web/dependencies.py` provides Flask request-scoped (`flask.g`) dependency management. Instead of recreating managers per route, use:
+The React app lives at `/home/coolhand/html/bluesky/unified/`. Key integration points:
 
-```python
-from skymarshal.web.dependencies import get_content_service, get_auth_manager, get_json_path
+- **Vite proxy** (`unified/app/vite.config.ts`): Dev server on 5086 proxies `/api/*` and `/socket.io` to Flask on 5090
+- **API client** (`unified/app/src/lib/skymarshal-api.ts`): TypeScript client for all Flask endpoints
+- **Socket.IO hook** (`unified/app/src/hooks/useSocket.ts`): Auto-detects dev (default `/socket.io`) vs prod (`/skymarshal/socket.io`) path
+- **Dual backend**: React talks to `bsky.social/xrpc` directly for feed/compose/chat, to Flask only for power tools
+
+### Domain Layer
+
+```
+skymarshal/
+├── api/                    # Flask blueprints (unified backend)
+│   ├── __init__.py         # App factory, SocketIO init, services dict
+│   ├── auth.py             # Login/logout/session routes
+│   ├── content.py          # Content CRUD, search, export, share
+│   ├── analytics.py        # Engagement/sentiment/follower analysis
+│   ├── network.py          # Graph jobs + NetworkX analytics
+│   ├── profile.py          # Profile endpoints, bot detection
+│   ├── cleanup.py          # Following cleanup workflow
+│   └── firehose.py         # Firehose control + SocketIO connect handler
+│
+├── firehose/               # Real-time Jetstream client (ported from Node.js)
+│   ├── jetstream.py        # WebSocket client (websocket-client, sync)
+│   ├── sentiment.py        # VADER sentiment analysis
+│   └── features.py         # Feature extraction (hashtags, media, language)
+│
+├── network/                # Graph analytics (ported from blueballs/FastAPI)
+│   ├── fetcher.py          # Follower/following fetch with pagination
+│   ├── analysis.py         # Louvain, PageRank, centrality (NetworkX)
+│   ├── client.py           # Rate-limited Bluesky API client
+│   └── cache.py            # Filesystem cache with TTL
+│
+├── analytics/              # Content analysis
+│   ├── follower_analyzer.py  # Follower ranking, bot detection
+│   ├── post_analyzer.py      # Post engagement scoring
+│   └── content_analyzer.py   # LLM-powered content analysis
+│
+├── services/               # Service layer (wraps domain managers)
+│   ├── content_service.py  # ContentService — unified API for workflows
+│   └── analytics.py        # ContentAnalytics — sentiment, time patterns
+│
+├── cleanup/                # Account management
+│   ├── following_cleaner.py  # Detect + unfollow inactive/bot accounts
+│   └── post_importer.py      # Import posts from external sources
+│
+├── web/                    # Legacy standalone Flask dashboards
+│   ├── lite_app.py         # Primary dashboard (port 5050, /skymarshal/)
+│   ├── app.py              # Extended interface (port 5051)
+│   ├── dependencies.py     # Request-scoped dependency injection
+│   ├── session_manager.py  # SessionManager + UserSession dataclass
+│   └── share_manager.py    # SharedPostManager (SQLite permalinks)
+│
+├── auth.py                 # AuthManager — AT Protocol authentication
+├── data_manager.py         # DataManager — CAR/JSON I/O
+├── search.py               # SearchManager — filtering
+├── deletion.py             # DeletionManager — safe deletion with confirmations
+├── settings.py             # SettingsManager — user preferences
+├── models.py               # ContentItem, SearchFilters, UserSettings, enums
+├── bot_detection.py        # BotDetector — follower ratio heuristics
+├── engagement_cache.py     # SQLite cache with TTL
+├── ui.py                   # UIManager — Rich terminal output
+├── app.py                  # CLI entry point (InteractiveCARInspector)
+└── egonet/                 # Ego network visualization (separate Flask app)
 ```
 
-`get_json_path()` handles intelligent fallback for finding a user's data file (exact match → timestamped files → most recent).
+## Key Dependencies
 
-### Web Subpath Routing
+| Package | Purpose | Notes |
+|---------|---------|-------|
+| `flask-socketio` | Real-time WebSocket events | Threading async mode (not eventlet) |
+| `websocket-client` | Jetstream WebSocket client | Sync library — NOT `websockets` (async) |
+| `vaderSentiment` | Sentiment analysis | NOT `textblob` — lighter, social-media-optimized |
+| `networkx` | Graph analytics | Louvain, PageRank, centrality |
+| `aiohttp` | Async HTTP | Required by analytics modules (FollowerAnalyzer, FollowingCleaner) |
+| `eventlet` | Async support | Available but SocketIO uses threading mode |
+| `atproto` | AT Protocol client | Bluesky authentication and data access |
+| `httpx` | HTTP client | AT Protocol API calls |
+| `rich` | Terminal UI | CLI interface rendering |
 
-The lite app runs behind Caddy at `/skymarshal/` using `PrefixMiddleware` (defined inline in `lite_app.py`) that sets `SCRIPT_NAME` and strips the prefix from `PATH_INFO`. This is wrapped with `ProxyFix` for reverse proxy headers. All `url_for()` calls automatically include the prefix.
+## Porting Notes
 
-### Data Flow
-1. **Auth** → Bluesky credentials validation via AT Protocol
-2. **Load** → CAR file download/import or direct API fetch (configurable via `SKYMARSHAL_LITE_USE_CAR` env flag)
-3. **Analyze** → Filter by engagement, keywords, dates, content type
-4. **Act** → Delete with multiple safety confirmation modes
-5. **Export** → JSON/CSV output, or share via `SharedPostManager` (SQLite-backed permalinks)
+Two major modules were ported from external projects:
 
-### Key Data Structures (`models.py`)
-- `ContentItem`: Posts/likes/reposts with engagement metadata
-- `UserSettings`: Batch sizes, API limits, thresholds
-- `SearchFilters`: Comprehensive filtering criteria
-- `DeleteMode`, `ContentType`: Type-safe enums
-- `console`: Shared Rich console (auto-detects terminal vs web context)
-- `safe_progress()`: Context manager for Rich Progress that degrades gracefully in non-terminal contexts
-- `calculate_engagement_score()`: LRU-cached (10K) formula: `likes + (2 × reposts) + (2.5 × replies)`
+### Firehose (from Node.js)
+- **Source**: `/home/coolhand/html/firehose/server/` (TypeScript)
+- **Target**: `skymarshal/firehose/`
+- Conversions: `ws` WebSocket → `websocket-client` (sync), npm `sentiment` → `vaderSentiment`, Socket.IO → Flask-SocketIO
+- Jetstream URI: `wss://jetstream2.us-east.bsky.network/subscribe`
+- Auto-reconnect on WebSocket failure (5-second delay)
 
-## Modules Not Obvious From File Listing
+### Network (from blueballs/FastAPI)
+- **Source**: `/home/coolhand/projects/blueballs/backend/app/` (Python/FastAPI)
+- **Target**: `skymarshal/network/`
+- Conversions: `asyncio.Lock` → `threading.Lock`, `asyncio.Semaphore` → `ThreadPoolExecutor`, `httpx.AsyncClient` → `requests.Session`
+- Algorithms preserved: Louvain community detection, PageRank, betweenness centrality, 10-color palette
 
-### `analytics/` — Three analyzers
-- `FollowerAnalyzer`: Follower ranking and engagement analysis
-- `PostAnalyzer`: Post fetching, ranking, engagement scoring
-- `ContentAnalyzer`: LLM-powered content analysis and "vibe checking"
+## Deployment
 
-### `cleanup/` — Account cleanup tools
-- `FollowingCleaner`: Detect and unfollow inactive/bot accounts
-- `PostImporter`: Import posts from external sources
+- **Production port**: 5050 (via `start.sh`)
+- **Dev port**: 5090 (default in `unified_app.py`)
+- **Caddy routes**: `/bluesky/unified/api/*` and `/bluesky/unified/socket.io/*` → port 5050
+- **Service manager**: `sm start skymarshal` / `sm stop skymarshal`
+- **Health endpoint**: `GET /health` returns `{"status": "ok", "service": "skymarshal-unified"}`
+- **Venv**: `.venv/` (not `venv/`)
 
-### `engagement_cache.py` — SQLite Cache
-Stores engagement data (likes, reposts, replies) with **configurable TTL based on post age**. Provides 90% reduction in API calls on repeat loads. Located at `~/.skymarshal/engagement_cache.db`.
-
-### `web/session_manager.py` — Centralized Session State
-`SessionManager` + `UserSession` dataclass replaces scattered Flask session/global dict storage. Thread-safe with `Lock`.
-
-### `web/share_manager.py` — Post Permalinks
-`SharedPostManager` generates 8-char hex share IDs for posts, stored in `~/.skymarshal/shared_posts.db`. Enables the `/share/<id>` route.
-
-### `egonet/` — Network Visualization
-Separate Flask app for ego network visualization. Uses environment-based Bluesky credentials (`BSKY_IDENTIFIER`, `BSKY_PASSWORD`). Hardcoded data directory at `/home/coolhand/html/bluesky/egonet-manager`.
-
-## AT Protocol Integration
+## AT Protocol
 
 - **Library**: `atproto>=0.0.46`
 - **CAR Files**: Binary account backups with CBOR encoding
@@ -161,7 +213,7 @@ Separate Flask app for ego network visualization. Uses environment-based Bluesky
 ```
 ~/.skymarshal/
 ├── cars/                    # CAR backup files
-├── json/                    # JSON exports (named <safe_handle>.json or timestamped)
+├── json/                    # JSON exports
 ├── engagement_cache.db      # SQLite engagement cache
 └── shared_posts.db          # SQLite shared post permalinks
 
@@ -170,29 +222,17 @@ Separate Flask app for ego network visualization. Uses environment-based Bluesky
 
 ## Testing Infrastructure
 
-Shared fixtures in `tests/conftest.py`:
+Fixtures in `tests/conftest.py`:
 - `mock_auth`: Mock `AuthManager` with standard handle/DID
 - `mock_settings`: Default `UserSettings` from mock data
-- `skymarshal_dirs`: Temp directory structure (`skymarshal_dir`, `cars_dir`, `json_dir`)
-- `data_manager`: Pre-wired `DataManager` with mock auth/settings/dirs
-- `sample_content_items`: Mixed content dataset (posts + likes + reposts)
-- `content_type` (parametrized): `'post'`, `'like'`, `'repost'`
-- `engagement_level` (parametrized): `0`, `1`, `5`, `50`
+- `skymarshal_dirs`: Temp directory structure
+- `sample_content_items`: Mixed content dataset
 
-Mock data factory in `tests/fixtures/mock_data.py`: `create_mock_content_item()`, `create_mock_posts_dataset(n)`, `create_mixed_content_dataset()`, `create_large_dataset()`, `create_mock_atproto_profile()`, `create_mock_atproto_records_response()`.
+Mock data factory in `tests/fixtures/mock_data.py`: `create_mock_content_item()`, `create_mock_posts_dataset(n)`, `create_mixed_content_dataset()`.
 
 ## Code Style
 
-- Python 3.9+ with type hints encouraged
+- Python 3.9+, type hints encouraged
 - Black (88 char), isort (black profile)
-- Rich console for all terminal output
-- Pytest with unit/integration/performance markers
-- `mypy` configured with `check_untyped_defs = true` but `disallow_untyped_defs = false`
-
-## Safety Features
-
-All destructive operations include:
-- Multiple confirmation prompts
-- Dry-run preview modes
-- Progress tracking with error recovery
-- User data isolation by handle
+- Rich console for terminal output
+- mypy: `check_untyped_defs = true`, `disallow_untyped_defs = false`
