@@ -1,0 +1,8 @@
+import networkx as nx
+import eventlet
+
+def compute_networkx_graph(data):
+    G = nx.Graph()
+    # Heavy computation here
+    eventlet.sleep(0)  # Yield to eventlet
+    return nx.to_dict_of_dicts(G)
