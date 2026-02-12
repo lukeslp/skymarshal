@@ -174,10 +174,15 @@ def firehose_recent():
 
 @socketio.on("connect")
 def handle_connect():
-    """Send initial stats when a client connects."""
+    """Send initial stats and connected ack when a client connects."""
+    from flask_socketio import emit
+
+    logger.info("Client connected")
+    emit("connected", {"status": "ok"})
+
     client = get_jetstream_client()
     stats = client.get_stats()
-    socketio.emit(
+    emit(
         "firehose:stats",
         {
             "totalPosts": stats.total_posts,
