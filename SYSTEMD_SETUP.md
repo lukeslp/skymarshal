@@ -51,7 +51,7 @@ Key features:
 - **RestartSec=10**: 10-second delay between restart attempts
 - **Journald logging**: Logs accessible via `journalctl`
 - **User**: Runs as `coolhand` user
-- **WorkingDirectory**: `/home/coolhand/projects/tools_bluesky/skymarshal`
+- **WorkingDirectory**: `/home/coolhand/servers/skymarshal`
 
 ## Authentication Features
 
@@ -89,7 +89,7 @@ When a regular password is detected, users see:
 4. **Service files created**:
    - `/etc/systemd/system/skymarshal.service`
    - `/etc/systemd/system/litemarshal.service`
-   - `/home/coolhand/projects/tools_bluesky/skymarshal/skymarshal/web/run_lite.py` (launcher)
+   - `/home/coolhand/servers/skymarshal/skymarshal/web/run_lite.py` (launcher)
 
 ## Caddy Configuration
 
@@ -177,7 +177,7 @@ For production deployment, consider:
 
 1. **Use Gunicorn instead of Flask dev server**:
    ```bash
-   ExecStart=/usr/bin/gunicorn -w 4 -b 0.0.0.0:5051 --chdir /home/coolhand/projects/tools_bluesky/skymarshal/skymarshal/web app:app
+   ExecStart=/usr/bin/gunicorn -w 4 -b 0.0.0.0:5051 --chdir /home/coolhand/servers/skymarshal/skymarshal/web app:app
    ```
 
 2. **Enable HTTPS session cookies**:
