@@ -25,6 +25,18 @@ RECONNECT_DELAY = 5
 
 
 @dataclass
+class MediaUrls:
+    """Media URLs for display in frontend."""
+    images: List[str] = field(default_factory=list)
+    video_thumb: Optional[str] = None
+    video_playlist: Optional[str] = None
+    external_url: Optional[str] = None
+    external_title: Optional[str] = None
+    external_description: Optional[str] = None
+    external_thumb: Optional[str] = None
+
+
+@dataclass
 class FirehosePost:
     text: str
     uri: str
@@ -40,6 +52,7 @@ class FirehosePost:
     has_link: bool = False
     is_reply: bool = False
     is_quote: bool = False
+    media: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -208,6 +221,23 @@ class JetstreamClient:
             f"at://{author_did}/app.bsky.feed.post/{commit.get('rkey', '')}"
         )
 
+        # Convert MediaInfo to dict for JSON serialization
+        media_dict = None
+        if features.media and (
+            features.media.image_urls
+            or features.media.video_thumb_url
+            or features.media.external_url
+        ):
+            media_dict = {
+                "images": features.media.image_urls,
+                "videoThumb": features.media.video_thumb_url,
+                "videoPlaylist": features.media.video_playlist_url,
+                "externalUrl": features.media.external_url,
+                "externalTitle": features.media.external_title,
+                "externalDescription": features.media.external_description,
+                "externalThumb": features.media.external_thumb_url,
+            }
+
         post = FirehosePost(
             text=text,
             uri=uri,
@@ -223,6 +253,7 @@ class JetstreamClient:
             has_link=features.has_link,
             is_reply=features.is_reply,
             is_quote=features.is_quote,
+            media=media_dict,
         )
 
         # Update statistics

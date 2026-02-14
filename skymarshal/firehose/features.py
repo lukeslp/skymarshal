@@ -12,6 +12,18 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class MediaInfo:
+    """Media information extracted from AT Protocol embeds."""
+    image_urls: List[str] = field(default_factory=list)
+    video_thumb_url: Optional[str] = None
+    video_playlist_url: Optional[str] = None
+    external_url: Optional[str] = None
+    external_title: Optional[str] = None
+    external_description: Optional[str] = None
+    external_thumb_url: Optional[str] = None
+
+
+@dataclass
 class PostFeatures:
     char_count: int = 0
     word_count: int = 0
@@ -25,6 +37,7 @@ class PostFeatures:
     is_quote: bool = False
     quote_uri: Optional[str] = None
     is_reply: bool = False
+    media: MediaInfo = field(default_factory=MediaInfo)
 
 
 # Regex patterns
@@ -80,6 +93,74 @@ def extract_features(text: str, record: Optional[Dict[str, Any]] = None) -> Post
     features.has_images = "images" in embed_type
     features.has_video = "video" in embed_type
     features.has_link = "external" in embed_type or bool(features.links)
+
+    # Extract media URLs based on embed type
+    if embed_type == "app.bsky.embed.images":
+        # Images embed: extract all image URLs
+        images = embed.get("images", [])
+        for img in images:
+            if isinstance(img, dict) and "image" in img:
+                img_obj = img["image"]
+                if isinstance(img_obj, dict):
+                    # Can be either a blob ref or a string URL
+                    ref = img_obj.get("ref") or img_obj.get("$link")
+                    if ref:
+                        # Construct CDN URL from blob reference
+                        features.media.image_urls.append(f"https://cdn.bsky.app/img/feed_thumbnail/plain/{record.get('$did', '')}/{ref}")
+
+    elif embed_type == "app.bsky.embed.video":
+        # Video embed: extract thumbnail and playlist URL
+        video = embed.get("video", {})
+        if isinstance(video, dict):
+            thumb = video.get("thumbnail")
+            if isinstance(thumb, dict):
+                ref = thumb.get("ref") or thumb.get("$link")
+                if ref:
+                    features.media.video_thumb_url = f"https://cdn.bsky.app/img/feed_thumbnail/plain/{record.get('$did', '')}/{ref}"
+            # Video playlist URL (if available in record)
+            ref = video.get("ref") or video.get("$link")
+            if ref:
+                features.media.video_playlist_url = f"https://video.bsky.app/watch/{ref}/playlist.m3u8"
+
+    elif embed_type == "app.bsky.embed.external":
+        # External link embed: extract URL and metadata
+        external = embed.get("external", {})
+        if isinstance(external, dict):
+            features.media.external_url = external.get("uri")
+            features.media.external_title = external.get("title")
+            features.media.external_description = external.get("description")
+            thumb = external.get("thumb")
+            if isinstance(thumb, dict):
+                ref = thumb.get("ref") or thumb.get("$link")
+                if ref:
+                    features.media.external_thumb_url = f"https://cdn.bsky.app/img/feed_thumbnail/plain/{record.get('$did', '')}/{ref}"
+
+    elif embed_type == "app.bsky.embed.recordWithMedia":
+        # Quote post with media: extract media from nested embed
+        media_embed = embed.get("media", {})
+        media_type = media_embed.get("$type", "")
+
+        if media_type == "app.bsky.embed.images":
+            images = media_embed.get("images", [])
+            for img in images:
+                if isinstance(img, dict) and "image" in img:
+                    img_obj = img["image"]
+                    if isinstance(img_obj, dict):
+                        ref = img_obj.get("ref") or img_obj.get("$link")
+                        if ref:
+                            features.media.image_urls.append(f"https://cdn.bsky.app/img/feed_thumbnail/plain/{record.get('$did', '')}/{ref}")
+
+        elif media_type == "app.bsky.embed.external":
+            external = media_embed.get("external", {})
+            if isinstance(external, dict):
+                features.media.external_url = external.get("uri")
+                features.media.external_title = external.get("title")
+                features.media.external_description = external.get("description")
+                thumb = external.get("thumb")
+                if isinstance(thumb, dict):
+                    ref = thumb.get("ref") or thumb.get("$link")
+                    if ref:
+                        features.media.external_thumb_url = f"https://cdn.bsky.app/img/feed_thumbnail/plain/{record.get('$did', '')}/{ref}"
 
     # Quote detection
     if embed_type == "app.bsky.embed.record":
