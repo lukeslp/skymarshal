@@ -75,9 +75,10 @@ class TestAuthManager:
         assert result == "testuser.bsky.social"
 
     def test_normalize_handle_preserves_custom_domain(self):
-        """Test handle normalization preserves custom domains."""
+        """Test handle normalization converts @ to . for custom domains (AT Protocol format)."""
+        # Email-style custom domain should be converted to AT Protocol format
         result = self.auth_manager.normalize_handle("user@example.com")
-        assert result == "user@example.com"
+        assert result == "user.example.com"
 
         result = self.auth_manager.normalize_handle("@user.example.com")
         assert result == "user.example.com"
