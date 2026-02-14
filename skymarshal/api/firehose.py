@@ -38,27 +38,29 @@ def get_jetstream_client() -> JetstreamClient:
 
 def _broadcast_post(post: FirehosePost) -> None:
     """Broadcast a post to all connected SocketIO clients."""
-    socketio.emit(
-        "firehose:post",
-        {
-            "text": post.text,
-            "uri": post.uri,
-            "cid": post.cid,
-            "author": {
-                "did": post.author_did,
-                "handle": post.author_handle,
-            },
-            "createdAt": post.created_at,
-            "sentiment": post.sentiment,
-            "sentimentScore": post.sentiment_score,
-            "language": post.language,
-            "hasImages": post.has_images,
-            "hasVideo": post.has_video,
-            "hasLink": post.has_link,
-            "isReply": post.is_reply,
-            "isQuote": post.is_quote,
+    payload = {
+        "text": post.text,
+        "uri": post.uri,
+        "cid": post.cid,
+        "author": {
+            "did": post.author_did,
+            "handle": post.author_handle,
         },
-    )
+        "createdAt": post.created_at,
+        "sentiment": post.sentiment,
+        "sentimentScore": post.sentiment_score,
+        "language": post.language,
+        "hasImages": post.has_images,
+        "hasVideo": post.has_video,
+        "hasLink": post.has_link,
+        "isReply": post.is_reply,
+        "isQuote": post.is_quote,
+    }
+    # Include media if present
+    if post.media:
+        payload["media"] = post.media
+
+    socketio.emit("firehose:post", payload)
 
 
 def start_firehose() -> None:
