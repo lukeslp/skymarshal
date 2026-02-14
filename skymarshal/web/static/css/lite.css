@@ -84,6 +84,25 @@ body {
     padding: 24px;
 }
 
+.lite-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.lite-main-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.lite-search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
 .lite-card {
     background: var(--bg-card);
     border-radius: var(--radius);
@@ -645,22 +664,22 @@ label:has(input[type="checkbox"]:checked) {
 
 /* Responsive */
 @media (max-width: 1024px) {
-    main[style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
+    .lite-main-grid {
+        grid-template-columns: 1fr;
     }
 
     aside {
         order: 2;
     }
 
-    section.lite-card[style*="min-height"] {
+    .lite-card {
         order: 1;
     }
 }
 
 @media (max-width: 768px) {
     /* Force single column on tablets and mobile */
-    body[style*="padding: 24px"] {
+    body {
         padding: 16px !important;
     }
 
@@ -691,8 +710,8 @@ label:has(input[type="checkbox"]:checked) {
     }
 
     /* Stack sidebar and main content */
-    main[style*="grid-template-columns: 300px"] {
-        grid-template-columns: 1fr !important;
+    .lite-main-grid {
+        grid-template-columns: 1fr;
     }
 
     aside {
@@ -700,7 +719,7 @@ label:has(input[type="checkbox"]:checked) {
         width: 100%;
     }
 
-    section.lite-card[style*="min-height"] {
+    section.lite-card {
         order: 1;
         min-height: auto !important;
     }
@@ -723,8 +742,8 @@ label:has(input[type="checkbox"]:checked) {
     }
 
     /* Search form responsive */
-    form[role="search"] > div[style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
+    .lite-search-grid {
+        grid-template-columns: 1fr;
     }
 
     /* Checkbox labels stack better on mobile */
@@ -789,7 +808,7 @@ label:has(input[type="checkbox"]:checked) {
 
 @media (max-width: 480px) {
     /* Mobile phones - ultra compact */
-    body[style*="padding"] {
+    body {
         padding: 12px !important;
     }
 
@@ -851,33 +870,6 @@ label:has(input[type="checkbox"]:checked) {
         text-align: center;
     }
 
-    /* Login page info boxes */
-    div[style*="max-width: 520px"] {
-        max-width: 100% !important;
-    }
-
-    div[style*="max-width: 520px"] > div {
-        padding: 12px !important;
-    }
-
-    div[style*="max-width: 520px"] h2 {
-        font-size: 11px !important;
-    }
-
-    div[style*="max-width: 520px"] p {
-        font-size: 11px !important;
-    }
-
-    /* Rotating tip mobile */
-    #rotating-tip {
-        min-height: 60px !important;
-        padding: 10px 0 !important;
-    }
-
-    #tip-text {
-        font-size: 12px !important;
-    }
-
     /* Results actions stack vertically on very small screens */
     .lite-results-actions {
         grid-template-columns: 1fr !important;
@@ -894,9 +886,8 @@ label:has(input[type="checkbox"]:checked) {
     }
 
     /* Search grid - stack on mobile */
-    .lite-search-grid,
-    div[style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
+    .lite-search-grid {
+        grid-template-columns: 1fr;
         gap: 10px !important;
     }
 
@@ -908,8 +899,7 @@ label:has(input[type="checkbox"]:checked) {
     }
 
     /* Table container with horizontal scroll */
-    .lite-table-container,
-    .lite-table {
+    .lite-table-wrapper {
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;

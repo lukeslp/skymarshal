@@ -29,7 +29,7 @@
 </head>
 
 <body style="background: var(--bg); margin: 0; padding: 24px;">
-    <div style="max-width: 1400px; margin: 0 auto;">
+    <div class="lite-container">
         <header class="lite-header">
             <div class="lite-header-info">
                 <h1>🚀 Skymarshal</h1>
@@ -61,7 +61,7 @@
         </div>
         {% endif %}
 
-        <main style="display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;">
+        <main class="lite-main-grid">
             <!-- Sidebar with compact tools -->
             <aside style="display: flex; flex-direction: column; gap: 16px;">
                 <section class="lite-card" style="padding: 16px;">
@@ -150,8 +150,7 @@
                     <!-- Advanced filters (collapsible) -->
                     <div id="advanced-filters" style="display: none;">
                         <!-- Other filters in grid -->
-                        <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <div class="lite-search-grid">
                             <label class="lite-field">
                                 <span>Start Date</span>
                                 <input class="lite-input" name="start_date" type="date">
@@ -163,7 +162,7 @@
                         </div>
 
                         <!-- Engagement filters - Likes -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="lite-search-grid">
                             <label class="lite-field">
                                 <span>Min Likes</span>
                                 <input class="lite-input" name="min_likes" type="number" min="0" placeholder="0">
@@ -175,7 +174,7 @@
                         </div>
 
                         <!-- Engagement filters - Reposts -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="lite-search-grid">
                             <label class="lite-field">
                                 <span>Min Reposts</span>
                                 <input class="lite-input" name="min_reposts" type="number" min="0" placeholder="0">
@@ -187,7 +186,7 @@
                         </div>
 
                         <!-- Engagement filters - Replies -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="lite-search-grid">
                             <label class="lite-field">
                                 <span>Min Replies</span>
                                 <input class="lite-input" name="min_replies" type="number" min="0" placeholder="0">
