@@ -362,6 +362,35 @@
     }
 
     /*--------------------------------------
+     * Package Badges
+     *--------------------------------------*/
+    .badges-row {
+        display: flex;
+        justify-content: center;
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+        margin-top: var(--spacing-2xl);
+        padding-top: var(--spacing-xl);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .badges-row a {
+        display: inline-flex;
+        align-items: center;
+        transition: opacity var(--transition-fast), transform var(--transition-fast);
+        opacity: 0.8;
+    }
+
+    .badges-row a:hover {
+        opacity: 1;
+        transform: translateY(-1px);
+    }
+
+    .badges-row img {
+        height: 22px;
+    }
+
+    /*--------------------------------------
      * Responsive
      *--------------------------------------*/
     @media (max-width: 768px) {
