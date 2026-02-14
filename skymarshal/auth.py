@@ -181,9 +181,10 @@ class AuthManager:
             password = Prompt.ask("[bold white]App Password: [/]", password=True)
         else:
             # Get handle with navigation
+            console.print("[dim]Examples: username.bsky.social or custom.domain[/]")
             while True:
                 handle, action = self.ui.input_with_navigation(
-                    "Bluesky handle: @", context="handle"
+                    "Bluesky handle: ", context="handle"
                 )
                 if action in ["back", "main"]:
                     return False
