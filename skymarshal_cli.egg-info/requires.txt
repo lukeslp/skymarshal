@@ -1,0 +1,16 @@
+atproto>=0.0.46
+rich>=13.0.0
+flask>=2.3.0
+
+[all]
+skymarshal[dev]
+
+[dev]
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.0.0
+build>=0.10.0
+twine>=4.0.0
