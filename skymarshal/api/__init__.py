@@ -26,6 +26,20 @@ logger = logging.getLogger(__name__)
 # Singleton SocketIO instance shared across blueprints
 socketio = SocketIO()
 
+# Configure for reverse proxy with subpath
+class PrefixMiddleware:
+    def __init__(self, app, prefix=""):
+        self.app = app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        if self.prefix:
+            environ["SCRIPT_NAME"] = self.prefix
+            if environ["PATH_INFO"].startswith(self.prefix):
+                environ["PATH_INFO"] = environ["PATH_INFO"][len(self.prefix) :]
+        return self.app(environ, start_response)
+
+
 # Per-session ContentService instances (keyed by session token)
 _services: Dict[str, ContentService] = {}
 
@@ -48,6 +62,9 @@ def create_app(*, testing: bool = False) -> Flask:
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+    # Handle path prefix from reverse proxy
+    app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix="/skymarshal")
 
     # CORS: allow the React dev server and production origins
     allowed_origins = [
