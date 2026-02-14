@@ -1,0 +1,1506 @@
+
+╭─── Claude Code v2.1.39 ──────────────────────────────────────────────────────╮
+│                           │ Tips for getting started                         │
+│       Welcome back!       │ Run /init to create a CLAUDE.md file with instr… │
+│                           │ ──────────────────────────────────────────────── │
+│          ▐▛███▜▌          │ Recent activity                                  │
+│         ▝▜█████▛▘         │ No recent activity                               │
+│           ▘▘ ▝▝           │                                                  │
+│                           │                                                  │
+│   Opus 4.6 · Claude API   │                                                  │
+│   ~/servers/skymarshal    │                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯ /geepers-session 
+
+● Starting session for skymarshal. Launching reconnaissance in parallel.
+
+● 2 agents launched (ctrl+o to expand)
+   ├─ geepers_scout (Scout skymarshal project)
+   │  ⎿  Running in the background (shift+↑ to manage)
+   └─ geepers_planner (Plan skymarshal tasks)
+      ⎿  Running in the background (shift+↑ to manage)
+
+● Bash(git log --oneline -10)
+  ⎿  7fb6eb0 session checkpoint: 2026-02-14 05:51
+     ad4ff99 session checkpoint: 2026-02-14 03:21
+     5317ba4 session checkpoint: 2026-02-14 02:21
+     … +7 lines (ctrl+o to expand)
+
+● Bash(git diff --stat)
+  ⎿  (No output)
+
+● Read 1 file (ctrl+o to expand)
+
+● No CLAUDE.md in skymarshal directory — flagging for potential creation.
+  Working tree is clean. Let me check the project structure while agents run.
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● I notice some cruft already — backtick-prefixed files, temp files, a =0.0.46
+  artifact. Let me wait for the agents to complete.
+
+● Task Output a266abf
+  ⎿  Read output (ctrl+o to expand)
+
+● Task Output ad96473
+  ⎿  Task is still running…
+
+● Read 1 file (ctrl+o to expand)
+
+● Task Output ad96473
+  ⎿  Error: Sibling tool call errored
+
+● Read 1 file (ctrl+o to expand)
+
+● Task Output ad96473
+  ⎿  Read output (ctrl+o to expand)
+
+● Both agents completed. Here's the session start summary:
+
+  ---
+  Skymarshal Session Start — Feb 14, 2026
+
+  Git State
+
+  - Branch: main (clean)
+  - Last activity: 6 session checkpoint commits today (01:15 - 05:51)
+
+  Project Health
+
+  Architecture (from memory + recommendations):
+  - Flask + Flask-SocketIO unified backend, 35 routes across 7 blueprints
+  - Production deployed on port 5050 via Caddy — all routes tested working
+  - React frontend at /home/coolhand/html/bluesky/unified/
+
+  Issues Flagged
+  Issue: No CLAUDE.md
+  Priority: Medium
+  Notes: CLAUDE.md.backup exists from Sep 20 but no current one — session docs
+    say one was written
+  ────────────────────────────────────────
+  Issue: Cruft files
+  Priority: Low
+  Notes: =0.0.46 (pip artifact), `app.py`, `tasks.py` (backtick-prefixed), 5
+    temp_* files
+  ────────────────────────────────────────
+  Issue: Stale audit docs
+  Priority: Low
+  Notes: CRITIC.md, REPO_AUDIT.md, REPOSITORY_ANALYSIS.md,
+    INTEGRATION_ANALYSIS.md — likely one-time reports
+  ────────────────────────────────────────
+  Issue: Aider history
+  Priority: Low
+  Notes: .aider.chat.history.md, .aider.input.history — can be gitignored or
+    removed
+  ────────────────────────────────────────
+  Issue: Legacy Express
+  Priority: Low
+  Notes: unified/server/ still exists per memory notes — can be removed
+  ────────────────────────────────────────
+  Issue: htmlcov/coverage
+  Priority: Low
+  Notes: Coverage artifacts (.coverage, coverage.xml, htmlcov/) could be
+    gitignored
+  Recommendations (from ~/geepers/recommendations/by-project/skymarshal.md)
+
+  - All 6 phases of unified backend plan completed
+  - CLAUDE.md was rewritten documenting all 35 routes, architecture, patterns
+  - Three-layer architecture documented: Interfaces → Service Layer → Domain
+  Managers
+
+  ---
+  Ready to work. What would you like to focus on?
+
+✻ Cogitated for 3m 15s
+
+● Agent "Scout skymarshal project" completed
+
+● Scout report is in. Here's the updated picture:
+
+  Key Findings from Scout
+  Priority: HIGH
+  Issue: Debug mode defaults to True in unified_app.py:29
+  Action: Security risk — exposes stack traces in prod
+  ────────────────────────────────────────
+  Priority: Quick Win
+  Issue: Backtick files (`app.py`, `tasks.py`), 5 temp_* files, =0.0.46
+  Action: Delete cruft
+  ────────────────────────────────────────
+  Priority: Medium
+  Issue: .gitignore out of sync — CRITIC.md, .aider files checked in
+  Action: Update ignore rules
+  ────────────────────────────────────────
+  Priority: Medium
+  Issue: Duplicate egg-info dirs (skymarshal.egg-info/ +
+    skymarshal_cli.egg-info/)
+  Action: Clean up
+  ────────────────────────────────────────
+  Priority: Low
+  Issue: Large modules — data_manager.py (74KB), ui.py (40KB)
+  Action: Future refactor
+  ────────────────────────────────────────
+  Priority: Low
+  Issue: Legacy loners/ dir, multiple web app variants
+  Action: Archive when ready
+  Overall assessment: Well-structured, production-ready. Only minor housekeeping
+   + one security fix needed.
+
+  What would you like to tackle?
+
+● Agent "Plan skymarshal tasks" completed
+
+● Planner report is in too. Here's the full picture:
+
+  ---
+  Session Summary
+
+  Strategic Assessment
+
+  The backend is solid and production-ready (35 routes, 7 blueprints, deployed).
+   The big opportunity is React UI exposure — only 5-10 of 35 API endpoints are
+  wired up in the frontend.
+
+  Prioritized Work Queue (28 tasks generated → 
+  ~/geepers/hive/skymarshal-queue.md)
+
+  Phase 1 — Stabilization (3-4h)
+  1. Fix debug mode default in unified_app.py (security)
+  2. Verify production deployment end-to-end
+  3. Extract shared @require_auth decorator (eliminates 168 lines of duplicated
+  auth code)
+  4. Clean up cruft files (temp_*, backtick files, =0.0.46)
+
+  Phase 2 — API Polish (4-5h)
+  5. Update README (remove WIP warning, add PyPI badge)
+  6. Add OpenAPI/Swagger spec
+  7. Standardize API responses
+  8. Fix .gitignore inconsistencies
+
+  Phase 3 — React Integration (6-8h)
+  9. Wire remaining 25-30 API endpoints into React frontend
+  10. Build follower/network visualization UI
+  11. Expose cleanup tools in UI
+
+  Phase 4+ — Feature Consolidation (8-10h)
+  - Advanced features, performance optimization, large module refactoring
+
+  Key Strategic Notes
+
+  - Keep both Python + TypeScript packages — complementary (CLI+backend vs npm
+  library)
+  - Archive bsky-follow-analyzer reference — functionality already exists in
+  skymarshal
+  - Specialize > consolidate — 8-12h vs 60-80h
+
+  ---
+  What would you like to work on? I'd suggest starting with Phase 1 (debug fix +
+   auth extraction + cleanup) since those are quick, high-impact wins.
+
+❯ on the landing  page of skymarshal, weneed toadd:                         
+  https://dr.eamer.dev/bluesky/chat/                                        
+  https://dr.eamer.dev/downloads/bluedrop                                   
+  https://dr.eamer.dev/bluesky/firehose/                                    
+  https://dr.eamer.dev/bluesky/network/                                     
+  https://github.com/lukeslp/skymarshal/                                    
+  https://github.com/lukeslp/skymarshal-js                                  
+  https://www.npmjs.com/package/skymarshal                                  
+  https://pypi.org/project/skymarshal-cli/ (those last can be badges, and   
+  none of these need be featured; meanwhile bluedrop is an extension        
+  version of chat)                                                          
+
+● Let me find the landing page first.
+
+● Searched for 3 patterns, read 3 files (ctrl+o to expand)
+
+● Found the landing page — hub.html at skymarshal/web/templates/hub.html. It's a
+   Jinja template with tool cards in a grid. Currently has 5 cards (Skymarshal,
+  Bluevibes, Post Visualizer, Repostdar, Bluesky Hub). I need to add 4 more tool
+   cards + a badges section.
+
+● Now let me add the 4 tool cards and badges section to hub.html.
+
+● Update(skymarshal/web/templates/hub.html)
+  ⎿  Added 68 lines
+      527              <a href="https://dr.eamer.dev/bluesky/repostdar" t
+           arget="_blank" class="btn-tool">Analyze Timing</a>
+      528          </div>
+      529  
+      530 +        <!-- Chat -->                                         
+      531 +        <div class="tool-card">                               
+      532 +            <div class="tool-icon">&#128172;</div>            
+      533 +            <h2 class="tool-title">Chat</h2>                  
+      534 +            <p class="tool-description">Bluesky direct messagi
+          +ng interface with conversation management.</p>                
+      535 +            <ul class="tool-features">                        
+      536 +                <li>Direct messages</li>                      
+      537 +                <li>Conversation threads</li>                 
+      538 +                <li>Message search</li>                       
+      539 +            </ul>                                             
+      540 +            <a href="https://dr.eamer.dev/bluesky/chat/" targe
+          +t="_blank" class="btn-tool">Open Chat</a>                     
+      541 +        </div>                                                
+      542 +                                                              
+      543 +        <!-- Bluedrop -->                                     
+      544 +        <div class="tool-card">                               
+      545 +            <div class="tool-icon">&#128171;</div>            
+      546 +            <h2 class="tool-title">Bluedrop</h2>              
+      547 +            <p class="tool-description">Browser extension for 
+          +Bluesky chat. All the chat features, right in your browser.</p
+          +>                                                             
+      548 +            <ul class="tool-features">                        
+      549 +                <li>Chrome extension</li>                     
+      550 +                <li>Quick access chat</li>                    
+      551 +                <li>Desktop notifications</li>                
+      552 +            </ul>                                             
+      553 +            <a href="https://dr.eamer.dev/downloads/bluedrop" 
+          +target="_blank" class="btn-tool">Get Extension</a>            
+      554 +        </div>                                                
+      555 +                                                              
+      556 +        <!-- Firehose -->                                     
+      557 +        <div class="tool-card">                               
+      558 +            <div class="tool-icon">&#128293;</div>            
+      559 +            <h2 class="tool-title">Firehose</h2>              
+      560 +            <p class="tool-description">Real-time Bluesky netw
+          +ork dashboard. Watch posts, follows, and interactions as they 
+          +happen.</p>                                                   
+      561 +            <ul class="tool-features">                        
+      562 +                <li>Live post stream</li>                     
+      563 +                <li>Network activity</li>                     
+      564 +                <li>Real-time stats</li>                      
+      565 +            </ul>                                             
+      566 +            <a href="https://dr.eamer.dev/bluesky/firehose/" t
+          +arget="_blank" class="btn-tool">View Firehose</a>             
+      567 +        </div>                                                
+      568 +                                                              
+      569 +        <!-- Network -->                                      
+      570 +        <div class="tool-card">                               
+      571 +            <div class="tool-icon">&#128279;</div>            
+      572 +            <h2 class="tool-title">Network</h2>               
+      573 +            <p class="tool-description">Visualize and explore 
+          +your Bluesky social graph. See connections and communities.</p
+          +>                                                             
+      574 +            <ul class="tool-features">                        
+      575 +                <li>Social graph</li>                         
+      576 +                <li>Community detection</li>                  
+      577 +                <li>Connection mapping</li>                   
+      578 +            </ul>                                             
+      579 +            <a href="https://dr.eamer.dev/bluesky/network/" ta
+          +rget="_blank" class="btn-tool">Explore Network</a>            
+      580 +        </div>                                                
+      581 +                                                              
+      582          <!-- Bluesky General -->
+      583          <div class="tool-card">
+      584              <div class="tool-icon">&#127968;</div>
+     ...
+      592              <a href="https://dr.eamer.dev/bluesky/" target="_b
+           lank" class="btn-tool">Explore All Tools</a>
+      593          </div>
+      594      </div>
+      595 +                                                              
+      596 +    <!-- Package Badges -->                                   
+      597 +    <div class="badges-row">                                  
+      598 +        <a href="https://github.com/lukeslp/skymarshal" target
+          +="_blank" rel="noopener noreferrer" aria-label="Skymarshal on 
+          +GitHub">                                                      
+      599 +            <img src="https://img.shields.io/github/stars/luke
+          +slp/skymarshal?style=flat-square&logo=github&label=skymarshal"
+          + alt="GitHub stars for skymarshal" loading="lazy">            
+      600 +        </a>                                                  
+      601 +        <a href="https://github.com/lukeslp/skymarshal-js" tar
+          +get="_blank" rel="noopener noreferrer" aria-label="Skymarshal 
+          +JS on GitHub">                                                
+      602 +            <img src="https://img.shields.io/github/stars/luke
+          +slp/skymarshal-js?style=flat-square&logo=github&label=skymarsh
+          +al-js" alt="GitHub stars for skymarshal-js" loading="lazy">   
+      603 +        </a>                                                  
+      604 +        <a href="https://www.npmjs.com/package/skymarshal" tar
+          +get="_blank" rel="noopener noreferrer" aria-label="Skymarshal 
+          +on npm">                                                      
+      605 +            <img src="https://img.shields.io/npm/v/skymarshal?
+          +style=flat-square&logo=npm&color=cb3837" alt="npm version for 
+          +skymarshal" loading="lazy">                                   
+      606 +        </a>                                                  
+      607 +        <a href="https://pypi.org/project/skymarshal-cli/" tar
+          +get="_blank" rel="noopener noreferrer" aria-label="Skymarshal 
+          +CLI on PyPI">                                                 
+      608 +            <img src="https://img.shields.io/pypi/v/skymarshal
+          +-cli?style=flat-square&logo=python&logoColor=white&color=3776a
+          +b" alt="PyPI version for skymarshal-cli" loading="lazy">      
+      609 +        </a>                                                  
+      610 +    </div>                                                    
+      611  </div>
+      612  {% endblock %}
+
+● Now add the badges CSS to the style block.
+
+● Update(skymarshal/web/templates/hub.html)
+  ⎿  Added 29 lines
+      362      }
+      363  
+      364      /*--------------------------------------
+      365 +     * Package Badges                                         
+      366 +     *--------------------------------------*/                
+      367 +    .badges-row {                                             
+      368 +        display: flex;                                        
+      369 +        justify-content: center;                              
+      370 +        gap: var(--spacing-md);                               
+      371 +        flex-wrap: wrap;                                      
+      372 +        margin-top: var(--spacing-2xl);                       
+      373 +        padding-top: var(--spacing-xl);                       
+      374 +        border-top: 1px solid var(--border-color);            
+      375 +    }                                                         
+      376 +                                                              
+      377 +    .badges-row a {                                           
+      378 +        display: inline-flex;                                 
+      379 +        align-items: center;                                  
+      380 +        transition: opacity var(--transition-fast), transform 
+          +var(--transition-fast);                                       
+      381 +        opacity: 0.8;                                         
+      382 +    }                                                         
+      383 +                                                              
+      384 +    .badges-row a:hover {                                     
+      385 +        opacity: 1;                                           
+      386 +        transform: translateY(-1px);                          
+      387 +    }                                                         
+      388 +                                                              
+      389 +    .badges-row img {                                         
+      390 +        height: 22px;                                         
+      391 +    }                                                         
+      392 +                                                              
+      393 +    /*--------------------------------------                  
+      394       * Responsive
+      395       *--------------------------------------*/
+      396      @media (max-width: 768px) {
+
+● Let me verify the result looks right.
+
+● Read 1 file (ctrl+o to expand)
+
+● Looks good. Let me see the badges section too.
+
+● Read 1 file (ctrl+o to expand)
+
+● Everything is in place. Let me restart the service and verify it renders.
+
+● Bash(sm restart skymarshal 2>&1 | tail -5)
+  ⎿     Process started with PID 3517196
+        Waiting for service to be ready (timeout: 15s)...
+     ✅ Skymarshal Unified started successfully!
+     … +2 lines (ctrl+o to expand)
+  ⎿  (timeout 15s)
+
+● Service restarted. Let me verify the page renders correctly.
+
+● Bash(curl -s http://localhost:5050/hub | grep -c 'tool-card')
+  ⎿  0
+
+● Bash(curl -s http://localhost:5050/hub | grep -o
+      'badges-row\|shields\.io\|skymarshal-js\|npmjs\|pypi' | sort | uniq -c)
+  ⎿  (No output)
+
+● Read 2 files (ctrl+o to expand)
+
+● The production entry point is unified_app.py (API backend), not lite_app.py
+  (the Jinja template app). Let me check what serves the hub page in production.
+
+● Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(curl -sI http://localhost:5050/hub; echo "---"; curl -sI
+      http://localhost:5050/skymarshal/hub)
+  ⎿  HTTP/1.1 404 NOT FOUND
+     Server: Werkzeug/3.1.5 Python/3.10.12
+     Date: Sat, 14 Feb 2026 12:28:18 GMT
+     … +17 lines (ctrl+o to expand)
+
+● The hub page is served from port 5051 (the Jinja template app), not 5050 (the
+  unified API). Let me verify.
+
+● Bash(curl -s http://localhost:5051/skymarshal/hub 2>/dev/null | grep -c
+      'tool-card'; echo "---"; curl -s http://localhost:5051/hub 2>/dev/null |
+      grep -c 'tool-card')
+  ⎿  13
+     ---
+     13
+
+● Bash(sm status 2>&1 | grep -i sky)
+  ⎿  Bluesky Firehose Da  5052     Running     3116208    ✓ healthy      2h
+      57m
+     Diachronica Bluesky  5074     Running     3510944    ✗ connection refu
+     … +13 lines (ctrl+o to expand)
+
+❯ /rename skymarshal additions 
+
+● 13 tool cards found on port 5051 — that's 9 cards (5 original + 4 new). Wait,
+  13 includes the CSS class definitions too. Let me verify the actual cards and
+  badges render via the public URL.
+
+● Bash(curl -s http://localhost:5051/hub | grep -oP 'tool-title">.*?<' | sed
+      's/tool-title">//;s/<$//')
+  ⎿  Skymarshal
+     Bluevibes
+     Post Visualizer
+     … +6 lines (ctrl+o to expand)
+
+● Bash(curl -s http://localhost:5051/hub | grep -c 'badges-row')
+  ⎿  5
+
+● All 9 tool cards rendering (5 original + 4 new) and badges section is present.
+   Let me also verify through Caddy.
+
+● Bash(curl -s https://dr.eamer.dev/skymarshal/hub 2>/dev/null | grep -oP
+      'tool-title">.*?<' | sed 's/tool-title">//;s/<$//')
+  ⎿  Skymarshal
+     Bluevibes
+     Post Visualizer
+     … +6 lines (ctrl+o to expand)
+
+● All 9 cards live through Caddy. Let me mark the task complete.
+
+● Done. Added to the skymarshal hub landing page:
+
+  4 new tool cards:
+  - Chat → /bluesky/chat/
+  - Bluedrop → /downloads/bluedrop (noted as extension version of Chat)
+  - Firehose → /bluesky/firehose/
+  - Network → /bluesky/network/
+
+  4 package badges (centered row below the grid):
+  - GitHub: lukeslp/skymarshal (stars badge)
+  - GitHub: lukeslp/skymarshal-js (stars badge)
+  - npm: skymarshal (version badge)
+  - PyPI: skymarshal-cli (version badge)
+
+  All rendering correctly at https://dr.eamer.dev/skymarshal/hub.
+
+✻ Worked for 2m 35s
+
+❯ resgreat, now - we need to update the landing page for                    
+  dr.eamer.dev/bluesky. Go check it out                                     
+                                                                            
+
+● Let me check the Bluesky landing page.
+
+● Claude in Chrome[tabs_context]
+  ⎿  Tabs read
+
+● Chrome extension isn't connected. Let me check the page content and find the
+  source files directly.
+
+● Fetch(https://dr.eamer.dev/bluesky/)
+  ⎿  Received 42.1KB (200 OK)
+
+● geepers_searcher(Find bluesky landing page source)
+  ⎿  Done (23 tool uses · 66.2k tokens · 1m 1s)
+
+● Found it — /home/coolhand/html/bluesky/index.html (43KB, single file with
+  inline CSS). Let me read the full content to understand what needs updating.
+
+● Read 1 file (ctrl+o to expand)
+
+● Here's what I found on the Bluesky landing page
+  (/home/coolhand/html/bluesky/index.html):
+
+  Current State
+
+  Already present:
+  - Firehose (in Tools section, line 603)
+  - Post Visualizer (Tools + Recent)
+  - Repostdar (Tools)
+  - Skymarshal (Tools — links to /skymarshal/login)
+  - Bluesky Network (in Visualizations, line 713)
+
+  Missing vs what we just added to skymarshal hub:
+  - Chat (/bluesky/chat/) — not listed anywhere
+  - Bluedrop (/downloads/bluedrop) — not listed anywhere
+  - Bluevibes — on skymarshal hub but not on this page either
+  - Package badges (GitHub, npm, PyPI) — no badges section
+
+  Other observations:
+  - Skymarshal links to /skymarshal/login rather than /skymarshal/hub (the new
+  landing page with all tools)
+  - 8 collapsible sections: Tools, Writing, Visualizations, Feeds, Games, Silly,
+   Software, Retired
+  - Clean Swiss Design, light theme, card-based layout
+  - "Recent" section highlights: Forget Me Not, Post Visualizer, Bipolar
+  Interactive, ReCalibri
+
+  What updates would you like? Add the missing tools (Chat, Bluedrop,
+  Bluevibes)? Update the Skymarshal link? Add package badges? Something else
+  entirely?
+
+✻ Baked for 1m 46s
+
+❯ ok fix that to hub, ditch the swiss design and just make it modern        
+  minimalist, without losing any content; also add my :                     
+  https://github.com/lukeslp https://huggingface.co/lukeslp                 
+  https://www.kaggle.com/lucassteuber https://codepen.io/lukeslp            
+  https://pypi.org/user/lukesteuber/ https://www.npmjs.com/~lsteuber - all  
+  as badges is fine                                                         
+
+● This touches nearly every CSS rule plus content additions. I'll rewrite the
+  file preserving all content while modernizing the design.
+
+● Write(~/html/bluesky/index.html)
+  ⎿  Error writing file
+
+● Read 1 file (ctrl+o to expand)
+
+● Now let me write the updated version with the current favicon preserved.
+
+● Write(~/html/bluesky/index.html)
+  ⎿  Added 196 lines, removed 383 lines
+       4    <meta charset="UTF-8" />
+       5      <link rel="icon" type="image/x-icon" href="/assets/images/f
+          avicon.ico">
+       6    <meta name="viewport" content="width=device-width, initial-sc
+          ale=1" />
+       7 -                                                               
+       7 +                                                               
+       8    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/aja
+          x/libs/font-awesome/6.5.1/css/all.min.css">
+       9    <title>Luke's Bluesky Stuff</title>
+      10  
+     ...
+      24  
+      25    <style>
+      26      :root {
+      27 -      --bg-primary: #fafafa;                                   
+      28 -      --bg-secondary: #ffffff;                                 
+      29 -      --text-primary: #1a1a1a;                                 
+      30 -      --text-secondary: #6b7280;                               
+      27 +      --bg: #fafafa;                                           
+      28 +      --surface: #fff;                                         
+      29 +      --text: #111;                                            
+      30 +      --text-mid: #555;                                        
+      31 +      --text-light: #888;                                      
+      32        --accent: #1185fe;
+      32 -      --accent-hover: #0d6ecd;                                 
+      33 -      --border: #e5e7eb;                                       
+      34 -      --grid-unit: 8px;                                        
+      33 +      --accent-hover: #0a6dd6;                                 
+      34 +      --border: #e8e8e8;                                       
+      35 +      --radius: 10px;                                          
+      36 +      --radius-sm: 6px;                                        
+      37 +      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);                 
+      38 +      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);                
+      39        --recent-accent: #e63946;
+      40      }
+      41  
+      38 -    * {                                                        
+      39 -      margin: 0;                                               
+      40 -      padding: 0;                                              
+      41 -      box-sizing: border-box;                                  
+      42 -    }                                                          
+      42 +    * { margin: 0; padding: 0; box-sizing: border-box; }       
+      43  
+      44      body {
+      45 -      font-family: "Helvetica Neue", Helvetica, Arial, sans-ser
+         -if;                                                            
+      46 -      background: var(--bg-primary);                           
+      47 -      color: var(--text-primary);                              
+      48 -      line-height: 1.5;                                        
+      49 -      padding: 0;                                              
+      50 -      margin: 0;                                               
+      45 +      font-family: system-ui, -apple-system, sans-serif;       
+      46 +      background: var(--bg);                                   
+      47 +      color: var(--text);                                      
+      48 +      line-height: 1.55;                                       
+      49      }
+      50  
+      51      .skip-link {
+     ...
+       53        top: -40px;
+       54        left: 0;
+       55        background: var(--accent);
+       58 -      color: var(--text-primary);                             
+       59 -      padding: calc(var(--grid-unit) * 1);                    
+       56 +      color: #fff;                                            
+       57 +      padding: 8px 16px;                                      
+       58        text-decoration: none;
+       59        z-index: 100;
+       60 +      border-radius: 0 0 var(--radius-sm) 0;                  
+       61      }
+       62 +    .skip-link:focus { top: 0; }                              
+       63  
+       64 -    .skip-link:focus {                                        
+       65 -      top: 0;                                                 
+       66 -    }                                                         
+       67 -                                                              
+       64      .container {
+       69 -      max-width: 800px;                                       
+       65 +      max-width: 820px;                                       
+       66        margin: 0 auto;
+       71 -      padding: calc(var(--grid-unit) * 6);                    
+       67 +      padding: 48px 24px;                                     
+       68      }
+       69  
+       74 -    /* Header / Hero */                                       
+       70 +    /* Header */                                              
+       71      header {
+       76 -      margin-bottom: calc(var(--grid-unit) * 10);             
+       77 -      padding-bottom: calc(var(--grid-unit) * 6);             
+       78 -      border-bottom: 2px solid var(--border);                 
+       72 +      margin-bottom: 56px;                                    
+       73 +      padding-bottom: 40px;                                   
+       74 +      border-bottom: 1px solid var(--border);                 
+       75      }
+       76  
+       77      .hero-kicker {
+       82 -      font-size: 0.875rem;                                    
+       83 -      color: var(--text-secondary);                           
+       84 -      text-transform: uppercase;                              
+       85 -      letter-spacing: 0.1em;                                  
+       86 -      font-weight: 500;                                       
+       87 -      margin-bottom: calc(var(--grid-unit) * 2);              
+       78 +      font-size: 0.8rem;                                      
+       79 +      color: var(--text-light);                               
+       80 +      margin-bottom: 12px;                                    
+       81      }
+       82  
+       83      h1 {
+       91 -      font-size: 3.5rem;                                      
+       92 -      font-weight: 600;                                       
+       93 -      margin-bottom: calc(var(--grid-unit) * 3);              
+       94 -      color: var(--text-primary);                             
+       95 -      letter-spacing: -0.02em;                                
+       84 +      font-size: 2.75rem;                                     
+       85 +      font-weight: 700;                                       
+       86 +      margin-bottom: 16px;                                    
+       87 +      letter-spacing: -0.03em;                                
+       88        line-height: 1.1;
+       89      }
+       90  
+       91      .hero-subtitle {
+      100 -      font-size: 1.25rem;                                     
+      101 -      color: var(--text-secondary);                           
+      102 -      margin-bottom: calc(var(--grid-unit) * 4);              
+      103 -      max-width: 800px;                                       
+      104 -      line-height: 1.6;                                       
+       92 +      font-size: 1.1rem;                                      
+       93 +      color: var(--text-mid);                                 
+       94 +      margin-bottom: 24px;                                    
+       95 +      max-width: 640px;                                       
+       96 +      line-height: 1.65;                                      
+       97      }
+       98  
+      107 -    .link-row {                                               
+       99 +    .social-links {                                           
+      100        display: flex;
+      109 -      gap: calc(var(--grid-unit) * 2);                        
+      101 +      gap: 20px;                                              
+      102        flex-wrap: wrap;
+      103 +      font-size: 1.15rem;                                     
+      104      }
+      112 -                                                              
+      113 -    .badge-link {                                             
+      114 -      display: inline-block;                                  
+      115 -      padding: calc(var(--grid-unit) * 1.5) calc(var(--grid-un
+          -it) * 3);                                                     
+      116 -      background: var(--bg-secondary);                        
+      117 -      color: var(--text-primary);                             
+      105 +    .social-links a {                                         
+      106 +      color: var(--text-light);                               
+      107        text-decoration: none;
+      119 -      border: 1px solid var(--border);                        
+      120 -      border-radius: calc(var(--grid-unit) * 0.5);            
+      121 -      font-size: 0.875rem;                                    
+      122 -      font-weight: 500;                                       
+      123 -      transition: all 0.2s ease;                              
+      124 -      letter-spacing: 0.02em;                                 
+      108 +      transition: color 0.15s;                                
+      109 +      display: inline-flex;                                   
+      110 +      align-items: center;                                    
+      111 +      gap: 6px;                                               
+      112      }
+      113 +    .social-links a:hover { color: var(--accent); }           
+      114 +    .social-links .link-text { display: none; }               
+      115  
+      127 -    .badge-link:hover {                                       
+      128 -      border-color: var(--accent);                            
+      129 -      background: var(--accent);                              
+      130 -      color: white;                                           
+      131 -    }                                                         
+      132 -                                                              
+      133 -    /* Social Links */                                        
+      134 -    .social-links {                                           
+      116 +    /* Profile Badges */                                      
+      117 +    .profile-badges {                                         
+      118        display: flex;
+      136 -      gap: calc(var(--grid-unit) * 3);                        
+      119 +      justify-content: center;                                
+      120 +      gap: 10px;                                              
+      121        flex-wrap: wrap;
+      138 -      font-size: 1.25rem;                                     
+      122 +      margin-bottom: 48px;                                    
+      123      }
+      140 -                                                              
+      141 -    .social-links a {                                         
+      142 -      color: var(--text-secondary);                           
+      143 -      text-decoration: none;                                  
+      144 -      transition: color 0.2s ease;                            
+      124 +    .profile-badges a {                                       
+      125        display: inline-flex;
+      126        align-items: center;
+      147 -      gap: calc(var(--grid-unit) * 1);                        
+      127 +      opacity: 0.75;                                          
+      128 +      transition: opacity 0.15s, transform 0.15s;             
+      129      }
+      130 +    .profile-badges a:hover { opacity: 1; transform: translate
+          +Y(-1px); }                                                    
+      131 +    .profile-badges img { height: 22px; }                     
+      132  
+      150 -    .social-links a:hover {                                   
+      151 -      color: var(--accent);                                   
+      152 -    }                                                         
+      153 -                                                              
+      154 -    .social-links .link-text {                                
+      155 -      display: none;                                          
+      156 -    }                                                         
+      157 -                                                              
+      158 -    /* Recent Section - Featured highlight */                 
+      133 +    /* Recent */                                              
+      134      .recent-section {
+      160 -      background: linear-gradient(135deg, var(--bg-secondary) 
+          -0%, #f8f9fa 100%);                                            
+      161 -      border: 2px solid var(--recent-accent);                 
+      162 -      border-radius: calc(var(--grid-unit) * 2);              
+      163 -      padding: calc(var(--grid-unit) * 4);                    
+      164 -      margin-bottom: calc(var(--grid-unit) * 6);              
+      135 +      background: var(--surface);                             
+      136 +      border: 1px solid var(--border);                        
+      137 +      border-left: 3px solid var(--recent-accent);            
+      138 +      border-radius: var(--radius);                           
+      139 +      padding: 28px;                                          
+      140 +      margin-bottom: 40px;                                    
+      141        position: relative;
+      142      }
+      167 -                                                              
+      143      .recent-section::before {
+      144        content: "Recent";
+      145        position: absolute;
+      171 -      top: calc(var(--grid-unit) * -1.5);                     
+      172 -      left: calc(var(--grid-unit) * 3);                       
+      146 +      top: -10px;                                             
+      147 +      left: 20px;                                             
+      148        background: var(--recent-accent);
+      174 -      color: white;                                           
+      175 -      font-size: 0.75rem;                                     
+      149 +      color: #fff;                                            
+      150 +      font-size: 0.7rem;                                      
+      151        font-weight: 600;
+      152        text-transform: uppercase;
+      178 -      letter-spacing: 0.1em;                                  
+      179 -      padding: calc(var(--grid-unit) * 0.5) calc(var(--grid-un
+          -it) * 2);                                                     
+      180 -      border-radius: calc(var(--grid-unit) * 0.5);            
+      153 +      letter-spacing: 0.08em;                                 
+      154 +      padding: 3px 10px;                                      
+      155 +      border-radius: var(--radius-sm);                        
+      156      }
+      182 -                                                              
+      157      .recent-grid {
+      158        display: flex;
+      159        flex-direction: column;
+      186 -      gap: calc(var(--grid-unit) * 2);                        
+      160 +      gap: 10px;                                              
+      161      }
+      188 -                                                              
+      162      .recent-card {
+      163        display: flex;
+      164        align-items: center;
+      192 -      gap: calc(var(--grid-unit) * 2);                        
+      193 -      background: var(--bg-secondary);                        
+      165 +      gap: 14px;                                              
+      166 +      background: var(--bg);                                  
+      167        border: 1px solid var(--border);
+      195 -      border-radius: calc(var(--grid-unit) * 1);              
+      196 -      padding: calc(var(--grid-unit) * 2.5);                  
+      168 +      border-radius: var(--radius-sm);                        
+      169 +      padding: 14px 18px;                                     
+      170        text-decoration: none;
+      198 -      color: var(--text-primary);                             
+      199 -      transition: all 0.2s ease;                              
+      200 -      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);              
+      171 +      color: var(--text);                                     
+      172 +      transition: border-color 0.15s, box-shadow 0.15s, transf
+          +orm 0.15s;                                                    
+      173      }
+      202 -                                                              
+      174      .recent-card:hover {
+      175        border-color: var(--recent-accent);
+      205 -      transform: translateY(-2px);                            
+      206 -      box-shadow: 0 6px 16px rgba(230, 57, 70, 0.15);         
+      176 +      box-shadow: var(--shadow-sm);                           
+      177 +      transform: translateY(-1px);                            
+      178      }
+      179 +    .recent-card .card-icon { font-size: 1.5rem; }            
+      180 +    .recent-card .card-title { font-size: 0.95rem; margin-bott
+          +om: 2px; }                                                    
+      181 +    .recent-card .card-text { font-size: 0.8rem; line-height: 
+          +1.4; }                                                        
+      182  
+      209 -    .recent-card .card-icon {                                 
+      210 -      font-size: 1.75rem;                                     
+      211 -    }                                                         
+      212 -                                                              
+      213 -    .recent-card .card-title {                                
+      214 -      font-size: 1rem;                                        
+      215 -      margin-bottom: calc(var(--grid-unit) * 0.25);           
+      216 -    }                                                         
+      217 -                                                              
+      218 -    .recent-card .card-text {                                 
+      219 -      font-size: 0.8125rem;                                   
+      220 -      line-height: 1.4;                                       
+      221 -    }                                                         
+      222 -                                                              
+      223 -    /* Table of Contents - Improved */                        
+      183 +    /* TOC */                                                 
+      184      .toc {
+      225 -      background: var(--bg-secondary);                        
+      185 +      background: var(--surface);                             
+      186        border: 1px solid var(--border);
+      227 -      border-radius: calc(var(--grid-unit) * 1);              
+      228 -      padding: calc(var(--grid-unit) * 3);                    
+      229 -      margin-bottom: calc(var(--grid-unit) * 6);              
+      187 +      border-radius: var(--radius);                           
+      188 +      padding: 20px 24px;                                     
+      189 +      margin-bottom: 40px;                                    
+      190      }
+      231 -                                                              
+      191      .toc h2 {
+      233 -      font-size: 0.875rem;                                    
+      192 +      font-size: 0.8rem;                                      
+      193        font-weight: 600;
+      235 -      text-transform: uppercase;                              
+      236 -      letter-spacing: 0.1em;                                  
+      237 -      margin-bottom: calc(var(--grid-unit) * 2);              
+      238 -      color: var(--text-secondary);                           
+      239 -      display: flex;                                          
+      240 -      align-items: center;                                    
+      241 -      gap: calc(var(--grid-unit) * 1);                        
+      194 +      color: var(--text-light);                               
+      195 +      margin-bottom: 14px;                                    
+      196      }
+      243 -                                                              
+      244 -    .toc h2::before {                                         
+      245 -      content: "≡";                                           
+      246 -      font-size: 1.25rem;                                     
+      247 -    }                                                         
+      248 -                                                              
+      197      .toc-grid {
+      198        display: grid;
+      251 -      grid-template-columns: repeat(auto-fit, minmax(140px, 1f
+          -r));                                                          
+      252 -      gap: calc(var(--grid-unit) * 1) calc(var(--grid-unit) * 
+          -2);                                                           
+      199 +      grid-template-columns: repeat(auto-fit, minmax(130px, 1f
+          +r));                                                          
+      200 +      gap: 4px 12px;                                          
+      201        list-style: none;
+      254 -      padding: 0;                                             
+      255 -      margin: 0;                                              
+      202      }
+      257 -                                                              
+      258 -    .toc-grid li {                                            
+      259 -      margin: 0;                                              
+      260 -    }                                                         
+      261 -                                                              
+      203      .toc-grid a {
+      204        display: flex;
+      205        align-items: center;
+      265 -      gap: calc(var(--grid-unit) * 1);                        
+      266 -      color: var(--text-primary);                             
+      206 +      gap: 8px;                                               
+      207 +      color: var(--text);                                     
+      208        text-decoration: none;
+      268 -      font-size: 0.9375rem;                                   
+      209 +      font-size: 0.9rem;                                      
+      210        font-weight: 500;
+      270 -      padding: calc(var(--grid-unit) * 1) calc(var(--grid-unit
+          -) * 1.5);                                                     
+      271 -      border-radius: calc(var(--grid-unit) * 0.5);            
+      272 -      transition: all 0.15s ease;                             
+      211 +      padding: 6px 8px;                                       
+      212 +      border-radius: var(--radius-sm);                        
+      213 +      transition: background 0.12s, color 0.12s;              
+      214      }
+      215 +    .toc-grid a:hover { background: var(--bg); color: var(--ac
+          +cent); }                                                      
+      216 +    .toc-grid .toc-icon { font-size: 0.95rem; width: 1.4em; te
+          +xt-align: center; }                                           
+      217  
+      275 -    .toc-grid a:hover {                                       
+      276 -      background: var(--bg-primary);                          
+      277 -      color: var(--accent);                                   
+      278 -    }                                                         
+      218 +    /* Sections */                                            
+      219 +    .section { margin-bottom: 32px; }                         
+      220  
+      280 -    .toc-grid .toc-icon {                                     
+      281 -      font-size: 1rem;                                        
+      282 -      width: 1.5em;                                           
+      283 -      text-align: center;                                     
+      284 -    }                                                         
+      285 -                                                              
+      286 -    /* Collapsible Sections */                                
+      287 -    .section {                                                
+      288 -      margin-bottom: calc(var(--grid-unit) * 6);              
+      289 -    }                                                         
+      290 -                                                              
+      221      .section-details {
+      222        border: 1px solid var(--border);
+      293 -      border-radius: calc(var(--grid-unit) * 1);              
+      294 -      background: var(--bg-secondary);                        
+      223 +      border-radius: var(--radius);                           
+      224 +      background: var(--surface);                             
+      225        overflow: hidden;
+      226      }
+      297 -                                                              
+      227      .section-details summary {
+      228        cursor: pointer;
+      300 -      padding: calc(var(--grid-unit) * 3);                    
+      229 +      padding: 20px 24px;                                     
+      230        list-style: none;
+      231        display: flex;
+      232        align-items: center;
+      233        justify-content: space-between;
+      305 -      gap: calc(var(--grid-unit) * 2);                        
+      234 +      gap: 16px;                                              
+      235        user-select: none;
+      307 -      transition: background 0.15s ease;                      
+      236 +      transition: background 0.12s;                           
+      237      }
+      238 +    .section-details summary::-webkit-details-marker { display
+          +: none; }                                                     
+      239 +    .section-details summary:hover { background: var(--bg); } 
+      240 +    .section-details[open] summary { border-bottom: 1px solid 
+          +var(--border); }                                              
+      241  
+      310 -    .section-details summary::-webkit-details-marker {        
+      311 -      display: none;                                          
+      312 -    }                                                         
+      242 +    .section-header { display: flex; flex-direction: column; g
+          +ap: 2px; }                                                    
+      243 +    .section-kicker { font-size: 0.72rem; color: var(--text-li
+          +ght); }                                                       
+      244 +    .section-title { font-size: 1.3rem; font-weight: 600; lett
+          +er-spacing: -0.01em; }                                        
+      245  
+      314 -    .section-details summary:hover {                          
+      315 -      background: var(--bg-primary);                          
+      316 -    }                                                         
+      317 -                                                              
+      318 -    .section-details[open] summary {                          
+      319 -      border-bottom: 1px solid var(--border);                 
+      320 -    }                                                         
+      321 -                                                              
+      322 -    .section-header {                                         
+      323 -      display: flex;                                          
+      324 -      flex-direction: column;                                 
+      325 -      gap: calc(var(--grid-unit) * 0.5);                      
+      326 -    }                                                         
+      327 -                                                              
+      328 -    .section-kicker {                                         
+      329 -      font-size: 0.75rem;                                     
+      330 -      color: var(--text-secondary);                           
+      331 -      text-transform: uppercase;                              
+      332 -      letter-spacing: 0.15em;                                 
+      333 -      font-weight: 500;                                       
+      334 -    }                                                         
+      335 -                                                              
+      336 -    .section-title {                                          
+      337 -      font-size: 1.5rem;                                      
+      338 -      font-weight: 600;                                       
+      339 -      color: var(--text-primary);                             
+      340 -      letter-spacing: -0.01em;                                
+      341 -    }                                                         
+      342 -                                                              
+      246      .expand-icon {
+      344 -      width: 24px;                                            
+      345 -      height: 24px;                                           
+      346 -      display: flex;                                          
+      347 -      align-items: center;                                    
+      348 -      justify-content: center;                                
+      349 -      color: var(--text-secondary);                           
+      350 -      transition: transform 0.2s ease;                        
+      247 +      width: 20px; height: 20px;                              
+      248 +      display: flex; align-items: center; justify-content: cen
+          +ter;                                                          
+      249 +      color: var(--text-light);                               
+      250 +      transition: transform 0.2s;                             
+      251        flex-shrink: 0;
+      252      }
+      253 +    .section-details[open] .expand-icon { transform: rotate(18
+          +0deg); }                                                      
+      254  
+      354 -    .section-details[open] .expand-icon {                     
+      355 -      transform: rotate(180deg);                              
+      356 -    }                                                         
+      255 +    .section-content { padding: 20px 24px; }                  
+      256  
+      358 -    .section-content {                                        
+      359 -      padding: calc(var(--grid-unit) * 3);                    
+      360 -    }                                                         
+      257 +    /* Cards */                                               
+      258 +    .grid { display: flex; flex-direction: column; gap: 10px; 
+          +}                                                             
+      259  
+      362 -    /* Grid and Cards */                                      
+      363 -    .grid {                                                   
+      364 -      display: flex;                                          
+      365 -      flex-direction: column;                                 
+      366 -      gap: calc(var(--grid-unit) * 2);                        
+      367 -    }                                                         
+      368 -                                                              
+      260      .card {
+      261        display: flex;
+      262        align-items: center;
+      372 -      gap: calc(var(--grid-unit) * 3);                        
+      373 -      background: var(--bg-primary);                          
+      263 +      gap: 16px;                                              
+      264 +      background: var(--bg);                                  
+      265        border: 1px solid var(--border);
+      375 -      border-radius: calc(var(--grid-unit) * 1);              
+      376 -      padding: calc(var(--grid-unit) * 3);                    
+      266 +      border-radius: var(--radius-sm);                        
+      267 +      padding: 16px 20px;                                     
+      268        text-decoration: none;
+      378 -      color: var(--text-primary);                             
+      379 -      transition: all 0.2s ease;                              
+      380 -      position: relative;                                     
+      381 -      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);              
+      269 +      color: var(--text);                                     
+      270 +      transition: border-color 0.15s, box-shadow 0.15s, transf
+          +orm 0.15s;                                                    
+      271 +      box-shadow: var(--shadow-sm);                           
+      272      }
+      383 -                                                              
+      273      .card:hover {
+      274        border-color: var(--accent);
+      386 -      transform: translateY(-2px);                            
+      387 -      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);              
+      275 +      box-shadow: var(--shadow-md);                           
+      276 +      transform: translateY(-1px);                            
+      277      }
+      278 +    .card.retired { opacity: 0.45; cursor: not-allowed; }     
+      279 +    .card.retired:hover { border-color: var(--border); box-sha
+          +dow: var(--shadow-sm); transform: none; }                     
+      280  
+      390 -    .card.retired {                                           
+      391 -      opacity: 0.5;                                           
+      392 -      cursor: not-allowed;                                    
+      393 -    }                                                         
+      281 +    .card-icon { font-size: 1.75rem; line-height: 1; flex-shri
+          +nk: 0; }                                                      
+      282 +    .card-title { font-size: 1rem; font-weight: 600; margin-bo
+          +ttom: 3px; }                                                  
+      283 +    .card-text { font-size: 0.875rem; color: var(--text-mid); 
+          +line-height: 1.5; }                                           
+      284 +    .card-content { flex: 1; }                                
+      285  
+      395 -    .card.retired:hover {                                     
+      396 -      border-color: var(--border);                            
+      397 -      transform: none;                                        
+      398 -    }                                                         
+      399 -                                                              
+      400 -    .card-icon {                                              
+      401 -      font-size: 2rem;                                        
+      402 -      display: block;                                         
+      403 -      line-height: 1;                                         
+      404 -      flex-shrink: 0;                                         
+      405 -    }                                                         
+      406 -                                                              
+      407 -    .card-title {                                             
+      408 -      font-size: 1.125rem;                                    
+      409 -      font-weight: 600;                                       
+      410 -      margin-bottom: calc(var(--grid-unit) * 0.5);            
+      411 -      color: var(--text-primary);                             
+      412 -      letter-spacing: -0.01em;                                
+      413 -    }                                                         
+      414 -                                                              
+      415 -    .card-text {                                              
+      416 -      font-size: 0.9375rem;                                   
+      417 -      color: var(--text-secondary);                           
+      418 -      line-height: 1.6;                                       
+      419 -    }                                                         
+      420 -                                                              
+      421 -    .card-content {                                           
+      422 -      flex: 1;                                                
+      423 -    }                                                         
+      424 -                                                              
+      286      /* Footer */
+      287      footer {
+      427 -      margin-top: calc(var(--grid-unit) * 10);                
+      428 -      padding-top: calc(var(--grid-unit) * 4);                
+      288 +      margin-top: 64px;                                       
+      289 +      padding-top: 24px;                                      
+      290        border-top: 1px solid var(--border);
+      291        display: flex;
+      431 -      gap: calc(var(--grid-unit) * 4);                        
+      292 +      gap: 24px;                                              
+      293        flex-wrap: wrap;
+      433 -      font-size: 0.875rem;                                    
+      294 +      font-size: 0.825rem;                                    
+      295      }
+      296 +    footer a { color: var(--text-light); text-decoration: none
+          +; transition: color 0.15s; }                                  
+      297 +    footer a:hover { color: var(--accent); }                  
+      298  
+      436 -    footer a {                                                
+      437 -      color: var(--text-secondary);                           
+      438 -      text-decoration: none;                                  
+      439 -      transition: color 0.2s ease;                            
+      440 -    }                                                         
+      441 -                                                              
+      442 -    footer a:hover {                                          
+      443 -      color: var(--accent);                                   
+      444 -    }                                                         
+      445 -                                                              
+      446 -    /* Responsive */                                          
+      299      @media (max-width: 768px) {
+      448 -      .container {                                            
+      449 -        padding: calc(var(--grid-unit) * 3);                  
+      450 -      }                                                       
+      451 -                                                              
+      452 -      h1 {                                                    
+      453 -        font-size: 2.5rem;                                    
+      454 -      }                                                       
+      455 -                                                              
+      456 -      .section-title {                                        
+      457 -        font-size: 1.25rem;                                   
+      458 -      }                                                       
+      459 -                                                              
+      460 -      .recent-grid {                                          
+      461 -        flex-direction: column;                               
+      462 -      }                                                       
+      463 -                                                              
+      464 -      .toc-grid {                                             
+      465 -        grid-template-columns: repeat(2, 1fr);                
+      466 -      }                                                       
+      467 -                                                              
+      468 -      .link-row {                                             
+      469 -        flex-direction: column;                               
+      470 -      }                                                       
+      471 -                                                              
+      472 -      .badge-link {                                           
+      473 -        text-align: center;                                   
+      474 -      }                                                       
+      475 -                                                              
+      476 -      .social-links {                                         
+      477 -        font-size: 1.5rem;                                    
+      478 -        gap: calc(var(--grid-unit) * 2);                      
+      479 -      }                                                       
+      300 +      .container { padding: 32px 16px; }                      
+      301 +      h1 { font-size: 2rem; }                                 
+      302 +      .section-title { font-size: 1.15rem; }                  
+      303 +      .toc-grid { grid-template-columns: repeat(2, 1fr); }    
+      304 +      .social-links { font-size: 1.35rem; gap: 14px; }        
+      305      }
+      481 -                                                              
+      306      @media (max-width: 480px) {
+      483 -      h1 {                                                    
+      484 -        font-size: 2rem;                                      
+      485 -      }                                                       
+      486 -                                                              
+      487 -      .hero-subtitle {                                        
+      488 -        font-size: 1rem;                                      
+      489 -      }                                                       
+      490 -                                                              
+      491 -      .toc-grid {                                             
+      492 -        grid-template-columns: 1fr;                           
+      493 -      }                                                       
+      307 +      h1 { font-size: 1.75rem; }                              
+      308 +      .hero-subtitle { font-size: 0.95rem; }                  
+      309 +      .toc-grid { grid-template-columns: 1fr; }               
+      310 +      .profile-badges { gap: 6px; }                           
+      311      }
+      312    </style>
+      313  </head>
+     ...
+      331        </div>
+      332      </header>
+      333  
+      334 +    <!-- Profile Badges -->                                   
+      335 +    <div class="profile-badges" aria-label="Profiles and packa
+          +ges">                                                         
+      336 +      <a href="https://github.com/lukeslp" target="_blank" rel
+          +="noopener noreferrer" aria-label="GitHub"><img src="https://i
+          +mg.shields.io/badge/GitHub-lukeslp-181717?style=flat-square&lo
+          +go=github" alt="GitHub" loading="lazy"></a>                   
+      337 +      <a href="https://huggingface.co/lukeslp" target="_blank"
+          + rel="noopener noreferrer" aria-label="Hugging Face"><img src=
+          +"https://img.shields.io/badge/HuggingFace-lukeslp-ffd21e?style
+          +=flat-square&logo=huggingface&logoColor=000" alt="Hugging Face
+          +" loading="lazy"></a>                                         
+      338 +      <a href="https://www.kaggle.com/lucassteuber" target="_b
+          +lank" rel="noopener noreferrer" aria-label="Kaggle"><img src="
+          +https://img.shields.io/badge/Kaggle-lucassteuber-20beff?style=
+          +flat-square&logo=kaggle&logoColor=white" alt="Kaggle" loading=
+          +"lazy"></a>                                                   
+      339 +      <a href="https://codepen.io/lukeslp" target="_blank" rel
+          +="noopener noreferrer" aria-label="CodePen"><img src="https://
+          +img.shields.io/badge/CodePen-lukeslp-1e1f26?style=flat-square&
+          +logo=codepen" alt="CodePen" loading="lazy"></a>               
+      340 +      <a href="https://pypi.org/user/lukesteuber/" target="_bl
+          +ank" rel="noopener noreferrer" aria-label="PyPI"><img src="htt
+          +ps://img.shields.io/badge/PyPI-lukesteuber-3776ab?style=flat-s
+          +quare&logo=python&logoColor=white" alt="PyPI" loading="lazy"><
+          +/a>                                                           
+      341 +      <a href="https://www.npmjs.com/~lsteuber" target="_blank
+          +" rel="noopener noreferrer" aria-label="npm"><img src="https:/
+          +/img.shields.io/badge/npm-lsteuber-cb3837?style=flat-square&lo
+          +go=npm" alt="npm" loading="lazy"></a>                         
+      342 +    </div>                                                    
+      343 +                                                              
+      344      <main id="main" aria-label="Bluesky work">
+      345        <!-- Recent Section -->
+      346        <section class="recent-section" aria-label="Recent proje
+           cts">
+     ...
+      378  
+      379        <!-- Table of Contents -->
+      380        <nav class="toc" aria-label="Table of Contents">
+      554 -        <h2>Jump to Section</h2>                              
+      381 +        <h2>Jump to section</h2>                              
+      382          <ul class="toc-grid">
+      383            <li><a href="#tools"><span class="toc-icon" aria-hid
+           den="true">🛠️</span> Tools</a></li>
+      384            <li><a href="#writing"><span class="toc-icon" aria-h
+           idden="true">✍️</span> Writing</a></li>
+     ...
+      400                <h2 class="section-title">Tools &amp; Resources<
+           /h2>
+      401              </div>
+      402              <span class="expand-icon" aria-hidden="true">
+      576 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      577 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      578 -              </svg>                                          
+      403 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      404              </span>
+      405            </summary>
+      406            <div class="section-content">
+     ...
+      426                    <p class="card-text">Feed link, infographics
+           , and mental health resources for the community.</p>
+      427                  </div>
+      428                </a>
+      429 +              <a class="card" href="https://dr.eamer.dev/blues
+          +ky/chat/">                                                    
+      430 +                <span class="card-icon" aria-hidden="true">💬<
+          +/span>                                                        
+      431 +                <div class="card-content">                    
+      432 +                  <h3 class="card-title">Chat</h3>            
+      433 +                  <p class="card-text">Bluesky direct messagin
+          +g interface with conversation management.</p>                 
+      434 +                </div>                                        
+      435 +              </a>                                            
+      436 +              <a class="card" href="https://dr.eamer.dev/downl
+          +oads/bluedrop">                                               
+      437 +                <span class="card-icon" aria-hidden="true">💧<
+          +/span>                                                        
+      438 +                <div class="card-content">                    
+      439 +                  <h3 class="card-title">Bluedrop</h3>        
+      440 +                  <p class="card-text">Browser extension for B
+          +luesky chat. All the chat features, right in your browser.</p>
+      441 +                </div>                                        
+      442 +              </a>                                            
+      443                <a class="card" href="https://dr.eamer.dev/blues
+           ky/firehose/">
+      444                  <span class="card-icon" aria-hidden="true">📡<
+           /span>
+      445                  <div class="card-content">
+     ...
+      461                    <p class="card-text">Detect self-reposts and
+            analyze feed composition. Not that it's a bad thing on Bluesk
+           y!</p>
+      462                  </div>
+      463                </a>
+      625 -              <a class="card" href="https://dr.eamer.dev/skyma
+          -rshal/login">                                                 
+      464 +              <a class="card" href="https://dr.eamer.dev/skyma
+          +rshal/hub">                                                   
+      465                  <span class="card-icon" aria-hidden="true">☁️<
+           /span>
+      466                  <div class="card-content">
+      467                    <h3 class="card-title">Skymarshal</h3>
+      629 -                  <p class="card-text">Lightweight content man
+          -ager to review and delete posts individually or in bulk.</p>  
+      468 +                  <p class="card-text">Content manager, chat, 
+          +network tools, firehose, and more. The Bluesky power-tools hub
+          +.</p>                                                         
+      469                  </div>
+      470                </a>
+      471                <a class="card" href="https://diachronica.com/" 
+           target="_blank" rel="noopener noreferrer">
+     ...
+      488                <h2 class="section-title">Writing</h2>
+      489              </div>
+      490              <span class="expand-icon" aria-hidden="true">
+      652 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      653 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      654 -              </svg>                                          
+      491 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      492              </span>
+      493            </summary>
+      494            <div class="section-content">
+     ...
+      527                <h2 class="section-title">Visualizations</h2>
+      528              </div>
+      529              <span class="expand-icon" aria-hidden="true">
+      693 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      694 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      695 -              </svg>                                          
+      530 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      531              </span>
+      532            </summary>
+      533            <div class="section-content">
+     ...
+      639          <details class="section-details">
+      640            <summary>
+      641              <div class="section-header">
+      807 -              <p class="section-kicker">Custom Feeds</p>      
+      642 +              <p class="section-kicker">Custom feeds</p>      
+      643                <h2 class="section-title">Bluesky Feeds</h2>
+      644              </div>
+      645              <span class="expand-icon" aria-hidden="true">
+      811 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      812 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      813 -              </svg>                                          
+      646 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      647              </span>
+      648            </summary>
+      649            <div class="section-content">
+     ...
+      696                <h2 class="section-title">Games</h2>
+      697              </div>
+      698              <span class="expand-icon" aria-hidden="true">
+      866 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      867 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      868 -              </svg>                                          
+      699 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      700              </span>
+      701            </summary>
+      702            <div class="section-content">
+     ...
+      752          <details class="section-details">
+      753            <summary>
+      754              <div class="section-header">
+      924 -              <p class="section-kicker">Not Serious</p>       
+      755 +              <p class="section-kicker">Not serious</p>       
+      756                <h2 class="section-title">Silly Things</h2>
+      757              </div>
+      758              <span class="expand-icon" aria-hidden="true">
+      928 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      929 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      930 -              </svg>                                          
+      759 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      760              </span>
+      761            </summary>
+      762            <div class="section-content">
+     ...
+      802                <h2 class="section-title">Small Software</h2>
+      803              </div>
+      804              <span class="expand-icon" aria-hidden="true">
+      976 -              <svg width="20" height="20" viewBox="0 0 24 24" 
+          -fill="none" stroke="currentColor" stroke-width="2">           
+      977 -                <polyline points="6 9 12 15 18 9"></polyline> 
+      978 -              </svg>                                          
+      805 +              <svg width="20" height="20" viewBox="0 0 24 24" 
+          +fill="none" stroke="currentColor" stroke-width="2"><polyline p
+          +oints="6 9 12 15 18 9"></polyline></svg>                      
+      806              </span>
+      807            </summary>
+      808            <div class="section-content">
+     ...
+       841                <h2 class="section-title">Parked, not forgotten
+            </h2>
+       842              </div>
+       843              <span class="expand-icon" aria-hidden="true">
+      1017 -              <svg width="20" height="20" viewBox="0 0 24 24"
+           - fill="none" stroke="currentColor" stroke-width="2">         
+      1018 -                <polyline points="6 9 12 15 18 9"></polyline>
+      1019 -              </svg>                                         
+       844 +              <svg width="20" height="20" viewBox="0 0 24 24"
+           + fill="none" stroke="currentColor" stroke-width="2"><polyline
+           + points="6 9 12 15 18 9"></polyline></svg>                   
+       845              </span>
+       846            </summary>
+       847            <div class="section-content">
+     ...
+       882  
+       883    <script data-goatcounter="https://dr.eamer.dev/analytics/co
+            unt" async src="https://dr.eamer.dev/analytics/count.js"></sc
+            ript>
+       884    <script>
+      1060 -    // Open section details when navigating via TOC or direct
+           - link                                                        
+       885      function openSectionFromHash() {
+       886        const hash = window.location.hash;
+       887        if (hash) {
+       888          const section = document.querySelector(hash);
+       889          if (section) {
+       890            const details = section.querySelector('details');
+      1067 -          if (details) {                                     
+      1068 -            details.open = true;                             
+      1069 -          }                                                  
+       891 +          if (details) details.open = true;                  
+       892          }
+       893        }
+       894      }
+      1073 -                                                             
+      1074 -    // Handle TOC link clicks                                
+       895      document.querySelectorAll('.toc-grid a').forEach(link => 
+            {
+      1076 -      link.addEventListener('click', (e) => {                
+      1077 -        const targetId = link.getAttribute('href');          
+      1078 -        const section = document.querySelector(targetId);    
+       896 +      link.addEventListener('click', () => {                 
+       897 +        const section = document.querySelector(link.getAttrib
+           +ute('href'));                                                
+       898          if (section) {
+       899            const details = section.querySelector('details');
+      1081 -          if (details) {                                     
+      1082 -            details.open = true;                             
+      1083 -          }                                                  
+       900 +          if (details) details.open = true;                  
+       901          }
+       902        });
+       903      });
+      1087 -                                                             
+      1088 -    // Handle direct navigation (page load with hash)        
+       904      openSectionFromHash();
+      1090 -                                                             
+      1091 -    // Handle back/forward navigation                        
+       905      window.addEventListener('hashchange', openSectionFromHash
+            );
+       906    </script>
+       907  </body>
+  ⎿  Context limit reached · /compact or /clear to continue
+
+✻ Worked for 5m 51s
+
+❯ also add more of an "about me" link that goes to lukesteuber.com 
+  ⎿  Context limit reached · /compact or /clear to continue
+
+❯ /compact 
+  ⎿  Error: Error during compaction: Error: Conversation too long. Press esc
+     twice to go up a few messages and try again.
