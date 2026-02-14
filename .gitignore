@@ -42,3 +42,19 @@ htmlcov/
 *.bak
 *.backup
 *.old
+
+# AI tool artifacts
+.aider*
+.cursor/
+.cursorignore
+CONSOLIDATION*.md
+*_IMPLEMENTATION_STATUS.md
+*_PROGRESS.md
+SUGGESTIONS.md
+CRITIC.md
+ONBOARD.md
+SESSION_LOG.md
+WORK_LOG.md
+AGENT_REPORT.md
+EXPLORATION_SUMMARY.md
+WORKING_SCRIPTS_TEST_REPORT.md
