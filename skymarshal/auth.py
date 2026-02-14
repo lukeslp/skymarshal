@@ -133,10 +133,13 @@ class AuthManager:
             return False
 
     def normalize_handle(self, handle: str) -> str:
-        """Normalize handle: drop leading @ and append .bsky.social if missing domain."""
+        """Normalize handle: drop leading @, convert @ to . for custom domains, append .bsky.social if needed."""
         if not handle:
             return handle
         h = handle.strip().lstrip("@")
+        # Replace any remaining @ with . (for email-style custom domain handles)
+        # AT Protocol uses dots, not @ symbols, so adam@blacksky.com → adam.blacksky.com
+        h = h.replace("@", ".")
         # If no dot present, assume default Bluesky domain
         if "." not in h:
             h = f"{h}.bsky.social"
@@ -172,7 +175,8 @@ class AuthManager:
 
         # If no UI manager available, fall back to old behavior
         if not self.ui:
-            console.print("Bluesky handle: @", end="")
+            console.print("[dim]Examples: username.bsky.social or custom.domain[/]")
+            console.print("Bluesky handle: ", end="")
             handle = self.normalize_handle(input())
             password = Prompt.ask("[bold white]App Password: [/]", password=True)
         else:
