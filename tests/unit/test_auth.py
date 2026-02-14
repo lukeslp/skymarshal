@@ -159,7 +159,7 @@ class TestAuthManager:
 
         assert result is True
         mock_console.print.assert_called()
-        mock_prompt.ask.assert_called_once_with("[bold white]App Password:[/] ", password=True)
+        mock_prompt.ask.assert_called_once_with("[bold white]App Password: [/]", password=True)
         mock_auth.assert_called_once_with("testuser.bsky.social", "password")
 
     def test_ensure_authentication_with_ui_manager_success(self):
