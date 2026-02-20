@@ -334,6 +334,14 @@ GitHub: [github.com/lukeslp](https://github.com/lukeslp)
 
 ---
 
+## Bluesky Ecosystem
+
+More Bluesky tools by Luke Steuber:
+
+- [bluedrop](https://github.com/lukeslp/bluedrop) — browser extension for DMs, Zen Mode, and dark mode
+- [skymarshal-js](https://github.com/lukeslp/skymarshal-js) — TypeScript/JS toolkit for AT Protocol
+- [bsky-firehose-anonymized-dec-2025](https://github.com/lukeslp/bsky-firehose-anonymized-dec-2025) — dataset: 101K anonymized Bluesky posts
+
 ## Acknowledgments
 
 - **AT Protocol Team** for the excellent `atproto` Python library
