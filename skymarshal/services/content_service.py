@@ -102,7 +102,7 @@ class ContentService:
 
         self._content_cache: Dict[str, List[ContentItem]] = {}
         self._content_files: Dict[str, Path] = {}
-        env_pref = _env_flag("SKYMARSHAL_USE_CAR")
+        env_pref = _env_flag("SKYMARSHAL_USE_CAR", default=True)
         self._prefer_car_backup = env_pref if prefer_car_backup is None else prefer_car_backup
 
     # ------------------------------------------------------------------
