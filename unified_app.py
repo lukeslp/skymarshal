@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description="Skymarshal unified backend")
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 5090)))
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--debug", action="store_true", default=True)
+    parser.add_argument("--debug", action="store_true", default=False)
     args = parser.parse_args()
 
     print(f"Starting Skymarshal unified backend on {args.host}:{args.port}")

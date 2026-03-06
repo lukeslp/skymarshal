@@ -1296,6 +1296,8 @@ class DataManager:
     ):
         """Fetch subject post counters for repost items and attach to raw_data for display.
 
+        Uses parallel batch fetching (like post hydration) for speed.
+
         Args:
             items: Repost items whose subjects to hydrate
             progress_callback: Optional callable taking the cumulative number of hydrated items
@@ -1317,81 +1319,65 @@ class DataManager:
             uri_batches = [
                 uris[i : i + batch_size] for i in range(0, len(uris), batch_size)
             ]
+            max_workers = getattr(self.settings, "hydration_workers", 5)
+            processed_count = 0
 
-            processed = 0
-
-            for batch in uri_batches:
-
+            def process_batch(batch):
                 try:
                     client = self.auth.client
                     if client is None:
                         raise AuthenticationError("Authentication required for repost hydration")
 
-                    # Direct API call without automatic re-auth to avoid loops
                     resp = client.get_posts(uris=batch)
-
-                    # Validate response structure
                     if not resp or not hasattr(resp, "posts"):
-                        continue
+                        return len(batch)
 
                     posts = getattr(resp, "posts", None)
                     if not posts:
-                        continue
+                        return len(batch)
 
                     for p in posts:
-                        # Validate post object structure
                         if not p or not hasattr(p, "uri"):
                             continue
-
                         uri = getattr(p, "uri", None)
                         if not uri:
                             continue
-
                         it = index.get(uri)
                         if not it:
                             continue
 
                         rd = it.raw_data or {}
                         rd["subject_like_count"] = int(getattr(p, "like_count", 0) or 0)
-                        rd["subject_repost_count"] = int(
-                            getattr(p, "repost_count", 0) or 0
-                        )
-                        rd["subject_reply_count"] = int(
-                            getattr(p, "reply_count", 0) or 0
-                        )
+                        rd["subject_repost_count"] = int(getattr(p, "repost_count", 0) or 0)
+                        rd["subject_reply_count"] = int(getattr(p, "reply_count", 0) or 0)
                         it.raw_data = rd
 
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
+                    return len(batch)
                 except Exception as e:
                     error_msg = str(e).lower()
                     if any(s in error_msg for s in ["auth", "unauthorized", "token", "expired", "forbidden"]):
                         raise AuthenticationError("Authentication expired during repost hydration")
-                    else:
-                        # Log other types of hydration errors for debugging
-                        console.print(
-                            f"[yellow]Repost hydration failed for batch (URIs: {len(batch)}): {str(e)[:100]}[/]"
-                        )
-                        processed += len(batch)
+                    return len(batch)
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(process_batch, batch) for batch in uri_batches]
+                for future in futures:
+                    try:
+                        count = future.result()
+                        processed_count += count
                         if callable(progress_callback):
                             try:
-                                progress_callback(processed)
+                                progress_callback(processed_count)
                             except Exception:
                                 pass
+                    except AuthenticationError:
+                        raise
+                    except Exception:
+                        pass
 
-                    processed += len(batch)
-                    if callable(progress_callback):
-                        try:
-                            progress_callback(processed)
-                        except Exception:
-                            pass
-                    # Continue with remaining batches using existing data
-        except Exception:
-            pass
+        except Exception as e:
+            if isinstance(e, AuthenticationError):
+                raise
 
     def _apply_date_filter(self, posts, likes, reposts, date_start, date_end):
         """Apply date filtering to content items."""

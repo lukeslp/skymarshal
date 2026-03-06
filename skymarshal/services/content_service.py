@@ -147,18 +147,24 @@ class ContentService:
         export_path = None
         export_error: Optional[Exception] = None
 
-        if not self._prefer_car_backup:
-            export_path, export_error = self._export_via_api(
-                handle,
-                export_limit,
-                export_categories,
-            )
-
-        if not export_path:
-            export_path = self._find_existing_export(handle)
-
-        if not export_path:
+        if self._prefer_car_backup:
+            # CAR-first: single download, much faster for large accounts
             export_path = self._export_via_backup(handle, export_categories)
+            if not export_path:
+                export_path = self._find_existing_export(handle)
+            if not export_path:
+                export_path, export_error = self._export_via_api(
+                    handle, export_limit, export_categories,
+                )
+        else:
+            # API-first: paginated, gets engagement inline (slower)
+            export_path, export_error = self._export_via_api(
+                handle, export_limit, export_categories,
+            )
+            if not export_path:
+                export_path = self._find_existing_export(handle)
+            if not export_path:
+                export_path = self._export_via_backup(handle, export_categories)
 
         if not export_path and export_error:
             raise RuntimeError(
