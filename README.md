@@ -26,11 +26,10 @@ Your personal Bluesky content command center — manage, analyze, and clean up y
   - Create and import CAR archives (with resume + progress)
   - Integrity checks and local backup directory structure
   - Graceful handling of empty/partial CARs
-- [x] **⚡ Engagement cache optimization** (NEW in v0.2.0)
+- [x] **⚡ Engagement cache optimization** (v0.2.0)
   - 75% reduction in API calls via increased batch size (25 → 100)
   - 90% reduction on repeat loads via SQLite caching
-  - Intelligent TTL based on post age
-  - See [CACHE_OPTIMIZATION.md](./CACHE_OPTIMIZATION.md) for details
+  - TTL scales with post age (1h recent → 7d old)
 
 ### 🧪 In Testing
 - [ ] **Follower/Following reconciliation**
@@ -222,10 +221,9 @@ python -m skymarshal
 - **Slow downloads**: CAR downloads are typically faster than API calls
 - **Memory usage**: Process data in batches for large accounts
 - **Rate limiting**: Built-in delays respect Bluesky API limits
-- **⚡ NEW - Engagement cache**: Automatically caches engagement data for 90% faster repeat loads
+- **⚡ Engagement cache**: Caches engagement data for 90% faster repeat loads
   - First load: 75% fewer API calls (batch size 100 vs 25)
   - Subsequent loads: Uses local cache (near-instant)
-  - See [CACHE_OPTIMIZATION.md](./CACHE_OPTIMIZATION.md) for details
 
 ## Development
 
@@ -306,25 +304,14 @@ skymarshal/
 - **Formatting**: Black (88 character line length)
 - **Import sorting**: isort with black-compatible profile
 - **Type hints**: Encouraged for all functions
-- **Documentation**: Comprehensive docstrings for all modules
+- **Documentation**: Docstrings for all public modules
 - **Testing**: pytest for unit and integration tests
 
 ## Documentation
 
-- **[Architecture Guide](ARCHITECTURE.md)** - Detailed system design and component relationships
-- **[API Reference](API.md)** - Complete CLI command documentation
-- **[Contributing Guide](CONTRIBUTING.md)** - Guidelines for contributors
-- **[Changelog](CHANGELOG.md)** - Version history and changes
-  
-For development setup and best practices, see the [Contributing Guide](CONTRIBUTING.md).
-
-## Contributing
-
-Contributions are welcome! See the [Contributing Guide](CONTRIBUTING.md) for:
-- Code style and standards
-- Testing requirements
-- Pull request process
-- Issue reporting
+- **[Architecture Guide](ARCHITECTURE.md)** - System design and component relationships
+- **[API Reference](API.md)** - CLI command docs
+- **[Changelog](CHANGELOG.md)** - Version history
 
 ## License
 
