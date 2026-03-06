@@ -6,7 +6,7 @@ Primary Functions/Classes: DeletionManager
 Inputs and Outputs (I/O): Content items for deletion, AT Protocol delete operations
 
 This module provides secure content deletion capabilities with multiple approval workflows,
-progress tracking, and comprehensive safety checks for Bluesky content management.
+progress tracking, and safety checks for Bluesky content management.
 """
 
 import time

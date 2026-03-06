@@ -271,7 +271,7 @@ class ContentAnalytics:
 
     @staticmethod
     def generate_insights(items: List[ContentItem]) -> Dict:
-        """Generate comprehensive insights from all analytics."""
+        """Generate combined insights from all analytics."""
         sentiment = ContentAnalytics.analyze_sentiments(items)
         time_patterns = ContentAnalytics.analyze_time_patterns(items)
         engagement_correlation = ContentAnalytics.analyze_engagement_correlation(items)

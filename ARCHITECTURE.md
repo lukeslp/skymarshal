@@ -1,6 +1,6 @@
 # Skymarshal Architecture Guide
 
-This document provides a comprehensive overview of Skymarshal's architecture, design patterns, and component relationships.
+Architecture overview — design patterns, modules, and how they connect.
 
 ## Table of Contents
 
