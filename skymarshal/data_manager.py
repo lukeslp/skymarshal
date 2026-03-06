@@ -204,15 +204,32 @@ class DataManager:
 
             if posts:
                 console.print()
-                console.print("[bold cyan]Step 3:[/] Fetching engagement data for posts...")
-                self._hydrate_post_engagement(posts)
-                console.print("[green]✓[/] Post engagement data updated")
+                recent_posts, old_posts = self._split_by_age(posts, max_age_days=30)
+                if old_posts and self.settings.engagement_cache_enabled:
+                    old_items_cached, old_items_uncached = self.engagement_cache.apply_cached_engagement(old_posts)
+                    if old_items_cached:
+                        console.print(f"[dim]✓ Loaded cached engagement for {len(old_items_cached)} older posts[/dim]")
+                    # Only hydrate uncached old posts if there are few of them
+                    if old_items_uncached and len(old_items_uncached) <= 50:
+                        recent_posts.extend(old_items_uncached)
+                    elif old_items_uncached:
+                        console.print(f"[dim]Skipping {len(old_items_uncached)} old uncached posts (engagement stable)[/dim]")
+                if recent_posts:
+                    console.print(f"[bold cyan]Step 3:[/] Fetching engagement for {len(recent_posts)} recent posts...")
+                    self._hydrate_post_engagement(recent_posts)
+                    console.print("[green]✓[/] Post engagement data updated")
+                elif not old_posts:
+                    console.print("[dim]No posts to hydrate[/dim]")
 
             if reposts and self.settings.use_subject_engagement_for_reposts:
                 console.print()
-                console.print("[bold cyan]Step 4:[/] Fetching engagement data for reposts...")
-                self._hydrate_repost_subject_engagement(reposts)
-                console.print("[green]✓[/] Repost engagement data updated")
+                recent_reposts, old_reposts = self._split_by_age(reposts, max_age_days=30)
+                if old_reposts and self.settings.engagement_cache_enabled:
+                    self.engagement_cache.apply_cached_engagement(old_reposts)
+                if recent_reposts:
+                    console.print(f"[bold cyan]Step 4:[/] Fetching engagement for {len(recent_reposts)} recent reposts...")
+                    self._hydrate_repost_subject_engagement(recent_reposts)
+                    console.print("[green]✓[/] Repost engagement data updated")
 
             if self.settings.fetch_order == "oldest":
                 self._sort_by_date(posts, likes, reposts)
