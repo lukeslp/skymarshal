@@ -41,11 +41,18 @@ class PrefixMiddleware:
 
 
 # Per-session ContentService instances (keyed by session token)
+# Capped to prevent unbounded memory growth.
 _services: Dict[str, ContentService] = {}
+_MAX_SERVICES = 50
 
 
 def get_services() -> Dict[str, ContentService]:
-    """Return the shared services dict."""
+    """Return the shared services dict, evicting oldest if over capacity."""
+    if len(_services) > _MAX_SERVICES:
+        # Evict oldest entries (first inserted)
+        excess = len(_services) - _MAX_SERVICES
+        for key in list(_services.keys())[:excess]:
+            _services.pop(key, None)
     return _services
 
 
