@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(sudo cat:*)",
+      "Bash(sudo -S cat:*)",
+      "Bash(curl:*)",
+      "Bash(sudo -S systemctl list-units:*)",
+      "Read(//tmp/**)",
+      "Bash(chmod:*)",
+      "Read(//home/coolhand/projects/tools_bluesky/skymarshal/**)",
+      "Bash(awk:*)",
+      "Bash(xargs kill:*)",
+      "Bash(sudo -S systemctl status:*)",
+      "Bash(sudo -S systemctl reload:*)",
+      "Bash(sudo -S sed:*)",
+      "Read(//home/coolhand/projects/**)",
+      "Bash(cat:*)",
+      "Bash(sudo -S cp /tmp/skymarshal.service /etc/systemd/system/)",
+      "Bash(sudo -S cp:*)",
+      "Bash(sudo -S systemctl daemon-reload:*)",
+      "Bash(sudo -S systemctl enable:*)",
+      "Bash(sudo -S systemctl start:*)",
+      "Bash(sudo -S systemctl restart:*)",
+      "Bash(xargs:*)",
+      "Bash(sudo -S journalctl:*)",
+      "Bash(find:*)",
+      "Read(//home/coolhand/.skymarshal/json/**)",
+      "Read(//etc/caddy/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

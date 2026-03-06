@@ -2,7 +2,12 @@
 
 Your personal Bluesky content command center — manage, analyze, and clean up your social media presence with ease.
 
-Some features are still in progress. Bug reports welcome.
+# THIS IS A WORK IN PROGRESS. 
+## Non-critical functions may be buggy or broken. 
+### [Bluesky: @lukesteuber.com](https://bluesky.app/profile/lukesteuber.com)
+### [lukesteuber.com](https://lukesteuber.com)
+
+<br>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 ![License](https://img.shields.io/badge/license-MIT-green)
