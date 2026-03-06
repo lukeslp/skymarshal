@@ -292,7 +292,7 @@ class ProgressTracker:
 ### Data Security
 - **User Isolation**: Each user's data is isolated by handle
 - **File Access Control**: Secure file permissions
-- **Input Validation**: Comprehensive input sanitization
+- **Input Validation**: Input sanitization on all user-facing paths
 - **Error Handling**: No sensitive data in error messages
 
 ### Operation Security
