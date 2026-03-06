@@ -1396,6 +1396,35 @@ class DataManager:
             if isinstance(e, AuthenticationError):
                 raise
 
+    def _split_by_age(
+        self, items: List[ContentItem], max_age_days: int = 30
+    ) -> Tuple[List[ContentItem], List[ContentItem]]:
+        """Split items into recent (< max_age_days) and old (>= max_age_days).
+
+        Returns:
+            Tuple of (recent_items, old_items)
+        """
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc)
+        recent = []
+        old = []
+
+        for item in items:
+            dt = parse_datetime(item.created_at)
+            if dt is None:
+                recent.append(item)  # Unknown age → treat as recent
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            age_days = (now - dt).days
+            if age_days < max_age_days:
+                recent.append(item)
+            else:
+                old.append(item)
+
+        return recent, old
+
     def _apply_date_filter(self, posts, likes, reposts, date_start, date_end):
         """Apply date filtering to content items."""
         sd = parse_datetime(date_start)

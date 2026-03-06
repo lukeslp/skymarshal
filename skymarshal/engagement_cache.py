@@ -239,7 +239,8 @@ class EngagementCache:
         Strategy:
         - Posts < 7 days old: 1 hour TTL (engagement still active)
         - Posts 7-30 days old: 6 hours TTL (engagement slowing down)
-        - Posts > 30 days old: 24 hours TTL (engagement mostly stable)
+        - Posts 30-90 days old: 24 hours TTL (engagement mostly stable)
+        - Posts > 90 days old: 7 days TTL (engagement frozen)
         - Unknown age: 1 hour TTL (conservative)
 
         Args:
@@ -263,8 +264,10 @@ class EngagementCache:
                 return 3600  # 1 hour
             elif age_days < 30:
                 return 21600  # 6 hours
-            else:
+            elif age_days < 90:
                 return 86400  # 24 hours
+            else:
+                return 604800  # 7 days — engagement is frozen
 
         except Exception:
             return 3600  # 1 hour on error
