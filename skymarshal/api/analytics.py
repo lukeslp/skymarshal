@@ -49,7 +49,7 @@ def _auth_guard(f):
 @analytics_bp.route("/insights", methods=["GET"])
 @_auth_guard
 def insights():
-    """Generate comprehensive analytics (sentiment, time patterns, engagement, words)."""
+    """Generate combined analytics (sentiment, time patterns, engagement, words)."""
     service = _require_service()
 
     try:
