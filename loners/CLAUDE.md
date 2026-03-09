@@ -1,4 +1,7 @@
 # CLAUDE.md
+<!-- Navigation: ~/servers/skymarshal/loners/CLAUDE.md -->
+<!-- Parent: ~/servers/CLAUDE.md -->
+<!-- Map: ~/CLAUDE_MAP.md -->
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
