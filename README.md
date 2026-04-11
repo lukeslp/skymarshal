@@ -154,7 +154,7 @@ All destructive operations include multiple safety layers:
 
 ## Architecture
 
-Skymarshal uses a modular architecture with clear separation of concerns:
+Modular layout with clear separation of concerns:
 
 ### Core Modules
 - **`app.py`** - Main application controller and CLI orchestration
@@ -316,7 +316,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Maintainer
 
-Luke Steuber — [dr.eamer.dev](https://dr.eamer.dev)
+Luke Steuber - [dr.eamer.dev](https://dr.eamer.dev)
 Website: [dr.eamer.dev](https://dr.eamer.dev)
 Bluesky: [@dr.eamer.dev](https://bsky.app/profile/dr.eamer.dev)
 GitHub: [github.com/lukeslp](https://github.com/lukeslp)
@@ -327,9 +327,9 @@ GitHub: [github.com/lukeslp](https://github.com/lukeslp)
 
 More Bluesky tools by Luke Steuber:
 
-- [bluedrop](https://github.com/lukeslp/bluedrop) — browser extension for DMs, Zen Mode, and dark mode
-- [skymarshal-js](https://github.com/lukeslp/skymarshal-js) — TypeScript/JS toolkit for AT Protocol
-- [bsky-firehose-anonymized-dec-2025](https://github.com/lukeslp/bsky-firehose-anonymized-dec-2025) — dataset: 101K anonymized Bluesky posts
+- [bluedrop](https://github.com/lukeslp/bluedrop) - browser extension for DMs, Zen Mode, and dark mode
+- [skymarshal-js](https://github.com/lukeslp/skymarshal-js) - TypeScript/JS toolkit for AT Protocol
+- [bsky-firehose-anonymized-dec-2025](https://github.com/lukeslp/bsky-firehose-anonymized-dec-2025) - dataset: 101K anonymized Bluesky posts
 
 ## Acknowledgments
 

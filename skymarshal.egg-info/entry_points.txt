@@ -1,2 +1,0 @@
-[console_scripts]
-skymarshal = skymarshal.app:cli
