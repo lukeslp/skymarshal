@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skymarshal-cli"
-version = "0.1.1"
+version = "0.1.2"
 description = "Your personal Bluesky content command center - manage, analyze, and clean up your social media presence"
 readme = "README.md"
 license = { file = "LICENSE" }
