@@ -12,7 +12,7 @@ Manage, analyze, and clean up your Bluesky presence from the command line.
 
 ## Development Log
 
-> Status snapshot for **Skymarshal**. See [CHANGELOG](./CHANGELOG.md) for full history.
+> Status snapshot for **Skymarshal**. See [CHANGELOG](https://github.com/lukeslp/skymarshal/blob/main/CHANGELOG.md) for full history.
 
 ### Completed
 - [x] **Secure auth**
@@ -306,13 +306,13 @@ skymarshal/
 
 ## Documentation
 
-- **[Architecture Guide](ARCHITECTURE.md)** - System design and component relationships
-- **[API Reference](API.md)** - CLI command docs
-- **[Changelog](CHANGELOG.md)** - Version history
+- **[Architecture Guide](https://github.com/lukeslp/skymarshal/blob/main/ARCHITECTURE.md)** - System design and component relationships
+- **[API Reference](https://github.com/lukeslp/skymarshal/blob/main/API.md)** - CLI command docs
+- **[Changelog](https://github.com/lukeslp/skymarshal/blob/main/CHANGELOG.md)** - Version history
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/lukeslp/skymarshal/blob/main/LICENSE) for details.
 
 ## Maintainer
 
