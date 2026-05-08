@@ -30,7 +30,16 @@ def main():
     args = parser.parse_args()
 
     print(f"Starting Skymarshal unified backend on {args.host}:{args.port}")
-    socketio.run(app, host=args.host, port=args.port, debug=args.debug, allow_unsafe_werkzeug=True)
+    # allow_unsafe_werkzeug only when --debug is on (dev). Production should
+    # use `gunicorn -k eventlet -w 1 unified_app:app`; Werkzeug's safety lock
+    # is the right error to hit if someone runs this without --debug in prod.
+    socketio.run(
+        app,
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        allow_unsafe_werkzeug=args.debug,
+    )
 
 
 if __name__ == "__main__":

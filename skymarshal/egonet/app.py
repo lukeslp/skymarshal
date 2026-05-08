@@ -219,5 +219,9 @@ def verify_empty():
     return jsonify({"error": "Check failed"}), 500
 
 if __name__ == '__main__':
-    # When running directly, we want to allow it to be reachable
-    app.run(host='0.0.0.0', port=5005, debug=True)
+    # Bind to localhost by default. Werkzeug debug + 0.0.0.0 exposes a
+    # remote shell over LAN/coffee-shop wifi. Override with EGONET_HOST
+    # if you genuinely need network access (then put it behind Caddy).
+    host = os.getenv('EGONET_HOST', '127.0.0.1')
+    debug = os.getenv('EGONET_DEBUG', '').lower() in ('1', 'true', 'yes')
+    app.run(host=host, port=5005, debug=debug)
