@@ -4,6 +4,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) + [Semver](http
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-08
+
+### Security
+- `egonet/app.py` now binds to `127.0.0.1` instead of `0.0.0.0` and defaults
+  `debug=False`. The previous default exposed a Werkzeug debug shell over
+  any LAN/wifi the user joined. Override with `EGONET_HOST` and
+  `EGONET_DEBUG` env vars when you actually want network access.
+- `unified_app.py`: `allow_unsafe_werkzeug` now follows `--debug` instead of
+  being unconditionally `True`. Production deploys should use
+  `gunicorn -k eventlet -w 1 unified_app:app`.
+
+### Fixed
+- `deletion.py`: 429-aware exponential backoff (1s, 2s, 4s, 8s, 15s, 30s, 60s,
+  120s) on every `delete_record` call. A nuke on a 50,000-post account hits
+  Bluesky's roughly 5,000-write/hr PDS limit at item 5,001; the previous
+  bare `except` swallowed each 429 and burned through the rest of the URIs
+  hammering the limit. Three call sites updated, including the
+  `bulk_remove_by_collection` path that previously had `except: pass`.
+- License classifier in `pyproject.toml` corrected from `Public Domain`
+  to `OSI Approved :: MIT License`. PyPI metadata now matches the
+  LICENSE file and the README badge.
+
+### Changed
+- Pinned upper bounds on `atproto<0.1`, `httpx<0.28.0`, `flask<4.0`, and
+  `werkzeug<4.0`. Without bounds, the next atproto minor that nudges
+  httpx past 0.28 would break `pip install skymarshal-cli` for every new
+  user. Now installs are reproducible.
+
 ### Added
 - Documentation (README, ARCHITECTURE, API)
 - Progress indicators for JSON load, engagement hydration, CAR decode
@@ -11,7 +39,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) + [Semver](http
 - Selective engagement hydration (only fetches recent posts, caches old)
 - Parallel repost hydration (was sequential)
 
-### Changed
+### Changed (also from prior unreleased work)
 - CAR download is now the default data path (faster for large accounts)
 - Cache TTL for posts >90 days bumped to 7 days (engagement is frozen by then)
 - Debug mode off by default in production
