@@ -11,7 +11,7 @@ progress tracking, and safety checks for Bluesky content management.
 
 import time
 from datetime import datetime
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from rich.panel import Panel
 from rich.progress import (
@@ -26,6 +26,48 @@ from rich.rule import Rule
 
 from .auth import AuthManager
 from .models import ContentItem, DeleteMode, UserSettings, console, parse_datetime
+
+
+# Bluesky's PDS rate limit is roughly 5,000 writes per hour per account.
+# A nuke on a 50k-post account will hit it; without this backoff the bare
+# except below would silently log every 429 and burn through the rest of
+# the URIs hammering the limit. Schedule sleeps in seconds.
+_RATE_LIMIT_BACKOFF = (1, 2, 4, 8, 15, 30, 60, 120)
+_RATE_LIMIT_HINTS = (
+    "ratelimitexceeded",
+    "rate limit",
+    "too many requests",
+)
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """Best-effort 429 detection across atproto SDK versions and httpx layers."""
+    msg = str(exc).lower()
+    if any(hint in msg for hint in _RATE_LIMIT_HINTS):
+        return True
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    if status == 429:
+        return True
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "status_code", None) == 429:
+        return True
+    return False
+
+
+def _retry_on_rate_limit(call: Callable[[], Any]) -> Any:
+    """Run ``call`` with 429-aware exponential backoff. Re-raises on non-429."""
+    last_exc: Optional[BaseException] = None
+    for delay in (0, *_RATE_LIMIT_BACKOFF):
+        if delay:
+            time.sleep(delay)
+        try:
+            return call()
+        except Exception as exc:
+            if not _is_rate_limit_error(exc):
+                raise
+            last_exc = exc
+    if last_exc is not None:
+        raise last_exc
 
 
 class DeletionManager:
@@ -63,8 +105,10 @@ class DeletionManager:
                             did = self.auth.current_did
                         collection = parts[3]
                         rkey = parts[4]
-                        self.auth.client.com.atproto.repo.delete_record(
-                            {"repo": did, "collection": collection, "rkey": rkey}
+                        _retry_on_rate_limit(
+                            lambda: self.auth.client.com.atproto.repo.delete_record(
+                                {"repo": did, "collection": collection, "rkey": rkey}
+                            )
                         )
                         deleted += 1
                     else:
@@ -116,12 +160,14 @@ class DeletionManager:
                             )
                         else:
                             try:
-                                self.auth.client.com.atproto.repo.delete_record(
-                                    {
-                                        "repo": did,
-                                        "collection": collection,
-                                        "rkey": rkey,
-                                    }
+                                _retry_on_rate_limit(
+                                    lambda: self.auth.client.com.atproto.repo.delete_record(
+                                        {
+                                            "repo": did,
+                                            "collection": collection,
+                                            "rkey": rkey,
+                                        }
+                                    )
                                 )
                                 deleted_count += 1
                             except Exception:
@@ -414,12 +460,14 @@ class DeletionManager:
                     repo_did = getattr(rec, "uri", "at://").split("/")[2]
                     if repo_did == "did:plc:unknown" and self.auth.current_did:
                         repo_did = self.auth.current_did
-                    self.auth.client.com.atproto.repo.delete_record(
-                        {
-                            "repo": repo_did,
-                            "collection": collection,
-                            "rkey": getattr(rec, "uri", "///").split("/")[-1],
-                        }
+                    _retry_on_rate_limit(
+                        lambda: self.auth.client.com.atproto.repo.delete_record(
+                            {
+                                "repo": repo_did,
+                                "collection": collection,
+                                "rkey": getattr(rec, "uri", "///").split("/")[-1],
+                            }
+                        )
                     )
                     deleted += 1
                 except Exception:
